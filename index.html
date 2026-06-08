@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⚽ Team Fines</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="header-brand">
+          <span class="brand-icon">⚽</span>
+          <div>
+            <div class="brand-title">Team Fines</div>
+            <div class="brand-sub" id="season-label">Sezona 2025/26</div>
+          </div>
+        </div>
+        <button class="manager-btn" id="lock-btn" onclick="toggleLock()">
+          <i class="ti ti-lock"></i>
+          <span id="lock-label">Manager login</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- TABS -->
+    <nav class="tab-nav">
+      <button class="tab active" data-tab="add" onclick="switchTab('add')">
+        <i class="ti ti-plus"></i> Přidat pokutu
+      </button>
+      <button class="tab" data-tab="log" onclick="switchTab('log')">
+        <i class="ti ti-list"></i> Log
+      </button>
+      <button class="tab" data-tab="summary" onclick="switchTab('summary')">
+        <i class="ti ti-chart-bar"></i> Přehled
+      </button>
+      <button class="tab" data-tab="players" onclick="switchTab('players')">
+        <i class="ti ti-users"></i> Hráči
+      </button>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="app-main">
+
+      <!-- ADD FINE -->
+      <section id="panel-add" class="panel active">
+        <div id="manager-wall" class="lock-wall">
+          <i class="ti ti-shield-lock lock-wall-icon"></i>
+          <p>Pro přidání pokut se přihlašte jako manažer.</p>
+          <button class="btn btn-primary" onclick="toggleLock()">Přihlásit se</button>
+        </div>
+
+        <div id="add-form" style="display:none;">
+          <div class="card">
+            <div class="card-label">Rychlý vstup</div>
+            <div class="quick-row">
+              <input
+                id="quick-input"
+                type="text"
+                placeholder="Michal - Bago - 30"
+                autocomplete="off"
+                oninput="parseQuick(this.value)"
+                onkeydown="if(event.key==='Enter')submitQuick()"
+              />
+              <button class="btn-icon" id="voice-btn" onclick="toggleVoice()" title="Hlasový vstup">
+                <i class="ti ti-microphone"></i>
+              </button>
+              <button class="btn btn-primary" onclick="submitQuick()">Přidat</button>
+            </div>
+            <div class="parse-preview" id="parse-preview">
+              Formát: <strong>Hráč – Důvod – Částka</strong>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Manuální formulář</div>
+            <div class="form-group">
+              <label>Hráč</label>
+              <select id="f-player">
+                <option value="">— vyber hráče —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Důvod</label>
+              <input id="f-reason" type="text" placeholder="např. zpoždění na trénink, OG…" />
+            </div>
+            <div class="form-group">
+              <label>Částka (CZK)</label>
+              <input id="f-amount" type="number" min="1" placeholder="50" style="max-width:120px;" />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="submitManual()">
+                <i class="ti ti-plus"></i> Přidat pokutu
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LOG -->
+      <section id="panel-log" class="panel">
+        <div class="card">
+          <div class="log-filters">
+            <input
+              id="log-search"
+              type="text"
+              placeholder="Hledat hráče nebo důvod…"
+              oninput="renderLog()"
+            />
+            <select id="log-player-filter" onchange="renderLog()">
+              <option value="">Všichni hráči</option>
+            </select>
+          </div>
+          <div id="log-list"></div>
+          <div id="log-empty" class="empty-state" style="display:none;">
+            <i class="ti ti-mood-empty"></i>
+            <p>Zatím žádné pokuty.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SUMMARY -->
+      <section id="panel-summary" class="panel">
+        <div class="stat-grid" id="summary-stats"></div>
+
+        <div class="card">
+          <div class="card-label">Podle hráče</div>
+          <div id="summary-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">E-mail report</div>
+          <p class="helper-text">Vygeneruj shrnutí pokut ke zkopírování a rozeslání hráčům.</p>
+          <button class="btn btn-secondary" onclick="generateEmailReport()">
+            <i class="ti ti-mail"></i> Generovat report
+          </button>
+          <div id="email-report" style="display:none; margin-top:1rem;"></div>
+        </div>
+      </section>
+
+      <!-- PLAYERS -->
+      <section id="panel-players" class="panel">
+        <div id="manager-wall2" class="lock-wall">
+          <i class="ti ti-shield-lock lock-wall-icon"></i>
+          <p>Pro správu hráčů se přihlašte jako manažer.</p>
+          <button class="btn btn-primary" onclick="toggleLock()">Přihlásit se</button>
+        </div>
+
+        <div id="players-form" style="display:none;">
+          <div class="card">
+            <div class="card-label">Přidat hráče</div>
+            <div class="add-player-row">
+              <input id="new-player-name" type="text" placeholder="Jméno (unikátní)" onkeydown="if(event.key==='Enter')addPlayer()" />
+              <input id="new-player-email" type="email" placeholder="E-mail (volitelné)" onkeydown="if(event.key==='Enter')addPlayer()" />
+              <button class="btn btn-primary" onclick="addPlayer()">Přidat</button>
+            </div>
+            <div id="add-player-err" class="error-msg" style="display:none;"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Soupiska</div>
+            <div id="player-list"></div>
+            <div id="player-list-empty" class="empty-state" style="display:none;">
+              <i class="ti ti-users"></i>
+              <p>Zatím žádní hráči.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- PIN MODAL -->
+  <div class="modal-backdrop" id="pin-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Manager login</h3>
+        <button class="btn-icon" onclick="closePinModal()"><i class="ti ti-x"></i></button>
+      </div>
+      <p class="modal-sub">Zadej PIN pro přístup správce.</p>
+      <input id="pin-input" type="password" placeholder="PIN" maxlength="6" onkeydown="if(event.key==='Enter')checkPin()" />
+      <div id="pin-err" class="error-msg" style="display:none;">Nesprávný PIN</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closePinModal()">Zrušit</button>
+        <button class="btn btn-primary" onclick="checkPin()">Odemknout</button>
+      </div>
+      <div class="modal-hint">Výchozí PIN: <code>1234</code> — změňte v <code>js/app.js</code></div>
+    </div>
+  </div>
+
+  <!-- EDIT FINE MODAL -->
+  <div class="modal-backdrop" id="edit-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Upravit pokutu</h3>
+        <button class="btn-icon" onclick="closeEditModal()"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="form-group">
+        <label>Hráč</label>
+        <select id="edit-player"></select>
+      </div>
+      <div class="form-group">
+        <label>Důvod</label>
+        <input id="edit-reason" type="text" />
+      </div>
+      <div class="form-group">
+        <label>Částka</label>
+        <input id="edit-amount" type="number" style="max-width:120px;" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeEditModal()">Zrušit</button>
+        <button class="btn btn-primary" onclick="saveEdit()">Uložit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
