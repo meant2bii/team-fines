@@ -3,21 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>⚽ Team Fines – Čechoslovan</title>
+  <title>Team Fines – Čechoslovan</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
 
-<!-- ══ AUTH SCREEN ══════════════════════════════════════════════════ -->
+<!-- ══ AUTH ═══════════════════════════════════════════════════════ -->
 <div id="auth-screen" class="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo">⚽</div>
+    <div class="auth-logo-wrap">
+      <img src="logo.png" alt="Čechoslovan" class="auth-logo-img" />
+    </div>
     <div class="auth-title">Team Fines</div>
-    <div class="auth-sub">Čechoslovan Muži A+B</div>
+    <div class="auth-sub">Čechoslovan Chuchle Praha</div>
 
     <div class="auth-tabs">
       <button class="auth-tab active" data-tab="login"    onclick="showAuthTab('login')">Přihlásit</button>
@@ -66,7 +68,7 @@
       </button>
     </div>
 
-    <!-- PHONE (player self-fine) -->
+    <!-- PHONE -->
     <div id="auth-phone" class="auth-panel">
       <p class="helper-text" style="margin-bottom:12px;">
         Jsi hráč? Přihlaš se přes telefonní číslo a piš si pokutu sám sobě.
@@ -75,23 +77,24 @@
         <label>Telefonní číslo</label>
         <input id="phone-input" type="tel" placeholder="+420 xxx xxx xxx" />
       </div>
-      <div id="otp-row" style="display:none;" class="form-group">
+      <div id="otp-row" class="form-group" style="display:none;">
         <label>Kód z SMS</label>
         <input id="otp-input" type="text" inputmode="numeric" placeholder="123456" maxlength="6" onkeydown="if(event.key==='Enter')verifyPhoneOTP()" />
       </div>
       <div id="phone-err" class="error-msg" style="display:none;"></div>
-      <div id="recaptcha-container"></div>
+      <!-- recaptcha rendered here invisibly -->
+      <div id="recaptcha-container" style="display:none;"></div>
       <button class="btn btn-primary btn-full" id="send-otp-btn" onclick="sendPhoneOTP()">
         <i class="ti ti-message"></i> Poslat SMS kód
       </button>
-      <button class="btn btn-secondary btn-full" id="verify-otp-btn" style="display:none; margin-top:8px;" onclick="verifyPhoneOTP()">
+      <button class="btn btn-secondary btn-full" id="verify-otp-btn" style="display:none;margin-top:8px;" onclick="verifyPhoneOTP()">
         <i class="ti ti-check"></i> Ověřit kód
       </button>
     </div>
   </div>
 </div>
 
-<!-- ══ EMAIL VERIFY SCREEN ══════════════════════════════════════════ -->
+<!-- ══ VERIFY ══════════════════════════════════════════════════════ -->
 <div id="verify-screen" class="auth-screen" style="display:none;">
   <div class="auth-card" style="text-align:center;">
     <div style="font-size:48px;margin-bottom:12px;">📧</div>
@@ -108,22 +111,20 @@
   </div>
 </div>
 
-<!-- ══ MAIN APP ══════════════════════════════════════════════════════ -->
+<!-- ══ MAIN APP ════════════════════════════════════════════════════ -->
 <div id="app-screen" style="display:none;">
 <div class="app-shell">
 
-  <!-- HEADER -->
   <header class="app-header">
     <div class="header-inner">
       <div class="header-brand">
-        <span class="brand-icon">⚽</span>
+        <img src="logo.png" alt="Čechoslovan" class="brand-logo" />
         <div>
           <div class="brand-title">Team Fines</div>
           <div class="brand-sub" id="season-label">Sezona</div>
         </div>
       </div>
       <div class="header-right">
-        <!-- Season controls – only visible to manager -->
         <div id="season-controls" style="display:none;" class="season-controls">
           <select id="season-year" onchange="changeSeason()"></select>
           <select id="season-half" onchange="changeSeason()">
@@ -132,6 +133,7 @@
           </select>
         </div>
         <span id="header-user" class="header-user"></span>
+        <!-- FIX #4: manager btn with clear readable style when active -->
         <button class="manager-btn" id="lock-btn" onclick="toggleLock()">
           <i class="ti ti-lock"></i>
           <span id="lock-label">Manager</span>
@@ -143,7 +145,6 @@
     </div>
   </header>
 
-  <!-- TABS -->
   <nav class="tab-nav">
     <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-plus"></i><span> Přidat</span></button>
     <button class="tab"        data-tab="log"     onclick="switchTab('log')"><i class="ti ti-list"></i><span> Log</span></button>
@@ -155,8 +156,6 @@
 
     <!-- ── ADD FINE ── -->
     <section id="panel-add" class="panel active">
-
-      <!-- Phone-user self-fine form (shown only when logged in via phone) -->
       <div id="self-fine-form" style="display:none;">
         <div class="card self-fine-card">
           <div class="card-label"><i class="ti ti-user"></i> &nbsp;Přidej pokutu sobě</div>
@@ -167,7 +166,6 @@
         </div>
       </div>
 
-      <!-- Manager wall -->
       <div id="manager-wall" class="lock-wall">
         <i class="ti ti-shield-lock lock-wall-icon"></i>
         <p>Pro přidání pokut se přihlaste jako manažer.</p>
@@ -175,7 +173,6 @@
       </div>
 
       <div id="add-form" style="display:none;">
-        <!-- VOICE SESSION -->
         <div class="card voice-card">
           <div class="card-label"><i class="ti ti-microphone"></i> &nbsp;Hlasové nahrávání po tréninku</div>
           <p class="helper-text">Stiskni a říkej pokuty za sebou. Např.: <em>„Michal – Bago a překopnutí – 90, Teichi – Píčovina – 120"</em></p>
@@ -190,19 +187,17 @@
           <div id="voice-live" class="voice-live" style="display:none;"></div>
         </div>
 
-        <!-- REVIEW -->
         <div id="voice-review" style="display:none;">
           <div class="card">
             <div class="card-label review-label"><i class="ti ti-list-check"></i> Zkontroluj pokuty před uložením</div>
             <div id="review-list"></div>
             <div class="review-actions">
               <button class="btn btn-secondary" onclick="discardReview()"><i class="ti ti-x"></i> Zahodit</button>
-              <button class="btn btn-primary"   id="confirm-btn" onclick="confirmReview()"><i class="ti ti-device-floppy"></i> Uložit vše</button>
+              <button class="btn btn-primary" id="confirm-btn" onclick="confirmReview()"><i class="ti ti-device-floppy"></i> Uložit vše</button>
             </div>
           </div>
         </div>
 
-        <!-- QUICK TEXT -->
         <div class="card">
           <div class="card-label">Rychlý textový vstup</div>
           <div class="quick-row">
@@ -213,7 +208,6 @@
           <div class="parse-preview" id="parse-preview">Formát: <strong>Hráč – Důvod – Částka</strong></div>
         </div>
 
-        <!-- MANUAL -->
         <div class="card">
           <div class="card-label">Manuální formulář</div>
           <div class="form-group"><label>Hráč</label><select id="f-player"><option value="">— vyber hráče —</option></select></div>
@@ -225,11 +219,17 @@
     </section>
 
     <!-- ── LOG ── -->
+    <!-- FIX #1: multi-select delete via checkboxes -->
     <section id="panel-log" class="panel">
       <div class="card">
         <div class="log-filters">
           <input id="log-search" type="text" placeholder="Hledat hráče nebo důvod…" oninput="renderLog()" />
           <select id="log-player-filter" onchange="renderLog()"><option value="">Všichni hráči</option></select>
+        </div>
+        <div id="log-bulk-bar" class="log-bulk-bar" style="display:none;">
+          <span id="log-selected-count" class="bulk-count">0 vybráno</span>
+          <button class="btn btn-danger" onclick="deleteSelected()"><i class="ti ti-trash"></i> Smazat vybrané</button>
+          <button class="btn btn-secondary" onclick="clearSelection()"><i class="ti ti-x"></i> Zrušit</button>
         </div>
         <div id="log-list"></div>
         <div id="log-empty" class="empty-state" style="display:none;">
@@ -257,18 +257,28 @@
         <p>Pro správu hráčů se přihlašte jako manažer.</p>
         <button class="btn btn-primary" onclick="toggleLock()">Přihlásit jako manažer</button>
       </div>
-
       <div id="players-form" style="display:none;">
-        <!-- Import from WA -->
+        <!-- FIX #3: CSV import as upload button -->
         <div class="card import-card">
           <div class="card-label"><i class="ti ti-brand-whatsapp"></i> &nbsp;Import hráčů ze skupiny</div>
-          <p class="helper-text">Importuj členy WhatsApp skupiny Čechoslovan jako hráče pro aktuální sezónu. Existující hráči (dle telefonu) se nepřidají znovu.</p>
-          <button class="btn btn-wa" onclick="openImportModal()">
-            <i class="ti ti-upload"></i> Importovat hráče ({{ WA_MEMBERS.length }})
-          </button>
+          <p class="helper-text">Nahraj CSV soubor ve stejném formátu jako WhatsApp export kontaktů. Hráči se importují do aktuálně vybrané sezóny, duplicity dle tel. čísla se přeskočí.</p>
+          <div class="import-row">
+            <label class="btn btn-wa btn-upload-label" for="csv-upload">
+              <i class="ti ti-upload"></i> Nahrát CSV
+            </label>
+            <input id="csv-upload" type="file" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)" />
+            <span id="csv-filename" class="csv-filename">Soubor nevybrán</span>
+          </div>
+          <div id="csv-preview" class="csv-preview" style="display:none;">
+            <div id="csv-preview-text"></div>
+            <div class="import-actions">
+              <button class="btn btn-secondary" onclick="cancelCSVImport()"><i class="ti ti-x"></i> Zrušit</button>
+              <button class="btn btn-wa" id="csv-confirm-btn" onclick="confirmCSVImport()"><i class="ti ti-check"></i> Potvrdit import</button>
+            </div>
+          </div>
         </div>
 
-        <!-- Add player form -->
+        <!-- Add player -->
         <div class="card">
           <div class="card-label">Přidat hráče ručně</div>
           <div class="add-player-grid">
@@ -286,29 +296,29 @@
             </div>
             <div class="form-group">
               <label>Přezdívky <span class="label-hint">(odděl čárkou)</span></label>
-              <input id="new-player-nick" type="text" placeholder="Bago, Teichi, Pepan…" onkeydown="if(event.key==='Enter')addPlayer()" />
+              <input id="new-player-nick" type="text" placeholder="Bago, Teichi…" onkeydown="if(event.key==='Enter')addPlayer()" />
             </div>
           </div>
           <div id="add-player-err" class="error-msg" style="display:none;"></div>
-          <div class="form-actions" style="margin-top:4px;">
+          <div class="form-actions">
             <button class="btn btn-primary" onclick="addPlayer()"><i class="ti ti-plus"></i> Přidat hráče</button>
           </div>
         </div>
 
-        <!-- Player list -->
+        <!-- Player roster -->
         <div class="card">
           <div class="card-label">Soupiska</div>
           <div id="player-list"></div>
           <div id="player-list-empty" class="empty-state" style="display:none;">
-            <i class="ti ti-users"></i><p>Zatím žádní hráči. Importuj ze skupiny nebo přidej ručně.</p>
+            <i class="ti ti-users"></i><p>Zatím žádní hráči.</p>
           </div>
         </div>
       </div>
     </section>
 
   </main>
-</div><!-- /app-shell -->
-</div><!-- /app-screen -->
+</div>
+</div>
 
 <!-- ══ MODALS ══════════════════════════════════════════════════════ -->
 
@@ -341,6 +351,51 @@
   </div>
 </div>
 
+<!-- EDIT PLAYER (FIX #2) -->
+<div class="modal-backdrop" id="edit-player-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3 id="edit-player-title">Upravit hráče</h3>
+      <button class="btn-icon" onclick="closeEditPlayerModal()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <!-- Basic info -->
+    <div class="edit-player-section">
+      <div class="section-label">Základní info</div>
+      <div class="add-player-grid">
+        <div class="form-group"><label>Jméno *</label><input id="ep-name" type="text" /></div>
+        <div class="form-group"><label>Telefon</label><input id="ep-phone" type="tel" /></div>
+        <div class="form-group"><label>E-mail</label><input id="ep-email" type="email" /></div>
+        <div class="form-group"><label>Přezdívky <span class="label-hint">(čárkou)</span></label><input id="ep-nicks" type="text" /></div>
+      </div>
+    </div>
+
+    <!-- Role badges -->
+    <div class="edit-player-section">
+      <div class="section-label">Role v sezóně <span id="ep-season-badge" class="badge badge-season"></span></div>
+      <div class="role-grid">
+        <label class="role-check"><input type="checkbox" id="ep-role-a" value="A-tým"> <span class="role-label role-a">A-tým</span></label>
+        <label class="role-check"><input type="checkbox" id="ep-role-b" value="B-tým"> <span class="role-label role-b">B-tým</span></label>
+        <label class="role-check"><input type="checkbox" id="ep-role-captain" value="Kapitán"> <span class="role-label role-captain">Kapitán</span></label>
+        <label class="role-check"><input type="checkbox" id="ep-role-asst" value="Asistent kapitána"> <span class="role-label role-asst">Asistent kapitána</span></label>
+        <label class="role-check"><input type="checkbox" id="ep-role-coach" value="Trenér"> <span class="role-label role-coach">Trenér</span></label>
+      </div>
+    </div>
+
+    <!-- Player stats (FIX #2: season breakdown + reason chart) -->
+    <div class="edit-player-section" id="ep-stats-section">
+      <div class="section-label">Statistiky hráče</div>
+      <div id="ep-stats"></div>
+    </div>
+
+    <div id="ep-err" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEditPlayerModal()">Zrušit</button>
+      <button class="btn btn-primary"   onclick="saveEditPlayer()"><i class="ti ti-device-floppy"></i> Uložit změny</button>
+    </div>
+  </div>
+</div>
+
 <!-- NICKNAMES -->
 <div class="modal-backdrop" id="nick-modal">
   <div class="modal">
@@ -353,18 +408,6 @@
     </div>
     <div id="nick-err" class="error-msg" style="display:none;"></div>
     <div class="modal-actions"><button class="btn btn-secondary" onclick="closeNickModal()">Zavřít</button></div>
-  </div>
-</div>
-
-<!-- WA IMPORT CONFIRM -->
-<div class="modal-backdrop" id="import-modal">
-  <div class="modal">
-    <div class="modal-header"><h3>Import hráčů</h3><button class="btn-icon" onclick="closeImportModal()"><i class="ti ti-x"></i></button></div>
-    <p class="modal-sub">Importuje <strong id="import-count">56</strong> hráčů ze skupiny Čechoslovan Muži A+B do aktuální sezóny (<span id="import-season-label"></span>). Hráči se shodným telefonním číslem se nepřidají znovu.</p>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeImportModal()">Zrušit</button>
-      <button class="btn btn-wa" onclick="importWAMembers()"><i class="ti ti-upload"></i> Potvrdit import</button>
-    </div>
   </div>
 </div>
 
