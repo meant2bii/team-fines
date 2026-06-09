@@ -273,6 +273,7 @@ function startFirestoreListener(){
     if(snap.exists()){state=snap.data();state.players=state.players||[];state.fines=state.fines||[];}
     else state={players:[],fines:[]};
     const t=document.querySelector('.tab.active')?.dataset.tab;
+    if(t==='add'){ renderRecentPlayers(); renderReasonTiles(); }
     if(t==='log') renderLog();
     if(t==='summary') renderSummary();
     if(t==='players') renderPlayers();
@@ -373,7 +374,7 @@ function updateLockUI(){
     if(sc) sc.style.display='flex';
     if(mw) mw.style.display='none'; if(mw2) mw2.style.display='none';
     if(af) af.style.display='block'; if(pf) pf.style.display='block';
-    populatePlayerSelects(); renderPlayers();
+    populatePlayerSelects(); renderPlayers(); renderReasonTiles();
   }else{
     if(lbl) lbl.textContent='Manager';
     if(btn){btn.classList.remove('active');btn.querySelector('.ti').className='ti ti-lock';}
@@ -389,6 +390,7 @@ window.switchTab=function(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
+  if(t==='add'){ renderRecentPlayers(); renderReasonTiles(); }
   if(t==='log'){selectedFineIndices.clear();renderLog();}
   if(t==='summary') renderSummary();
   if(t==='players') renderPlayers();
@@ -396,14 +398,18 @@ window.switchTab=function(t){
 
 // ─── PLAYER SELECTS ───────────────────────────────────────────────
 function populatePlayerSelects(){
-  ['f-player','log-player-filter','edit-player'].forEach(id=>{
+  // log filter and edit-player are real selects; f-player is now hidden
+  ['log-player-filter','edit-player'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const prev=el.value;
     el.innerHTML=id==='log-player-filter'?'<option value="">Všichni hráči</option>':'<option value="">— vyber hráče —</option>';
     (state.players||[]).forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;el.appendChild(o);});
     if(prev) el.value=prev;
   });
-  if(phoneUser){const fp=document.getElementById('f-player');if(fp)fp.value=phoneUser.name;}
+  if(phoneUser){
+    const fp=document.getElementById('f-player'); if(fp) fp.value=phoneUser.name;
+    const ft=document.getElementById('f-player-text'); if(ft) ft.value=phoneUser.name;
+  }
 }
 
 // ─── NICKNAME RESOLUTION ──────────────────────────────────────────
@@ -415,13 +421,57 @@ function resolvePlayerName(raw){
   return p?p.name:null;
 }
 
-// ─── PARSE ────────────────────────────────────────────────────────
+// ─── DEFAULT REASONS ──────────────────────────────────────────────
+const DEFAULT_REASONS = ['Píčovina','Červená karta','Pozdní příchod','Bago','Housle','Překopnutá branka'];
+function getReasons(){ return state.reasons && state.reasons.length ? state.reasons : [...DEFAULT_REASONS]; }
+async function saveReasons(list){ state.reasons=list; await saveState(); }
+
+// ─── PARSE (FIX #2: flexible format – dashes optional) ────────────
+// Supports: "Michal - Bago - 30"  AND  "Michal Bago 30"  AND  "Michal Bago 30 Kč"
 function parseChunk(chunk){
-  const s=chunk.replace(/[–—]/g,'-').trim(); if(!s) return null;
-  const parts=s.split('-').map(x=>x.trim()).filter(Boolean); if(parts.length<3) return null;
-  const rawName=parts[0],amount=parseFloat(parts[parts.length-1].replace(/\s/g,'')),reason=parts.slice(1,-1).join(' – ');
-  if(!rawName||!reason||isNaN(amount)||amount<=0) return null;
-  return{rawName,reason,amount};
+  const s=chunk.replace(/[–—]/g,'-').replace(/\s*kč\s*$/i,'').trim();
+  if(!s) return null;
+
+  // Try dash-separated first  (Name - Reason - Amount)
+  if(s.includes('-')){
+    const parts=s.split('-').map(x=>x.trim()).filter(Boolean);
+    if(parts.length>=3){
+      const rawName=parts[0],amount=parseFloat(parts[parts.length-1].replace(/\s/g,''));
+      const reason=parts.slice(1,-1).join(' – ');
+      if(rawName&&reason&&!isNaN(amount)&&amount>0) return{rawName,reason,amount};
+    }
+  }
+
+  // Fallback: last token is number = amount, first word(s) = name, middle = reason
+  // Heuristic: try splitting off the trailing number, then match name prefix against known players
+  const tokens=s.split(/\s+/);
+  if(tokens.length<3) return null;
+  const lastToken=tokens[tokens.length-1];
+  const amount=parseFloat(lastToken.replace(/[^\d.]/g,''));
+  if(isNaN(amount)||amount<=0) return null;
+  const withoutAmt=tokens.slice(0,-1).join(' ').trim();
+
+  // Try to match longest known player name prefix
+  const players=state.players||[];
+  let bestMatch=null,bestLen=0;
+  for(const p of players){
+    const nm=p.name.toLowerCase();
+    if(withoutAmt.toLowerCase().startsWith(nm)&&nm.length>bestLen){bestMatch=p.name;bestLen=nm.length;}
+    for(const nick of(p.nicknames||[])){
+      const nk=nick.toLowerCase();
+      if(withoutAmt.toLowerCase().startsWith(nk)&&nk.length>bestLen){bestMatch=p.name;bestLen=nk.length;}
+    }
+  }
+  if(bestMatch&&bestLen<withoutAmt.length){
+    const reason=withoutAmt.slice(bestLen).trim();
+    if(reason) return{rawName:bestMatch,reason,amount};
+  }
+  // Fallback: first word = name, rest = reason
+  if(tokens.length>=3){
+    const rawName=tokens[0],reason=tokens.slice(1,-1).join(' ');
+    if(rawName&&reason) return{rawName,reason,amount};
+  }
+  return null;
 }
 function splitTranscript(t){ return t.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean); }
 
@@ -434,23 +484,106 @@ window.parseQuick=function(val){
       +(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()?` <span class="badge badge-alias">≡ ${esc(parsed.rawName)}</span>`:'')
       +(!resolved?` <span class="badge badge-new">Nový hráč</span>`:'')
       +` &nbsp;·&nbsp; ${esc(parsed.reason)} &nbsp;·&nbsp; <strong>${parsed.amount} ${CONFIG.CURRENCY}</strong>`;
-  }else{p.innerHTML=`Formát: <strong>Hráč – Důvod – Částka</strong>`;}
+  }else{p.innerHTML=`Formát: <strong>Hráč Důvod Částka</strong> nebo <strong>Hráč – Důvod – Částka</strong>`;}
 };
 window.submitQuick=function(){
   const val=document.getElementById('quick-input').value.trim();
-  const parsed=parseChunk(val); if(!parsed){alert('Použij formát: Hráč - Důvod - Částka');return;}
+  const parsed=parseChunk(val); if(!parsed){alert('Zadej: Jméno Důvod Částka');return;}
   const resolved=resolvePlayerName(parsed.rawName)||parsed.rawName;
   ensurePlayer(resolved); addFine(resolved,parsed.reason,parsed.amount);
   document.getElementById('quick-input').value='';
-  document.getElementById('parse-preview').innerHTML=`Formát: <strong>Hráč – Důvod – Částka</strong>`;
+  document.getElementById('parse-preview').innerHTML=`Formát: <strong>Hráč Důvod Částka</strong> nebo <strong>Hráč – Důvod – Částka</strong>`;
 };
+
+// ─── PLAYER AUTOCOMPLETE (FIX #3) ─────────────────────────────────
+let acIndex=-1,acFiltered=[];
+window.playerAutocomplete=function(val){
+  const hidden=document.getElementById('f-player');
+  hidden.value=''; // reset until confirmed
+  const list=document.getElementById('player-ac-list');
+  if(!val.trim()){list.style.display='none';acFiltered=[];return;}
+  const norm=val.toLowerCase();
+  acFiltered=(state.players||[]).filter(p=>
+    p.name.toLowerCase().includes(norm)||
+    (p.nicknames||[]).some(n=>n.toLowerCase().includes(norm))
+  );
+  if(!acFiltered.length){list.style.display='none';return;}
+  acIndex=-1;
+  list.innerHTML=acFiltered.map((p,i)=>{
+    const nicks=(p.nicknames||[]).filter(n=>n.toLowerCase().includes(norm));
+    return`<div class="ac-item" onmousedown="selectPlayer('${esc(p.name)}')" data-i="${i}">
+      ${esc(p.name)}${nicks.length?` <span class="ac-sub">(${esc(nicks[0])})</span>`:''}
+    </div>`;
+  }).join('');
+  list.style.display='block';
+};
+window.playerAutocompleteKey=function(e){
+  const list=document.getElementById('player-ac-list');
+  const items=list.querySelectorAll('.ac-item');
+  if(e.key==='ArrowDown'){acIndex=Math.min(acIndex+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('active',i===acIndex));e.preventDefault();}
+  else if(e.key==='ArrowUp'){acIndex=Math.max(acIndex-1,0);items.forEach((el,i)=>el.classList.toggle('active',i===acIndex));e.preventDefault();}
+  else if(e.key==='Enter'&&acIndex>=0&&acFiltered[acIndex]){selectPlayer(acFiltered[acIndex].name);e.preventDefault();}
+  else if(e.key==='Escape'){list.style.display='none';}
+};
+window.selectPlayer=function(name){
+  document.getElementById('f-player-text').value=name;
+  document.getElementById('f-player').value=name;
+  document.getElementById('player-ac-list').style.display='none';
+  renderRecentPlayers();
+};
+
+// Recent players tiles
+function renderRecentPlayers(){
+  const row=document.getElementById('recent-players-row'); if(!row) return;
+  const selected=document.getElementById('f-player')?.value||'';
+  // Last 5 unique players from fines
+  const recent=[...new Map((seasonFines()||[]).map(f=>[f.player,f])).values()].slice(0,5).map(f=>f.player);
+  if(!recent.length){row.innerHTML='';return;}
+  row.innerHTML=recent.map(name=>`
+    <div class="tile${name===selected?' selected':''}" onclick="selectPlayer('${esc(name)}')">${esc(name)}</div>
+  `).join('');
+}
+
+// ─── REASONS TILES (FIX #3) ───────────────────────────────────────
+function renderReasonTiles(){
+  const row=document.getElementById('reason-tiles-row'); if(!row) return;
+  const selected=document.getElementById('f-reason')?.value||'';
+  const reasons=getReasons();
+  const managerRow=document.getElementById('reason-manage-row');
+  if(managerRow) managerRow.style.display=isManager?'block':'none';
+  row.innerHTML=reasons.map((r,i)=>`
+    <div class="tile tile-reason${r===selected?' selected':''}" onclick="selectReason('${esc(r)}')">${esc(r)}${isManager?`<span class="tile-del" onclick="event.stopPropagation();deleteReason(${i})" title="Smazat">✕</span>`:''}</div>
+  `).join('');
+}
+window.selectReason=function(r){
+  const inp=document.getElementById('f-reason'); if(inp){inp.value=r;}
+  renderReasonTiles();
+};
+window.addReason=async function(){
+  const inp=document.getElementById('new-reason-input'); if(!inp) return;
+  const val=inp.value.trim(); if(!val) return;
+  const reasons=getReasons();
+  if(reasons.includes(val)){showToast('Důvod již existuje.');return;}
+  reasons.push(val); await saveReasons(reasons); inp.value=''; renderReasonTiles();
+  showToast(`Důvod „${val}" přidán ✓`);
+};
+window.deleteReason=async function(i){
+  const reasons=getReasons(); reasons.splice(i,1); await saveReasons(reasons); renderReasonTiles();
+};
+
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
   const reason=document.getElementById('f-reason').value.trim();
   const amt=parseFloat(document.getElementById('f-amount').value);
-  if(!player||!reason||isNaN(amt)||amt<=0){alert('Vyplň všechna pole.');return;}
+  if(!player){alert('Vyber hráče.');return;}
+  if(!reason){alert('Vyplň důvod.');return;}
+  if(isNaN(amt)||amt<=0){alert('Zadej platnou částku.');return;}
   addFine(player,reason,amt);
-  document.getElementById('f-reason').value=''; document.getElementById('f-amount').value='';
+  document.getElementById('f-player-text').value='';
+  document.getElementById('f-player').value='';
+  document.getElementById('f-reason').value='';
+  document.getElementById('f-amount').value='';
+  renderReasonTiles(); renderRecentPlayers();
 };
 window.submitSelfFine=function(){
   if(!phoneUser) return;

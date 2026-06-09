@@ -70,7 +70,21 @@
 
     <!-- PHONE -->
     <div id="auth-phone" class="auth-panel">
-      <p class="helper-text" style="margin-bottom:12px;">
+      <div class="billing-notice">
+        <i class="ti ti-info-circle"></i>
+        <div>
+          <strong>SMS přihlášení vyžaduje Firebase Blaze plán.</strong>
+          Pro zprovoznění telefonní autentifikace:
+          <ol style="margin:6px 0 0 16px;line-height:1.8;">
+            <li>Otevři <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a></li>
+            <li>Přejdi na <strong>Billing</strong> → upgraduj na <strong>Blaze (pay-as-you-go)</strong></li>
+            <li>V <strong>Authentication → Sign-in method</strong> povol <strong>Phone</strong></li>
+            <li>Přidej svou doménu do <strong>Authorized domains</strong></li>
+          </ol>
+          <span style="font-size:11px;color:var(--tx-m);margin-top:4px;display:block;">Bezplatné kvóty jsou štědré – za normální týmové použití neplatíš nic.</span>
+        </div>
+      </div>
+      <p class="helper-text" style="margin-top:12px;">
         Jsi hráč? Přihlaš se přes telefonní číslo a piš si pokutu sám sobě.
       </p>
       <div class="form-group">
@@ -82,7 +96,6 @@
         <input id="otp-input" type="text" inputmode="numeric" placeholder="123456" maxlength="6" onkeydown="if(event.key==='Enter')verifyPhoneOTP()" />
       </div>
       <div id="phone-err" class="error-msg" style="display:none;"></div>
-      <!-- recaptcha rendered here invisibly -->
       <div id="recaptcha-container" style="display:none;"></div>
       <button class="btn btn-primary btn-full" id="send-otp-btn" onclick="sendPhoneOTP()">
         <i class="ti ti-message"></i> Poslat SMS kód
@@ -210,9 +223,37 @@
 
         <div class="card">
           <div class="card-label">Manuální formulář</div>
-          <div class="form-group"><label>Hráč</label><select id="f-player"><option value="">— vyber hráče —</option></select></div>
-          <div class="form-group"><label>Důvod</label><input id="f-reason" type="text" placeholder="např. zpoždění, OG…" /></div>
-          <div class="form-group"><label>Částka (CZK)</label><input id="f-amount" type="number" min="1" placeholder="50" style="max-width:120px;" /></div>
+
+          <!-- Player field with autocomplete -->
+          <div class="form-group" style="position:relative;">
+            <label>Hráč</label>
+            <input id="f-player-text" type="text" placeholder="Začni psát jméno…" autocomplete="off"
+              oninput="playerAutocomplete(this.value)" onkeydown="playerAutocompleteKey(event)" />
+            <input type="hidden" id="f-player" />
+            <div id="player-ac-list" class="ac-list" style="display:none;"></div>
+          </div>
+          <!-- Recent players tiles -->
+          <div id="recent-players-row" class="tile-row" style="margin-bottom:12px;"></div>
+
+          <!-- Reason field -->
+          <div class="form-group">
+            <label>Důvod</label>
+            <input id="f-reason" type="text" placeholder="Napiš nebo vyber níže…" />
+          </div>
+          <!-- Reason tiles -->
+          <div id="reason-tiles-row" class="tile-row" style="margin-bottom:12px;"></div>
+          <!-- Manage reasons (manager only) -->
+          <div id="reason-manage-row" style="display:none;margin-bottom:10px;">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input id="new-reason-input" type="text" placeholder="Nový důvod…" style="flex:1;min-width:120px;" onkeydown="if(event.key==='Enter')addReason()" />
+              <button class="btn btn-secondary" style="padding:7px 12px;" onclick="addReason()"><i class="ti ti-plus"></i></button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Částka (CZK)</label>
+            <input id="f-amount" type="number" min="1" placeholder="50" style="max-width:120px;" />
+          </div>
           <div class="form-actions"><button class="btn btn-primary" onclick="submitManual()"><i class="ti ti-plus"></i> Přidat pokutu</button></div>
         </div>
       </div>
@@ -333,7 +374,7 @@
       <button class="btn btn-secondary" onclick="closePinModal()">Zrušit</button>
       <button class="btn btn-primary"   onclick="checkPin()">Odemknout</button>
     </div>
-    <div class="modal-hint">Výchozí PIN: <code>1234</code> — změňte v <code>js/app.js</code></div>
+
   </div>
 </div>
 

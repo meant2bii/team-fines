@@ -160,7 +160,7 @@ select { cursor:pointer; }
 .app-header { background:var(--navy); color:#fff; padding:0 1rem; position:sticky; top:0; z-index:50; box-shadow:var(--sh-md); border-bottom:3px solid var(--red); }
 .header-inner { display:flex; align-items:center; justify-content:space-between; min-height:60px; gap:8px; flex-wrap:wrap; padding:6px 0; }
 .header-brand { display:flex; align-items:center; gap:10px; }
-.brand-logo   { height:38px; width:auto; object-fit:contain; filter:brightness(0) invert(1); }
+.brand-logo   { height:38px; width:auto; object-fit:contain; background:#fff; border-radius:4px; padding:2px 5px; }
 .brand-title  { font-size:16px; font-weight:700; color:#fff; letter-spacing:-.01em; }
 .brand-sub    { font-size:11px; color:rgba(255,255,255,.55); margin-top:-2px; }
 .header-right { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
@@ -378,6 +378,46 @@ select { cursor:pointer; }
 .modal-hint { margin-top:10px; font-size:11px; color:var(--tx-m); text-align:center; }
 .modal-hint code { font-family:var(--mono); background:var(--bg-s); padding:1px 5px; border-radius:4px; font-size:11px; }
 .modal .form-group { margin-top:10px; }
+
+/* ══════════════════════════════════════════════════════════════
+   AUTOCOMPLETE
+══════════════════════════════════════════════════════════════ */
+.ac-list {
+  position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:100;
+  background:var(--bg-c); border:1.5px solid var(--navy); border-radius:var(--r-md);
+  box-shadow:var(--sh-md); max-height:200px; overflow-y:auto;
+}
+.ac-item {
+  padding:9px 12px; font-size:14px; cursor:pointer; color:var(--tx);
+  display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--bdr);
+}
+.ac-item:last-child { border-bottom:none; }
+.ac-item:hover,.ac-item.active { background:var(--navy); color:#fff; }
+.ac-item:hover .ac-sub,.ac-item.active .ac-sub { color:rgba(255,255,255,.7); }
+.ac-sub { font-size:11px; color:var(--tx-m); }
+
+/* ── TILES (recent players + reasons) ── */
+.tile-row { display:flex; gap:6px; flex-wrap:wrap; }
+.tile {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:99px; font-size:13px; font-weight:600; cursor:pointer;
+  border:1.5px solid var(--bdr); background:var(--bg-s); color:var(--tx-s);
+  transition:all .12s; user-select:none;
+}
+.tile:hover,.tile.selected { background:var(--navy); color:#fff; border-color:var(--navy); }
+.tile-reason.selected { background:var(--red); border-color:var(--red-dark); color:#fff; }
+.tile-del { font-size:11px; opacity:.6; margin-left:2px; }
+.tile-del:hover { opacity:1; }
+
+/* ── BILLING NOTICE ── */
+.billing-notice {
+  display:flex; gap:10px; align-items:flex-start;
+  background:var(--amber-bg); border:1.5px solid #f59e0b; border-radius:var(--r-md);
+  padding:12px; font-size:13px; color:var(--amber); line-height:1.5; margin-bottom:4px;
+}
+.billing-notice .ti { font-size:18px; flex-shrink:0; margin-top:1px; }
+.billing-notice a { color:var(--navy); font-weight:600; }
+.billing-notice strong { color:var(--amber); }
 
 /* ══════════════════════════════════════════════════════════════
    TOAST
