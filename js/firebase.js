@@ -33,13 +33,12 @@ import { getFirestore }         from 'https://www.gstatic.com/firebasejs/10.12.0
 
 // ▼▼▼  REPLACE WITH YOUR OWN CONFIG  ▼▼▼
 const firebaseConfig = {
-  apiKey: "AIzaSyCEE8syuFBK1Q54iO1GLJ7YVGS0UeJ3r74",
-  authDomain: "team-fines.firebaseapp.com",
-  projectId: "team-fines",
-  storageBucket: "team-fines.firebasestorage.app",
-  messagingSenderId: "477960485258",
-  appId: "1:477960485258:web:5bae03db3b2e6f3d387073",
-  measurementId: "G-E52NG0XMCK"
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID",
 };
 // ▲▲▲  REPLACE WITH YOUR OWN CONFIG  ▲▲▲
 
