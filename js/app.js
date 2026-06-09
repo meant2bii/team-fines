@@ -1,7 +1,7 @@
 /**
  * Team Fines – app.js  v4
  * Fixes: login-after-logout bug, design badges, add-player nickname field,
- *        log column order, season/half-season switcher, WA CSV import,
+ *        log column order (ts first), season/half-season switcher, WA CSV import,
  *        phone-number self-fine auth.
  */
 
@@ -22,69 +22,69 @@ import {
 
 // ─── CONFIG ───────────────────────────────────────────────────────
 const CONFIG = {
-  PIN:      '1234',
-  CURRENCY: 'CZK',
+  PIN:           '1234',
+  CURRENCY:      'CZK',
   FIRESTORE_DOC: 'teamdata/main',
 };
 
-// WhatsApp group members embedded from CSV
+// WhatsApp group members from CSV
 const WA_MEMBERS = [
-  { name: 'Adrian',                phone: '+420770679955' },
-  { name: 'Cédric',                phone: '+32486559110'  },
-  { name: 'Erik Klemš',            phone: '+420608325078' },
-  { name: 'Honzicek Laska',        phone: '+420737073672' },
-  { name: 'Jan Fojtíček',          phone: '+420608241316' },
-  { name: 'Jan Tichy',             phone: '+420735023771' },
-  { name: 'Jiří Horčička',         phone: '+420737282974' },
-  { name: 'Kuba Hoppan',           phone: '+420604189424' },
-  { name: 'Lukas Teichmann',       phone: '+420734169237' },
-  { name: 'Michael Botur',         phone: '+420730973794' },
-  { name: 'Milan Kuba',            phone: '+420737628229' },
-  { name: 'Radek Sahula',          phone: '+420773646367' },
-  { name: 'Tomáš Vízner',          phone: '+420732219689' },
-  { name: 'Venca Forejtar',        phone: '+420776715064' },
-  { name: 'Adam',                  phone: '+420736640967' },
-  { name: 'Adam Hubálek',          phone: '+420604605226' },
-  { name: 'Dan Urban',             phone: '+420602945056' },
-  { name: 'DanielSurgent',         phone: '+420776701464' },
-  { name: 'DanR',                  phone: '+420723943393' },
-  { name: 'David',                 phone: '+420777627209' },
-  { name: 'Egor',                  phone: '+420608458135' },
-  { name: 'Emil',                  phone: '+420606059544' },
-  { name: 'Ephraime Superstain',   phone: '+420731114434' },
-  { name: 'Hugo',                  phone: '+420606223189' },
-  { name: 'Igor Banga',            phone: '+420723880377' },
-  { name: 'Jachym Nahlovsky',      phone: '+420773907207' },
-  { name: 'Jakub',                 phone: '+420730510280' },
-  { name: 'Jan Hlaváč',            phone: '+420777052697' },
-  { name: 'Jindřich Ludmila',      phone: '+420602274598' },
-  { name: 'Josef Tureček',         phone: '+420732246134' },
-  { name: 'Karel Roskowetz',       phone: '+420731626257' },
-  { name: 'kovanej',               phone: '+420773481996' },
-  { name: 'Kuba',                  phone: '+420724324104' },
-  { name: 'Lukáš Záhrobský',       phone: '+420732946704' },
-  { name: 'lumy',                  phone: '+420773677997' },
-  { name: 'Marek Tomaštík',        phone: '+420731977214' },
-  { name: 'Martin Kuzmiak',        phone: '+420608218103' },
-  { name: 'Marty',                 phone: '+420736137188' },
-  { name: 'Matěj Svoboda',         phone: '+420774091681' },
-  { name: 'Michal Nevřala',        phone: '+420605086775' },
-  { name: 'Milan',                 phone: '+420604414776' },
-  { name: 'Milan',                 phone: '+420723755981' },
-  { name: 'Mykhaylo Shymonya',     phone: '+420775404893' },
-  { name: 'Petr',                  phone: '+420725887748' },
-  { name: 'RA',                    phone: '+420773833388' },
-  { name: 'Rishabh Kumar',         phone: '+420608726573' },
-  { name: 'Roman Sahula',          phone: '+420792274339' },
-  { name: 'Sami',                  phone: '+420775017793' },
-  { name: 'Shanan Toyalla',        phone: '+421910162810' },
-  { name: 'Šimon Havelka',         phone: '+420603840402' },
-  { name: 'Škubánek',              phone: '+420777932063' },
-  { name: 'Štěpán Ondříšek Svoboda', phone: '+420778077003' },
-  { name: 'Viktor',                phone: '+420702095259' },
-  { name: 'Vojta',                 phone: '+420739002841' },
-  { name: 'Vojtas.09',             phone: '+420776527900' },
-  { name: 'Vojtíkk',              phone: '+420774275503' },
+  { name: 'Adrian',                   phone: '+420770679955' },
+  { name: 'Cédric',                   phone: '+32486559110'  },
+  { name: 'Erik Klemš',               phone: '+420608325078' },
+  { name: 'Honzicek Laska',           phone: '+420737073672' },
+  { name: 'Jan Fojtíček',             phone: '+420608241316' },
+  { name: 'Jan Tichy',                phone: '+420735023771' },
+  { name: 'Jiří Horčička',            phone: '+420737282974' },
+  { name: 'Kuba Hoppan',              phone: '+420604189424' },
+  { name: 'Lukas Teichmann',          phone: '+420734169237' },
+  { name: 'Michael Botur',            phone: '+420730973794' },
+  { name: 'Milan Kuba',               phone: '+420737628229' },
+  { name: 'Radek Sahula',             phone: '+420773646367' },
+  { name: 'Tomáš Vízner',             phone: '+420732219689' },
+  { name: 'Venca Forejtar',           phone: '+420776715064' },
+  { name: 'Adam',                     phone: '+420736640967' },
+  { name: 'Adam Hubálek',             phone: '+420604605226' },
+  { name: 'Dan Urban',                phone: '+420602945056' },
+  { name: 'DanielSurgent',            phone: '+420776701464' },
+  { name: 'DanR',                     phone: '+420723943393' },
+  { name: 'David',                    phone: '+420777627209' },
+  { name: 'Egor',                     phone: '+420608458135' },
+  { name: 'Emil',                     phone: '+420606059544' },
+  { name: 'Ephraime Superstain',      phone: '+420731114434' },
+  { name: 'Hugo',                     phone: '+420606223189' },
+  { name: 'Igor Banga',               phone: '+420723880377' },
+  { name: 'Jachym Nahlovsky',         phone: '+420773907207' },
+  { name: 'Jakub',                    phone: '+420730510280' },
+  { name: 'Jan Hlaváč',               phone: '+420777052697' },
+  { name: 'Jindřich Ludmila',         phone: '+420602274598' },
+  { name: 'Josef Tureček',            phone: '+420732246134' },
+  { name: 'Karel Roskowetz',          phone: '+420731626257' },
+  { name: 'kovanej',                  phone: '+420773481996' },
+  { name: 'Kuba',                     phone: '+420724324104' },
+  { name: 'Lukáš Záhrobský',          phone: '+420732946704' },
+  { name: 'lumy',                     phone: '+420773677997' },
+  { name: 'Marek Tomaštík',           phone: '+420731977214' },
+  { name: 'Martin Kuzmiak',           phone: '+420608218103' },
+  { name: 'Marty',                    phone: '+420736137188' },
+  { name: 'Matěj Svoboda',            phone: '+420774091681' },
+  { name: 'Michal Nevřala',           phone: '+420605086775' },
+  { name: 'Milan (Kuba)',             phone: '+420604414776' },
+  { name: 'Milan (Bezák)',            phone: '+420723755981' },
+  { name: 'Mykhaylo Shymonya',        phone: '+420775404893' },
+  { name: 'Petr',                     phone: '+420725887748' },
+  { name: 'RA',                       phone: '+420773833388' },
+  { name: 'Rishabh Kumar',            phone: '+420608726573' },
+  { name: 'Roman Sahula',             phone: '+420792274339' },
+  { name: 'Sami',                     phone: '+420775017793' },
+  { name: 'Shanan Toyalla',           phone: '+421910162810' },
+  { name: 'Šimon Havelka',            phone: '+420603840402' },
+  { name: 'Škubánek',                 phone: '+420777932063' },
+  { name: 'Štěpán Ondříšek Svoboda',  phone: '+420778077003' },
+  { name: 'Viktor',                   phone: '+420702095259' },
+  { name: 'Vojta',                    phone: '+420739002841' },
+  { name: 'Vojtas.09',                phone: '+420776527900' },
+  { name: 'Vojtíkk',                  phone: '+420774275503' },
 ];
 
 // ─── APP STATE ────────────────────────────────────────────────────
@@ -92,109 +92,88 @@ let isManager      = false;
 let editIndex      = -1;
 let nickPlayerIdx  = -1;
 let currentUser    = null;
-let phoneUser      = null;   // player logged in via phone
+let phoneUser      = null;
 let unsubFirestore = null;
+let activeSeason   = null;
 
-// Season picker state
-let activeSeason   = null; // e.g. { year: 2025, half: 'Podzim' }
-
-// Voice
 let recognition    = null;
 let voiceActive    = false;
 let silenceTimer   = null;
 let fullTranscript = '';
+let reviewQueue    = [];
 
-// Review
-let reviewQueue = [];
-
-// Firestore mirror
-let state = { players: [], fines: [], seasons: [] };
+let state = { players: [], fines: [] };
 
 // ─── SEASON HELPERS ───────────────────────────────────────────────
-function seasonKey(s) { return `${s.year}-${s.half}`; }
+function seasonKey(s)   { return `${s.year}-${s.half}`; }
 function seasonLabel(s) { return `${s.half} ${s.year}`; }
+function currentYear()  { return new Date().getFullYear(); }
 
-function currentYear() { return new Date().getFullYear(); }
-
-function getActiveSeason() { return activeSeason; }
-
-/** Fines belonging to the active season window */
 function seasonFines() {
   if (!activeSeason) return state.fines || [];
-  const s = activeSeason;
-  // Podzim: Aug 1 – Jan 31 next year; Jaro: Feb 1 – Jul 31
+  const { year, half } = activeSeason;
   return (state.fines || []).filter(f => {
-    const d = new Date(f.ts);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1; // 1-12
-    if (s.half === 'Podzim') {
-      return (y === s.year && m >= 8) || (y === s.year + 1 && m <= 1);
-    } else { // Jaro
-      return y === s.year && m >= 2 && m <= 7;
-    }
+    const d = new Date(f.ts), y = d.getFullYear(), m = d.getMonth() + 1;
+    if (half === 'Podzim') return (y === year && m >= 8) || (y === year + 1 && m <= 1);
+    return y === year && m >= 2 && m <= 7;
   });
 }
 
 // ─── AUTH STATE ───────────────────────────────────────────────────
+// FIX #1: always reset login button on every auth state change so
+//         logout → re-login works without page refresh.
 onAuthStateChanged(auth, user => {
   currentUser = user;
-
-  // Reset login button whenever auth state changes (fixes logout→re-login bug)
-  resetLoginBtn();
+  resetAuthButtons();                    // ← key fix
 
   if (!user) {
-    // Also clear phone session
     if (!phoneUser) showScreen('auth');
     stopFirestoreListener();
     return;
   }
   if (!user.emailVerified) {
     showScreen('verify');
-    document.getElementById('verify-sub').textContent =
-      `Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a pak se vrať sem.`;
+    const sub = document.getElementById('verify-sub');
+    if (sub) sub.textContent = `Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a vrať se sem.`;
     stopFirestoreListener();
     return;
   }
   enterApp(user.displayName || user.email);
 });
 
-function resetLoginBtn() {
-  const btn = document.getElementById('login-btn');
-  if (btn) {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-login"></i> Přihlásit se';
-  }
-  const rbtn = document.getElementById('reg-btn');
-  if (rbtn) {
-    rbtn.disabled = false;
-    rbtn.innerHTML = '<i class="ti ti-user-plus"></i> Vytvořit účet';
-  }
+function resetAuthButtons() {
+  const lb = document.getElementById('login-btn');
+  if (lb) { lb.disabled = false; lb.innerHTML = '<i class="ti ti-login"></i> Přihlásit se'; }
+  const rb = document.getElementById('reg-btn');
+  if (rb) { rb.disabled = false; rb.innerHTML = '<i class="ti ti-user-plus"></i> Vytvořit účet'; }
 }
 
 function enterApp(displayName) {
-  showScreen('app');
-  document.getElementById('header-user').textContent = displayName;
+  if (phoneUser) showScreen('app');
+  else           showScreen('app');
+  const hu = document.getElementById('header-user');
+  if (hu) hu.textContent = displayName || '';
   initSeasonPicker();
   startFirestoreListener();
 }
 
 function showScreen(name) {
-  document.getElementById('auth-screen').style.display   = name === 'auth'   ? 'flex' : 'none';
-  document.getElementById('verify-screen').style.display = name === 'verify' ? 'flex' : 'none';
-  document.getElementById('app-screen').style.display    = name === 'app'    ? 'block': 'none';
+  document.getElementById('auth-screen').style.display   = name === 'auth'   ? 'flex'  : 'none';
+  document.getElementById('verify-screen').style.display = name === 'verify' ? 'flex'  : 'none';
+  document.getElementById('app-screen').style.display    = name === 'app'    ? 'block' : 'none';
 }
 
 // ─── AUTH TABS ────────────────────────────────────────────────────
 window.showAuthTab = function(t) {
   document.querySelectorAll('.auth-tab').forEach(el =>
     el.classList.toggle('active', el.dataset.tab === t));
-  ['auth-login','auth-register','auth-phone'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('active', id === 'auth-' + t);
+  ['login','register','phone'].forEach(id => {
+    const el = document.getElementById('auth-' + id);
+    if (el) el.classList.toggle('active', id === t);
   });
 };
 
-// ─── EMAIL REGISTER ───────────────────────────────────────────────
+// ─── REGISTER ─────────────────────────────────────────────────────
 window.doRegister = async function() {
   const name  = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
@@ -209,21 +188,21 @@ window.doRegister = async function() {
   if (pass.length < 6) { showErr(err,'Heslo musí mít alespoň 6 znaků.'); return; }
   if (pass !== pass2)  { showErr(err,'Hesla se neshodují.'); return; }
 
-  btn.disabled = true; btn.textContent = 'Vytváříme účet…';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Vytváříme účet…';
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
     const { updateProfile } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(cred.user, { displayName: name });
     await sendEmailVerification(cred.user);
+    // onAuthStateChanged → verify screen
   } catch(e) {
     showErr(err, friendlyAuthError(e.code));
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-user-plus"></i> Vytvořit účet';
+    resetAuthButtons();
   }
 };
 
-// ─── EMAIL LOGIN ──────────────────────────────────────────────────
-// FIX: always re-enable button in finally; don't rely solely on onAuthStateChanged reset
+// ─── LOGIN ────────────────────────────────────────────────────────
 window.doLogin = async function() {
   const email = document.getElementById('login-email').value.trim();
   const pass  = document.getElementById('login-password').value;
@@ -233,16 +212,14 @@ window.doLogin = async function() {
   err.style.display = 'none';
   if (!email || !pass) { showErr(err,'Vyplň e-mail a heslo.'); return; }
 
-  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader ti-spin"></i> Přihlašuji…';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Přihlašuji…';
   try {
     await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will call enterApp → success path
+    // success → onAuthStateChanged fires → enterApp; resetAuthButtons called there
   } catch(e) {
     showErr(err, friendlyAuthError(e.code));
-  } finally {
-    // Always re-enable (onAuthStateChanged already calls resetLoginBtn on success too)
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-login"></i> Přihlásit se';
+    resetAuthButtons();   // always re-enable on failure
   }
 };
 
@@ -250,9 +227,11 @@ window.doLogout = async function() {
   isManager = false;
   phoneUser = null;
   stopFirestoreListener();
-  state = { players: [], fines: [], seasons: [] };
+  state = { players: [], fines: [] };
+  isManager = false;
+  updateLockUI();
   await signOut(auth);
-  // showScreen('auth') triggered by onAuthStateChanged
+  // onAuthStateChanged will call showScreen('auth') + resetAuthButtons
 };
 
 window.doForgotPassword = async function() {
@@ -266,7 +245,7 @@ window.doForgotPassword = async function() {
   }
 };
 
-// ─── PHONE AUTH (self-fine) ───────────────────────────────────────
+// ─── PHONE AUTH ───────────────────────────────────────────────────
 let confirmationResult = null;
 
 window.sendPhoneOTP = async function() {
@@ -274,18 +253,18 @@ window.sendPhoneOTP = async function() {
   const err   = document.getElementById('phone-err');
   err.style.display = 'none';
   if (!phone) { showErr(err,'Zadej telefonní číslo.'); return; }
-
   try {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+    if (!window._recaptchaVerifier) {
+      window._recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
     }
-    confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-    document.getElementById('otp-row').style.display = 'flex';
-    document.getElementById('send-otp-btn').style.display = 'none';
+    confirmationResult = await signInWithPhoneNumber(auth, phone, window._recaptchaVerifier);
+    document.getElementById('otp-row').style.display        = 'block';
+    document.getElementById('send-otp-btn').style.display   = 'none';
+    document.getElementById('verify-otp-btn').style.display = 'block';
     showToast('SMS odeslána ✓');
   } catch(e) {
-    showErr(err, 'Chyba: ' + (e.message || e.code));
-    if (window.recaptchaVerifier) { window.recaptchaVerifier.clear(); window.recaptchaVerifier = null; }
+    showErr(err,'Chyba: ' + (e.message || e.code));
+    if (window._recaptchaVerifier) { window._recaptchaVerifier.clear(); window._recaptchaVerifier = null; }
   }
 };
 
@@ -295,60 +274,58 @@ window.verifyPhoneOTP = async function() {
   err.style.display = 'none';
   if (!code) { showErr(err,'Zadej kód z SMS.'); return; }
   try {
-    const cred = await confirmationResult.confirm(code);
-    // Find which player has this phone
-    const phone   = document.getElementById('phone-input').value.trim();
-    const member  = WA_MEMBERS.find(m => m.phone === phone);
-    phoneUser     = { uid: cred.user.uid, phone, name: member ? member.name : phone };
-    // Sign out from Firebase Auth (we handle session ourselves for phone users)
-    await signOut(auth);
-    // Don't let onAuthStateChanged show auth screen — we're in phone mode
+    const cred   = await confirmationResult.confirm(code);
+    const phone  = document.getElementById('phone-input').value.trim();
+    const member = WA_MEMBERS.find(m => m.phone === phone);
+    phoneUser = { uid: cred.user.uid, phone, name: member ? member.name : phone };
+    await signOut(auth);  // sign out from Firebase Auth; we handle phone session ourselves
     enterApp(phoneUser.name + ' (hráč)');
+    updatePhoneUserUI();
   } catch(e) {
-    showErr(document.getElementById('phone-err'), 'Nesprávný kód nebo vypršela platnost.');
+    showErr(err,'Nesprávný kód nebo vypršela platnost.');
   }
 };
 
-// ─── EMAIL VERIFICATION ───────────────────────────────────────────
+function updatePhoneUserUI() {
+  if (!phoneUser) return;
+  const sf = document.getElementById('self-fine-form');
+  const mw = document.getElementById('manager-wall');
+  if (sf) sf.style.display = 'block';
+  if (mw) mw.style.display = 'none';
+  const lbl = document.getElementById('self-fine-name-label');
+  if (lbl) lbl.textContent = `Přihlášen jako: ${phoneUser.name}`;
+}
+
+// ─── VERIFY SCREEN ────────────────────────────────────────────────
 window.checkVerification = async function() {
   if (!currentUser) return;
   await currentUser.reload();
-  if (currentUser.emailVerified) {
-    showToast('E-mail ověřen ✓');
-  } else {
-    showErr(document.getElementById('verify-msg'),'E-mail ještě není ověřen. Zkontroluj doručenou poštu (i spam).');
-  }
+  if (currentUser.emailVerified) showToast('E-mail ověřen ✓');
+  else showErr(document.getElementById('verify-msg'),'E-mail ještě není ověřen. Zkontroluj doručenou poštu (i spam).');
 };
 window.resendVerification = async function() {
   if (!currentUser) return;
   try { await sendEmailVerification(currentUser); showToast('Ověřovací e-mail odeslán ✓'); }
-  catch(e) { showErr(document.getElementById('verify-msg'),'Chyba: ' + e.message); }
+  catch(e) { showErr(document.getElementById('verify-msg'),'Chyba: '+e.message); }
 };
 
 // ─── SEASON PICKER ────────────────────────────────────────────────
 function initSeasonPicker() {
-  const y = currentYear();
-  // default to current half
   const m = new Date().getMonth() + 1;
-  activeSeason = { year: y, half: m >= 8 || m === 1 ? 'Podzim' : 'Jaro' };
-  renderSeasonPicker();
-  updateSeasonLabel();
-}
-
-function renderSeasonPicker() {
+  const y = currentYear();
+  activeSeason = { year: y, half: (m >= 8 || m === 1) ? 'Podzim' : 'Jaro' };
   const yearSel = document.getElementById('season-year');
   const halfSel = document.getElementById('season-half');
   if (!yearSel || !halfSel) return;
-
-  const y = currentYear();
   yearSel.innerHTML = '';
-  for (let yr = y + 1; yr >= y - 3; yr--) {
+  for (let yr = y + 1; yr >= y - 4; yr--) {
     const o = document.createElement('option');
     o.value = yr; o.textContent = yr;
     if (yr === activeSeason.year) o.selected = true;
     yearSel.appendChild(o);
   }
   halfSel.value = activeSeason.half;
+  updateSeasonLabel();
 }
 
 function updateSeasonLabel() {
@@ -358,11 +335,15 @@ function updateSeasonLabel() {
 
 window.changeSeason = function() {
   if (!isManager) return;
-  const y = parseInt(document.getElementById('season-year').value);
-  const h = document.getElementById('season-half').value;
-  activeSeason = { year: y, half: h };
+  activeSeason = {
+    year: parseInt(document.getElementById('season-year').value),
+    half: document.getElementById('season-half').value,
+  };
   updateSeasonLabel();
   renderLog(); renderSummary();
+  // Update import modal label
+  const isl = document.getElementById('import-season-label');
+  if (isl) isl.textContent = seasonLabel(activeSeason);
   showToast(`Zobrazuji: ${seasonLabel(activeSeason)}`);
 };
 
@@ -375,9 +356,8 @@ function startFirestoreListener() {
       state = snap.data();
       state.players = state.players || [];
       state.fines   = state.fines   || [];
-      state.seasons = state.seasons || [];
     } else {
-      state = { players: [], fines: [], seasons: [] };
+      state = { players: [], fines: [] };
     }
     const t = document.querySelector('.tab.active')?.dataset.tab;
     if (t === 'log')     renderLog();
@@ -395,24 +375,26 @@ async function saveState() {
   catch(e) { console.error(e); showToast('⚠ Nepodařilo se uložit data.'); }
 }
 
-// ─── IMPORT WA MEMBERS ────────────────────────────────────────────
+// ─── WA IMPORT ────────────────────────────────────────────────────
+window.openImportModal = function() {
+  const isl = document.getElementById('import-season-label');
+  if (isl && activeSeason) isl.textContent = seasonLabel(activeSeason);
+  const ic = document.getElementById('import-count');
+  if (ic) ic.textContent = WA_MEMBERS.length;
+  document.getElementById('import-modal').classList.add('open');
+};
+window.closeImportModal = function() { document.getElementById('import-modal').classList.remove('open'); };
+
 window.importWAMembers = async function() {
   if (!isManager) return;
   const sk = seasonKey(activeSeason);
   let added = 0;
-  // Deduplicate by phone – use phone as unique key
-  WA_MEMBERS.forEach((m, i) => {
-    // Handle duplicate names (two Milans etc.) by appending index
-    let name = m.name;
-    const dupName = WA_MEMBERS.slice(0, i).some(x => x.name === m.name);
-    if (dupName) name = m.name + ' ' + (i + 1);
-
+  WA_MEMBERS.forEach(m => {
     const exists = state.players.find(p => p.phone === m.phone);
     if (!exists) {
-      state.players.push({ name, phone: m.phone, email: '', nicknames: [], seasons: [sk] });
+      state.players.push({ name: m.name, phone: m.phone, email: '', nicknames: [], seasons: [sk] });
       added++;
     } else {
-      // Ensure season tag
       if (!exists.seasons) exists.seasons = [];
       if (!exists.seasons.includes(sk)) exists.seasons.push(sk);
     }
@@ -420,7 +402,7 @@ window.importWAMembers = async function() {
   await saveState();
   renderPlayers(); populatePlayerSelects();
   showToast(`Import dokončen: ${added} nových hráčů přidáno`);
-  document.getElementById('import-modal').classList.remove('open');
+  window.closeImportModal();
 };
 
 // ─── LOCK / PIN ───────────────────────────────────────────────────
@@ -436,8 +418,7 @@ window.closePinModal = function() {
 };
 window.checkPin = function() {
   if (document.getElementById('pin-input').value === CONFIG.PIN) {
-    isManager = true; window.closePinModal(); updateLockUI();
-    showToast('Manažer přihlášen ✓');
+    isManager = true; window.closePinModal(); updateLockUI(); showToast('Manažer přihlášen ✓');
   } else {
     document.getElementById('pin-err').style.display = 'block';
     document.getElementById('pin-input').select();
@@ -445,30 +426,36 @@ window.checkPin = function() {
 };
 
 function updateLockUI() {
-  const btn = document.getElementById('lock-btn');
-  const lbl = document.getElementById('lock-label');
-  const seasonControls = document.getElementById('season-controls');
+  const btn  = document.getElementById('lock-btn');
+  const lbl  = document.getElementById('lock-label');
+  const sc   = document.getElementById('season-controls');
+  const mw   = document.getElementById('manager-wall');
+  const mw2  = document.getElementById('manager-wall2');
+  const af   = document.getElementById('add-form');
+  const pf   = document.getElementById('players-form');
 
   if (isManager) {
-    lbl.textContent = 'Odhlásit';
-    btn.classList.add('active');
-    btn.querySelector('.ti').className = 'ti ti-lock-open';
-    if (seasonControls) seasonControls.style.display = 'flex';
-    document.getElementById('manager-wall').style.display  = 'none';
-    document.getElementById('manager-wall2').style.display = 'none';
-    document.getElementById('add-form').style.display      = 'block';
-    document.getElementById('players-form').style.display  = 'block';
-    populatePlayerSelects();
-    renderPlayers();
+    if (lbl) lbl.textContent = 'Odhlásit';
+    if (btn) { btn.classList.add('active'); btn.querySelector('.ti').className = 'ti ti-lock-open'; }
+    if (sc)  sc.style.display  = 'flex';
+    if (mw)  mw.style.display  = 'none';
+    if (mw2) mw2.style.display = 'none';
+    if (af)  af.style.display  = 'block';
+    if (pf)  pf.style.display  = 'block';
+    populatePlayerSelects(); renderPlayers();
   } else {
-    lbl.textContent = 'Manager';
-    btn.classList.remove('active');
-    btn.querySelector('.ti').className = 'ti ti-lock';
-    if (seasonControls) seasonControls.style.display = 'none';
-    document.getElementById('manager-wall').style.display  = 'block';
-    document.getElementById('manager-wall2').style.display = 'block';
-    document.getElementById('add-form').style.display      = 'none';
-    document.getElementById('players-form').style.display  = 'none';
+    if (lbl) lbl.textContent = 'Manager';
+    if (btn) { btn.classList.remove('active'); btn.querySelector('.ti').className = 'ti ti-lock'; }
+    if (sc)  sc.style.display  = 'none';
+    if (mw)  mw.style.display  = 'block';
+    if (mw2) mw2.style.display = 'block';
+    if (af)  af.style.display  = 'none';
+    if (pf)  pf.style.display  = 'none';
+  }
+  // phone user override
+  if (phoneUser) {
+    if (mw) mw.style.display = 'none';
+    updatePhoneUserUI();
   }
 }
 
@@ -498,8 +485,6 @@ function populatePlayerSelects() {
     });
     if (prev) el.value = prev;
   });
-
-  // Phone-user self-fine: pre-select their name
   if (phoneUser) {
     const fp = document.getElementById('f-player');
     if (fp) fp.value = phoneUser.name;
@@ -542,13 +527,12 @@ window.parseQuick = function(val) {
   const parsed  = parseChunk(val);
   if (parsed) {
     const resolved = resolvePlayerName(parsed.rawName);
-    const label    = resolved || parsed.rawName;
-    const isNew    = !resolved;
-    const isAlias  = resolved && resolved.toLowerCase() !== parsed.rawName.toLowerCase();
+    const label  = resolved || parsed.rawName;
     preview.innerHTML =
       `<strong>${esc(label)}</strong>`
-      + (isAlias ? ` <span class="badge badge-alias">≡ ${esc(parsed.rawName)}</span>` : '')
-      + (isNew   ? ` <span class="badge badge-new">Nový hráč</span>` : '')
+      + (resolved && resolved.toLowerCase() !== parsed.rawName.toLowerCase()
+          ? ` <span class="badge badge-alias">≡ ${esc(parsed.rawName)}</span>` : '')
+      + (!resolved ? ` <span class="badge badge-new">Nový hráč</span>` : '')
       + ` &nbsp;·&nbsp; ${esc(parsed.reason)} &nbsp;·&nbsp; <strong>${parsed.amount} ${CONFIG.CURRENCY}</strong>`;
   } else {
     preview.innerHTML = `Formát: <strong>Hráč – Důvod – Částka</strong>`;
@@ -556,7 +540,7 @@ window.parseQuick = function(val) {
 };
 
 window.submitQuick = function() {
-  const val    = document.getElementById('quick-input').value.trim();
+  const val = document.getElementById('quick-input').value.trim();
   const parsed = parseChunk(val);
   if (!parsed) { alert('Použij formát: Hráč - Důvod - Částka'); return; }
   const resolved = resolvePlayerName(parsed.rawName) || parsed.rawName;
@@ -576,15 +560,13 @@ window.submitManual = function() {
   document.getElementById('f-amount').value = '';
 };
 
-// Self-fine for phone users
 window.submitSelfFine = function() {
   if (!phoneUser) return;
   const reason = document.getElementById('self-reason').value.trim();
   const amt    = parseFloat(document.getElementById('self-amount').value);
   if (!reason || isNaN(amt) || amt <= 0) { alert('Vyplň důvod a částku.'); return; }
-  const name = phoneUser.name;
-  ensurePlayer(name);
-  addFine(name, reason, amt);
+  ensurePlayer(phoneUser.name);
+  addFine(phoneUser.name, reason, amt);
   document.getElementById('self-reason').value = '';
   document.getElementById('self-amount').value = '';
 };
@@ -601,8 +583,8 @@ function startVoiceSession() {
   btn.classList.add('recording');
   document.getElementById('voice-record-label').textContent = 'Zastavit nahrávání';
   document.getElementById('voice-status').textContent = '🔴 Nahrávám…';
-  document.getElementById('voice-live').style.display = 'block';
-  document.getElementById('voice-live').textContent   = '';
+  const live = document.getElementById('voice-live');
+  live.style.display = 'block'; live.textContent = '';
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SR();
@@ -616,7 +598,7 @@ function startVoiceSession() {
       if (e.results[i].isFinal) fullTranscript += (fullTranscript ? ', ' : '') + t;
       else interim = t;
     }
-    document.getElementById('voice-live').textContent = fullTranscript + (interim ? ' ' + interim : '');
+    live.textContent = fullTranscript + (interim ? ' ' + interim : '');
   };
   recognition.onerror = err => { if (['no-speech','audio-capture'].includes(err.error)) stopVoiceSession(); };
   recognition.onend   = () => { if (voiceActive) { try { recognition.start(); } catch(e) { stopVoiceSession(); } } };
@@ -646,12 +628,12 @@ function buildReviewQueue(transcript) {
       rawName: parsed.rawName,
       resolvedPlayer: resolved || parsed.rawName,
       reason: parsed.reason, amount: parsed.amount,
-      isNew: !resolved,
+      isNew:   !resolved,
       isAlias: !!(resolved && resolved.toLowerCase() !== parsed.rawName.toLowerCase()),
       skip: false,
     });
   });
-  if (reviewQueue.length === 0) { showToast('Nepodařilo se rozpoznat žádné pokuty.'); return; }
+  if (!reviewQueue.length) { showToast('Nepodařilo se rozpoznat žádné pokuty.'); return; }
   renderReviewQueue();
   document.getElementById('voice-review').style.display = 'block';
   document.getElementById('voice-review').scrollIntoView({ behavior:'smooth' });
@@ -659,8 +641,9 @@ function buildReviewQueue(transcript) {
 
 function renderReviewQueue() {
   const active = reviewQueue.filter(r => !r.skip);
+  const n = active.length;
   document.getElementById('confirm-btn').innerHTML =
-    `<i class="ti ti-device-floppy"></i> Uložit ${active.length} pokut${active.length===1?'u':active.length<5?'y':''}`;
+    `<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;
 
   document.getElementById('review-list').innerHTML = reviewQueue.map((r,i) => {
     const opts = (state.players||[]).map(p =>
@@ -680,9 +663,15 @@ function renderReviewQueue() {
         </button>
       </div>
       <div class="review-fields"${r.skip?' style="opacity:.4;pointer-events:none;"':''}>
-        <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)">${newOpt}${opts}</select></div>
-        <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/></div>
-        <div class="review-field review-field-amt"><label>Částka</label><input type="number" value="${r.amount}" oninput="updateReview(${i},'amount',parseFloat(this.value))"/></div>
+        <div class="review-field"><label>Hráč</label>
+          <select onchange="updateReview(${i},'resolvedPlayer',this.value)">${newOpt}${opts}</select>
+        </div>
+        <div class="review-field review-field-reason"><label>Důvod</label>
+          <input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/>
+        </div>
+        <div class="review-field review-field-amt"><label>Částka</label>
+          <input type="number" value="${r.amount}" oninput="updateReview(${i},'amount',parseFloat(this.value))"/>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -691,18 +680,18 @@ function renderReviewQueue() {
 window.updateReview = function(i,key,val) {
   reviewQueue[i][key] = val;
   if (key==='resolvedPlayer') { reviewQueue[i].isNew = !state.players.find(p=>p.name===val); reviewQueue[i].isAlias=false; }
-  const active = reviewQueue.filter(r=>!r.skip);
+  const n = reviewQueue.filter(r=>!r.skip).length;
   document.getElementById('confirm-btn').innerHTML =
-    `<i class="ti ti-device-floppy"></i> Uložit ${active.length} pokut${active.length===1?'u':active.length<5?'y':''}`;
+    `<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;
 };
-window.toggleSkip = function(i) { reviewQueue[i].skip=!reviewQueue[i].skip; renderReviewQueue(); };
+window.toggleSkip = function(i) { reviewQueue[i].skip = !reviewQueue[i].skip; renderReviewQueue(); };
 
 window.confirmReview = async function() {
   const toSave = reviewQueue.filter(r=>!r.skip);
   if (!toSave.length) { window.discardReview(); return; }
   toSave.forEach(r => {
     ensurePlayer(r.resolvedPlayer);
-    state.fines.unshift({ player:r.resolvedPlayer, reason:r.reason, amount:r.amount, ts:Date.now(), season: seasonKey(activeSeason) });
+    state.fines.unshift({ player:r.resolvedPlayer, reason:r.reason, amount:r.amount, ts:Date.now(), season:seasonKey(activeSeason) });
   });
   await saveState();
   showToast(`✓ Uloženo ${toSave.length} pokut`);
@@ -710,7 +699,7 @@ window.confirmReview = async function() {
 };
 window.discardReview = function() { reviewQueue=[]; document.getElementById('voice-review').style.display='none'; };
 
-// ─── CORE FINE OPS ────────────────────────────────────────────────
+// ─── FINE OPS ─────────────────────────────────────────────────────
 function ensurePlayer(name) {
   if (!state.players.find(p=>p.name.toLowerCase()===name.toLowerCase()))
     state.players.push({ name, email:'', phone:'', nicknames:[], seasons:[] });
@@ -722,16 +711,17 @@ async function addFine(player, reason, amount) {
   showToast(`Pokuta přidána: ${player} – ${amount} ${CONFIG.CURRENCY}`);
 }
 
-// ─── LOG  (FIX: timestamp first, DD/MM/YY HH:mm) ─────────────────
-window.renderLog = function() {
+// ─── LOG ──────────────────────────────────────────────────────────
+// FIX #4: timestamp first, format DD/MM/YY HH:mm
+function renderLog() {
   populatePlayerSelects();
-  const search  = (document.getElementById('log-search').value||'').toLowerCase();
-  const pf      = (document.getElementById('log-player-filter').value||'').toLowerCase();
-  const list    = document.getElementById('log-list');
-  const empty   = document.getElementById('log-empty');
+  const search = (document.getElementById('log-search').value||'').toLowerCase();
+  const pf     = (document.getElementById('log-player-filter').value||'').toLowerCase();
+  const list   = document.getElementById('log-list');
+  const empty  = document.getElementById('log-empty');
 
   const fines = seasonFines().filter(f => {
-    if (pf && f.player.toLowerCase()!==pf) return false;
+    if (pf && f.player.toLowerCase() !== pf) return false;
     if (search && !f.player.toLowerCase().includes(search) && !f.reason.toLowerCase().includes(search)) return false;
     return true;
   });
@@ -747,30 +737,28 @@ window.renderLog = function() {
     const yy  = String(d.getFullYear()).slice(2);
     const hh  = String(d.getHours()).padStart(2,'0');
     const min = String(d.getMinutes()).padStart(2,'0');
-    const ds  = `${dd}/${mm}/${yy} ${hh}:${min}`;
     return `
       <div class="fine-row">
-        <span class="fine-time">${ds}</span>
+        <span class="fine-time">${dd}/${mm}/${yy}<br><span class="fine-time-clock">${hh}:${min}</span></span>
         <span class="fine-player">${esc(f.player)}</span>
         <span class="fine-reason">${esc(f.reason)}</span>
         <span class="fine-amt">${f.amount} ${CONFIG.CURRENCY}</span>
-        ${isManager ? `
+        ${isManager?`
         <div class="fine-actions">
-          <button class="btn-icon" onclick="openEdit(${idx})" title="Upravit"><i class="ti ti-edit"></i></button>
-          <button class="btn-icon danger" onclick="deleteFine(${idx})" title="Smazat"><i class="ti ti-trash"></i></button>
-        </div>` : ''}
+          <button class="btn-icon" onclick="openEdit(${idx})"><i class="ti ti-edit"></i></button>
+          <button class="btn-icon danger" onclick="deleteFine(${idx})"><i class="ti ti-trash"></i></button>
+        </div>`:''}
       </div>`;
   }).join('');
-};
+}
+window.renderLog = renderLog;
 
 window.deleteFine = async function(idx) {
   if (!confirm('Smazat tuto pokutu?')) return;
   state.fines.splice(idx,1); await saveState(); renderLog();
 };
-
 window.openEdit = function(idx) {
-  editIndex = idx;
-  const f = state.fines[idx];
+  editIndex=idx; const f=state.fines[idx];
   populatePlayerSelects();
   document.getElementById('edit-player').value = f.player;
   document.getElementById('edit-reason').value  = f.reason;
@@ -778,33 +766,29 @@ window.openEdit = function(idx) {
   document.getElementById('edit-modal').classList.add('open');
 };
 window.closeEditModal = function() { document.getElementById('edit-modal').classList.remove('open'); };
-
 window.saveEdit = async function() {
-  const f = state.fines[editIndex];
+  const f=state.fines[editIndex];
   f.player = document.getElementById('edit-player').value;
   f.reason = document.getElementById('edit-reason').value.trim();
   f.amount = parseFloat(document.getElementById('edit-amount').value);
   if (!f.player||!f.reason||isNaN(f.amount)||f.amount<=0) { alert('Zkontroluj všechna pole.'); return; }
-  await saveState(); window.closeEditModal(); renderLog();
-  showToast('Pokuta upravena ✓');
+  await saveState(); window.closeEditModal(); renderLog(); showToast('Pokuta upravena ✓');
 };
 
 // ─── SUMMARY ──────────────────────────────────────────────────────
-window.renderSummary = function() {
-  const fines    = seasonFines();
-  const totals   = {};
+function renderSummary() {
+  const fines  = seasonFines();
+  const totals = {};
   (state.players||[]).forEach(p => { totals[p.name]={total:0,count:0}; });
   fines.forEach(f => {
     if (!totals[f.player]) totals[f.player]={total:0,count:0};
-    totals[f.player].total += f.amount;
-    totals[f.player].count += 1;
+    totals[f.player].total+=f.amount; totals[f.player].count+=1;
   });
   const allTotal = fines.reduce((a,f)=>a+f.amount,0);
   document.getElementById('summary-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Celkem ve fondu</div><div class="stat-value">${allTotal}<span class="stat-unit"> ${CONFIG.CURRENCY}</span></div></div>
     <div class="stat-card"><div class="stat-label">Počet pokut</div><div class="stat-value">${fines.length}</div></div>
     <div class="stat-card"><div class="stat-label">Hráčů</div><div class="stat-value">${(state.players||[]).length}</div></div>`;
-
   const sorted = Object.entries(totals).sort((a,b)=>b[1].total-a[1].total);
   const listEl = document.getElementById('summary-list');
   if (!sorted.length) { listEl.innerHTML='<div class="empty-state"><i class="ti ti-chart-bar"></i><p>Zatím žádná data.</p></div>'; return; }
@@ -816,12 +800,13 @@ window.renderSummary = function() {
         <div class="avatar">${initials}</div>
         <div style="flex:1;min-width:0;">
           <div class="ps-name">${esc(name)}</div>
-          <div class="ps-count">${d.count}× &nbsp;·&nbsp; ${pct}% fondu</div>
+          <div class="ps-count">${d.count}× · ${pct}%</div>
         </div>
         <div class="ps-total">${d.total} ${CONFIG.CURRENCY}</div>
       </div>`;
   }).join('');
-};
+}
+window.renderSummary = renderSummary;
 
 window.generateEmailReport = function() {
   const fines  = seasonFines();
@@ -837,7 +822,7 @@ window.generateEmailReport = function() {
   const sl         = activeSeason ? seasonLabel(activeSeason) : '';
   const lines      = sorted.map(([n,d])=>`  ${n}: ${d.total} ${CONFIG.CURRENCY} (${d.count}×)`).join('\n');
   const report     = `Ahoj tým! 👋\n\nPřehled pokut k ${today} (${sl}):\n\n${lines}\n\nCelkem ve fondu: ${grandTotal} ${CONFIG.CURRENCY} 🎉\n\nDo konce sezóny prosím uhraďte svůj příspěvek – jdeme na párty!`;
-  const el = document.getElementById('email-report');
+  const el=document.getElementById('email-report');
   el.style.display='block';
   el.innerHTML=`<div class="email-report-box"><textarea id="report-text" readonly>${report}</textarea></div>
     <button class="btn btn-secondary" style="margin-top:8px;" onclick="copyReport()"><i class="ti ti-copy"></i> Kopírovat</button>`;
@@ -847,6 +832,7 @@ window.copyReport = function() {
 };
 
 // ─── PLAYERS ──────────────────────────────────────────────────────
+// FIX #3: add nickname field inline in add-player form (handled in HTML, processed here)
 window.addPlayer = async function() {
   const name  = document.getElementById('new-player-name').value.trim();
   const email = document.getElementById('new-player-email').value.trim();
@@ -870,7 +856,7 @@ window.addPlayer = async function() {
   showToast(`Hráč ${name} přidán ✓`);
 };
 
-window.renderPlayers = function() {
+function renderPlayers() {
   const list  = document.getElementById('player-list');
   const empty = document.getElementById('player-list-empty');
   if (!state.players||!state.players.length) { list.innerHTML=''; empty.style.display='block'; return; }
@@ -880,8 +866,8 @@ window.renderPlayers = function() {
     const initials  = p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const fineCount = (state.fines||[]).filter(f=>f.player===p.name).length;
     const fineTotal = (state.fines||[]).filter(f=>f.player===p.name).reduce((a,f)=>a+f.amount,0);
-    const nicks     = p.nicknames||[];
-    const nickHtml  = nicks.length
+    const nicks = p.nicknames||[];
+    const nickHtml = nicks.length
       ? nicks.map(n=>`<span class="badge badge-alias">${esc(n)}</span>`).join(' ')
       : `<span class="no-nick">bez přezdívky</span>`;
     return `
@@ -890,13 +876,12 @@ window.renderPlayers = function() {
         <div style="flex:1;min-width:0;">
           <div class="player-row-name">${esc(p.name)}</div>
           <div class="player-row-meta">
-            ${p.phone?`<span class="player-meta-chip"><i class="ti ti-phone"></i> ${esc(p.phone)}</span>`:''}
-            ${p.email?`<span class="player-meta-chip"><i class="ti ti-mail"></i> ${esc(p.email)}</span>`:''}
-            <span class="badge badge-amber">${fineCount}× · ${fineTotal} ${CONFIG.CURRENCY}</span>
+            ${p.phone?`<span class="meta-chip"><i class="ti ti-phone"></i> ${esc(p.phone)}</span>`:''}
+            ${p.email?`<span class="meta-chip"><i class="ti ti-mail"></i> ${esc(p.email)}</span>`:''}
+            <span class="badge badge-fine-count">${fineCount}× &middot; ${fineTotal} ${CONFIG.CURRENCY}</span>
           </div>
-          <div class="player-row-nicks" onclick="openNickModal(${i})" title="Přezdívky">
-            <i class="ti ti-tag" style="font-size:11px;color:var(--text-muted);"></i>
-            ${nickHtml}
+          <div class="player-row-nicks" onclick="openNickModal(${i})">
+            <i class="ti ti-tag" style="font-size:11px;"></i> ${nickHtml}
             <span class="nick-edit-hint">upravit</span>
           </div>
         </div>
@@ -906,20 +891,19 @@ window.renderPlayers = function() {
         </div>
       </div>`;
   }).join('');
-};
+}
+window.renderPlayers = renderPlayers;
 
 window.removePlayer = async function(i) {
-  const p = state.players[i];
+  const p=state.players[i];
   if (!confirm(`Odebrat ${p.name}? Jejich pokuty zůstanou v logu.`)) return;
-  state.players.splice(i,1);
-  await saveState(); renderPlayers(); populatePlayerSelects();
+  state.players.splice(i,1); await saveState(); renderPlayers(); populatePlayerSelects();
   showToast(`${p.name} odebrán/a`);
 };
 
-// ─── NICKNAME MODAL ───────────────────────────────────────────────
+// ─── NICKNAMES ────────────────────────────────────────────────────
 window.openNickModal = function(i) {
-  nickPlayerIdx=i;
-  const p=state.players[i];
+  nickPlayerIdx=i; const p=state.players[i];
   document.getElementById('nick-modal-title').textContent=`Přezdívky – ${p.name}`;
   document.getElementById('nick-input').value='';
   document.getElementById('nick-err').style.display='none';
@@ -932,19 +916,18 @@ window.closeNickModal = function() { document.getElementById('nick-modal').class
 function renderNickChips() {
   const p     = state.players[nickPlayerIdx];
   const nicks = p?(p.nicknames||[]):[];
-  const chips = document.getElementById('nick-chips');
-  chips.innerHTML = nicks.length
-    ? nicks.map((n,j)=>`<span class="nick-chip">${esc(n)}<button onclick="removeNick(${j})" title="Odebrat"><i class="ti ti-x"></i></button></span>`).join('')
-    : `<span style="color:var(--text-muted);font-size:13px;">Žádné přezdívky.</span>`;
+  document.getElementById('nick-chips').innerHTML = nicks.length
+    ? nicks.map((n,j)=>`<span class="nick-chip">${esc(n)}<button onclick="removeNick(${j})"><i class="ti ti-x"></i></button></span>`).join('')
+    : `<span class="no-nick">Žádné přezdívky.</span>`;
 }
 
 window.addNick = async function() {
-  const val = document.getElementById('nick-input').value.trim();
-  const err = document.getElementById('nick-err');
+  const val=document.getElementById('nick-input').value.trim();
+  const err=document.getElementById('nick-err');
   if (!val) { showErr(err,'Zadej přezdívku.'); return; }
-  const p = state.players[nickPlayerIdx];
-  p.nicknames = p.nicknames||[];
-  const conflict = state.players.find((pl,i)=>i!==nickPlayerIdx&&(pl.name.toLowerCase()===val.toLowerCase()||(pl.nicknames||[]).some(n=>n.toLowerCase()===val.toLowerCase())));
+  const p=state.players[nickPlayerIdx];
+  p.nicknames=p.nicknames||[];
+  const conflict=state.players.find((pl,i)=>i!==nickPlayerIdx&&(pl.name.toLowerCase()===val.toLowerCase()||(pl.nicknames||[]).some(n=>n.toLowerCase()===val.toLowerCase())));
   if (conflict) { showErr(err,`Tato přezdívka patří hráči ${conflict.name}.`); return; }
   if (p.nicknames.some(n=>n.toLowerCase()===val.toLowerCase())) { showErr(err,'Přezdívka již existuje.'); return; }
   p.nicknames.push(val);
@@ -959,7 +942,12 @@ window.removeNick = async function(j) {
 };
 
 // ─── IMPORT MODAL ─────────────────────────────────────────────────
-window.openImportModal  = function() { document.getElementById('import-modal').classList.add('open'); };
+window.openImportModal  = function() {
+  const isl=document.getElementById('import-season-label');
+  if (isl&&activeSeason) isl.textContent=seasonLabel(activeSeason);
+  document.getElementById('import-count').textContent=WA_MEMBERS.length;
+  document.getElementById('import-modal').classList.add('open');
+};
 window.closeImportModal = function() { document.getElementById('import-modal').classList.remove('open'); };
 
 // ─── UTILS ────────────────────────────────────────────────────────
@@ -973,6 +961,7 @@ function showToast(msg) {
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2800);
 }
 function showErr(el,msg) { el.textContent=msg; el.style.display='block'; }
+
 function friendlyAuthError(code) {
   const map={
     'auth/email-already-in-use':'Tento e-mail je již zaregistrován.',
@@ -987,7 +976,7 @@ function friendlyAuthError(code) {
   return map[code]||`Chyba: ${code}`;
 }
 
-// Modal backdrop close
+// Backdrop close
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.modal-backdrop').forEach(el => {
     el.addEventListener('click', e => {
