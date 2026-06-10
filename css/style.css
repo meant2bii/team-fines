@@ -576,12 +576,17 @@ select { cursor:pointer; }
   gap:10px;
   margin-bottom:1rem;
 }
+<<<<<<< HEAD
 @media(max-width:560px){ .dash-grid { grid-template-columns:1fr; } }
+=======
+@media(max-width:480px){ .dash-grid { grid-template-columns:1fr; } }
+>>>>>>> 6d52e5b05c3d04d13f8c974b4e028b22c84a04d8
 
 .dash-card {
   background:var(--bg-c); border:1.5px solid var(--bdr); border-radius:var(--r-lg);
   padding:12px 14px; box-shadow:var(--sh-sm);
 }
+<<<<<<< HEAD
 
 /* Fond sezóny – full-width navy card */
 .dash-fond {
@@ -621,6 +626,35 @@ select { cursor:pointer; }
 .spark-bar-today { background:var(--red); opacity:1; }
 .spark-lbl  { font-size:9px; color:var(--tx-m); font-weight:600; }
 .spark-lbl-today { color:var(--red); font-weight:700; }
+=======
+.dash-card.dash-accent {
+  background:var(--navy); color:#fff; border-color:var(--navy-dark);
+  grid-column:1/-1;  /* spans full width */
+  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+}
+.dash-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--tx-m); margin-bottom:5px; }
+.dash-accent .dash-label { color:rgba(255,255,255,.65); margin-bottom:4px; }
+.dash-val   { font-size:28px; font-weight:700; line-height:1; letter-spacing:-.02em; }
+.dash-unit  { font-size:14px; font-weight:400; opacity:.7; }
+.dash-sub   { font-size:12px; opacity:.65; margin-top:3px; }
+.dash-accent .dash-val  { color:#fff; }
+.dash-accent .dash-sub  { color:rgba(255,255,255,.6); }
+
+/* bar rows inside dash */
+.dash-bar-row { display:flex; align-items:center; gap:6px; margin-bottom:5px; font-size:12px; }
+.dash-bar-row:last-child { margin-bottom:0; }
+.dash-bar-name { min-width:54px; max-width:70px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--tx-s); font-weight:600; }
+.dash-bar-track { flex:1; background:var(--bdr); border-radius:99px; height:8px; overflow:hidden; }
+.dash-bar-fill  { height:100%; background:var(--navy); border-radius:99px; transition:width .4s; }
+.dash-bar-red   { background:var(--red); }
+.dash-bar-amt   { color:var(--tx-m); min-width:28px; text-align:right; font-weight:600; }
+
+/* sparkline */
+.spark-wrap { display:flex; align-items:flex-end; gap:4px; height:52px; padding-top:4px; }
+.spark-col  { display:flex; flex-direction:column; align-items:center; gap:2px; flex:1; }
+.spark-bar  { width:100%; background:var(--navy); border-radius:3px 3px 0 0; min-height:4px; transition:height .3s; }
+.spark-lbl  { font-size:9px; color:var(--tx-m); font-weight:600; }
+>>>>>>> 6d52e5b05c3d04d13f8c974b4e028b22c84a04d8
 
 /* ── BILLING NOTICE ── */
 .billing-notice {

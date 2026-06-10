@@ -636,6 +636,64 @@ const CAT_META={
   yellow:{label:'Žlutá',   cls:'tile-yellow'},
   orange:{label:'Oranžová',cls:'tile-orange'},
   red:   {label:'Červená', cls:'tile-red'},
+<<<<<<< HEAD
+=======
+};
+
+function renderReasonTiles(){
+  const selected=document.getElementById('f-reason')?.value||'';
+  const list=getReasonList();
+  const managerRow=document.getElementById('reason-manage-row');
+  if(managerRow) managerRow.style.display=isManager?'block':'none';
+
+  ['yellow','orange','red'].forEach(cat=>{
+    const row=document.getElementById('reason-tiles-'+cat); if(!row) return;
+    const items=list.filter(r=>r.cat===cat);
+    if(!items.length){row.innerHTML='<span style="font-size:12px;color:var(--tx-m);">—</span>';return;}
+    row.innerHTML=items.map((r,localI)=>{
+      const globalI=list.indexOf(r);
+      const isSel=r.label===selected;
+      return`<div class="tile tile-reason ${CAT_META[cat].cls}${isSel?' selected':''}"
+        onclick="selectReason('${esc(r.label)}',${r.price})" title="${r.price} CZK">
+        ${esc(r.label)}<span class="tile-price">${r.price}</span>
+        ${isManager?`<span class="tile-del" onclick="event.stopPropagation();deleteReason(${globalI})" title="Smazat">✕</span>`:''}
+      </div>`;
+    }).join('');
+  });
+}
+
+window.selectReason=function(label,price){
+  const inp=document.getElementById('f-reason'); if(inp) inp.value=label;
+  // Auto-fill amount if field is empty
+  if(price!=null){
+    const amtEl=document.getElementById('f-amount');
+    if(amtEl&&!amtEl.value) amtEl.value=price;
+  }
+  renderReasonTiles();
+};
+
+window.addReason=async function(){
+  const labelEl=document.getElementById('new-reason-input');
+  const priceEl=document.getElementById('new-reason-price');
+  const catEl  =document.getElementById('new-reason-cat');
+  if(!labelEl) return;
+  const label=labelEl.value.trim();
+  const price=parseInt(priceEl?.value||'0')||0;
+  const cat  =catEl?.value||'red';
+  if(!label){showToast('Zadej název důvodu.');return;}
+  const list=getReasonList();
+  if(list.find(r=>r.label.toLowerCase()===label.toLowerCase())){showToast('Důvod již existuje.');return;}
+  list.push({label,price,cat});
+  await saveReasonList(list);
+  labelEl.value=''; if(priceEl) priceEl.value='';
+  renderReasonTiles();
+  showToast(`Důvod „${label}" přidán ✓`);
+};
+
+window.deleteReason=async function(i){
+  const list=getReasonList(); list.splice(i,1);
+  await saveReasonList(list); renderReasonTiles();
+>>>>>>> 6d52e5b05c3d04d13f8c974b4e028b22c84a04d8
 };
 
 function renderReasonTiles(){
@@ -988,6 +1046,7 @@ window.saveEdit=async function(){
   await saveState();window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');
 };
 
+<<<<<<< HEAD
 // ─── DASHBOARD ───────────────────────────────────────────────────
 const SEASON_BUDGET = 10000; // CZK target per half-season
 
@@ -998,11 +1057,20 @@ function renderDashboard(){
 
   if(!fines.length){
     el.innerHTML=`<div class="dash-empty"><i class="ti ti-chart-bar"></i> Zatím žádné pokuty – ${sl}</div>`;
+=======
+// ─── DASHBOARD (Fix #7: mini graphs on Main tab) ─────────────────
+function renderDashboard(){
+  const el=document.getElementById('main-dashboard'); if(!el) return;
+  const fines=seasonFines();
+  if(!fines.length){
+    el.innerHTML=`<div class="dash-empty"><i class="ti ti-chart-bar"></i> Zatím žádné pokuty v této sezóně.</div>`;
+>>>>>>> 6d52e5b05c3d04d13f8c974b4e028b22c84a04d8
     return;
   }
 
   const total=fines.reduce((a,f)=>a+f.amount,0);
   const count=fines.length;
+<<<<<<< HEAD
   const pct=Math.min(100,Math.round((total/SEASON_BUDGET)*100));
   const missing=Math.max(0,SEASON_BUDGET-total);
   const budgetColor=pct>=100?'#16a34a':pct>=60?'#d97706':'#1B3A6B';
@@ -1128,6 +1196,70 @@ function renderDashboard(){
     </div>
 
   </div>`;
+=======
+
+  // Top 3 players by fine total
+  const byPlayer={};
+  fines.forEach(f=>{byPlayer[f.player]=(byPlayer[f.player]||0)+f.amount;});
+  const topPlayers=Object.entries(byPlayer).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const maxP=topPlayers[0]?topPlayers[0][1]:1;
+
+  // Top reasons
+  const byReason={};
+  fines.forEach(f=>{if(f.reason)byReason[f.reason]=(byReason[f.reason]||0)+1;});
+  const topReasons=Object.entries(byReason).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const maxR=topReasons[0]?topReasons[0][1]:1;
+
+  // Last 7 days activity (simple sparkline)
+  const now=Date.now(), DAY=86400000;
+  const days=Array.from({length:7},(_,i)=>{
+    const from=now-(6-i)*DAY, to=from+DAY;
+    return fines.filter(f=>f.ts>=from&&f.ts<to).reduce((a,f)=>a+f.amount,0);
+  });
+  const maxDay=Math.max(...days,1);
+  const dayLabels=['Po','Út','St','Čt','Pá','So','Ne'];
+  // Offset to correct weekday
+  const todayDow=(new Date().getDay()+6)%7; // 0=Mon
+  const sparkBars=days.map((v,i)=>{
+    const lbl=dayLabels[(todayDow-6+i+7)%7];
+    const h=Math.max(4,Math.round((v/maxDay)*40));
+    return`<div class="spark-col"><div class="spark-bar" style="height:${h}px" title="${v} CZK"></div><div class="spark-lbl">${lbl}</div></div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div class="dash-grid">
+      <div class="dash-card dash-accent">
+        <div class="dash-label">Fond sezóny</div>
+        <div class="dash-val">${total} <span class="dash-unit">CZK</span></div>
+        <div class="dash-sub">${count} pokut celkem</div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-label">Největší dlužníci</div>
+        ${topPlayers.map(([name,amt])=>`
+          <div class="dash-bar-row">
+            <span class="dash-bar-name">${esc(name.split(' ')[0])}</span>
+            <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${Math.round(amt/maxP*100)}%"></div></div>
+            <span class="dash-bar-amt">${amt}</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-label">Nejčastější přestupky</div>
+        ${topReasons.map(([r,c])=>`
+          <div class="dash-bar-row">
+            <span class="dash-bar-name">${esc(r.slice(0,14))}</span>
+            <div class="dash-bar-track"><div class="dash-bar-fill dash-bar-red" style="width:${Math.round(c/maxR*100)}%"></div></div>
+            <span class="dash-bar-amt">${c}×</span>
+          </div>`).join('')}
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-label">Posledních 7 dní</div>
+        <div class="spark-wrap">${sparkBars}</div>
+      </div>
+    </div>`;
+>>>>>>> 6d52e5b05c3d04d13f8c974b4e028b22c84a04d8
 }
 function renderSummary(){
   const fines=seasonFines(),totals={};
