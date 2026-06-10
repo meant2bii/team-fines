@@ -16,7 +16,11 @@ import { doc, setDoc, onSnapshot }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────
+<<<<<<< HEAD
 const CONFIG = { PIN:'4444', CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
+=======
+const CONFIG = { PIN:'1234', CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -273,7 +277,11 @@ function startFirestoreListener(){
     if(snap.exists()){state=snap.data();state.players=state.players||[];state.fines=state.fines||[];}
     else state={players:[],fines:[]};
     const t=document.querySelector('.tab.active')?.dataset.tab;
+<<<<<<< HEAD
     if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
+=======
+    if(t==='add'){ renderRecentPlayers(); renderReasonTiles(); }
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
     if(t==='log') renderLog();
     if(t==='summary') renderSummary();
     if(t==='players') renderPlayers();
@@ -390,7 +398,11 @@ window.switchTab=function(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
+<<<<<<< HEAD
   if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
+=======
+  if(t==='add'){ renderRecentPlayers(); renderReasonTiles(); }
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
   if(t==='log'){selectedFineIndices.clear();renderLog();}
   if(t==='summary') renderSummary();
   if(t==='players') renderPlayers();
@@ -421,6 +433,7 @@ function resolvePlayerName(raw){
   return p?p.name:null;
 }
 
+<<<<<<< HEAD
 // ─── REASONS (3 categories, each with price) – Fix #6 ─────────────
 // structure: { label, price, cat: 'yellow'|'orange'|'red' }
 const DEFAULT_REASON_LIST = [
@@ -470,13 +483,45 @@ function parseChunk(chunk){
   // 2) Space-separated: extract trailing number
   const tokens=s.split(/\s+/);
   if(tokens.length<2) return null;
+=======
+// ─── DEFAULT REASONS ──────────────────────────────────────────────
+const DEFAULT_REASONS = ['Píčovina','Červená karta','Pozdní příchod','Bago','Housle','Překopnutá branka'];
+function getReasons(){ return state.reasons && state.reasons.length ? state.reasons : [...DEFAULT_REASONS]; }
+async function saveReasons(list){ state.reasons=list; await saveState(); }
+
+// ─── PARSE (FIX #2: flexible format – dashes optional) ────────────
+// Supports: "Michal - Bago - 30"  AND  "Michal Bago 30"  AND  "Michal Bago 30 Kč"
+function parseChunk(chunk){
+  const s=chunk.replace(/[–—]/g,'-').replace(/\s*kč\s*$/i,'').trim();
+  if(!s) return null;
+
+  // Try dash-separated first  (Name - Reason - Amount)
+  if(s.includes('-')){
+    const parts=s.split('-').map(x=>x.trim()).filter(Boolean);
+    if(parts.length>=3){
+      const rawName=parts[0],amount=parseFloat(parts[parts.length-1].replace(/\s/g,''));
+      const reason=parts.slice(1,-1).join(' – ');
+      if(rawName&&reason&&!isNaN(amount)&&amount>0) return{rawName,reason,amount};
+    }
+  }
+
+  // Fallback: last token is number = amount, first word(s) = name, middle = reason
+  // Heuristic: try splitting off the trailing number, then match name prefix against known players
+  const tokens=s.split(/\s+/);
+  if(tokens.length<3) return null;
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
   const lastToken=tokens[tokens.length-1];
   const amount=parseFloat(lastToken.replace(/[^\d.]/g,''));
   if(isNaN(amount)||amount<=0) return null;
   const withoutAmt=tokens.slice(0,-1).join(' ').trim();
+<<<<<<< HEAD
   if(!withoutAmt) return null;
 
   // Try to match longest known player name/nickname as prefix
+=======
+
+  // Try to match longest known player name prefix
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
   const players=state.players||[];
   let bestMatch=null,bestLen=0;
   for(const p of players){
@@ -487,6 +532,7 @@ function parseChunk(chunk){
       if(withoutAmt.toLowerCase().startsWith(nk)&&nk.length>bestLen){bestMatch=p.name;bestLen=nk.length;}
     }
   }
+<<<<<<< HEAD
   if(bestMatch){
     const reason=withoutAmt.slice(bestLen).trim();
     // Auto-fill price from reason list if no explicit amount given via reason match
@@ -531,12 +577,27 @@ function autoFillPrice(reason){
     if(amtEl&&!amtEl.value) amtEl.value=price;
   }
 }
+=======
+  if(bestMatch&&bestLen<withoutAmt.length){
+    const reason=withoutAmt.slice(bestLen).trim();
+    if(reason) return{rawName:bestMatch,reason,amount};
+  }
+  // Fallback: first word = name, rest = reason
+  if(tokens.length>=3){
+    const rawName=tokens[0],reason=tokens.slice(1,-1).join(' ');
+    if(rawName&&reason) return{rawName,reason,amount};
+  }
+  return null;
+}
+function splitTranscript(t){ return t.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean); }
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
 
 // ─── QUICK TEXT ───────────────────────────────────────────────────
 window.parseQuick=function(val){
   const p=document.getElementById('parse-preview'),parsed=parseChunk(val);
   if(parsed){
     const resolved=resolvePlayerName(parsed.rawName),label=resolved||parsed.rawName;
+<<<<<<< HEAD
     const priceTag=parsed.reason?reasonPrice(parsed.reason):null;
     p.innerHTML=`<strong>${esc(label)}</strong>`
       +(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()?` <span class="badge badge-alias">≡ ${esc(parsed.rawName)}</span>`:'')
@@ -558,6 +619,21 @@ window.submitQuick=function(){
   ensurePlayer(resolved); addFine(resolved,parsed.reason||'',amount);
   document.getElementById('quick-input').value='';
   document.getElementById('parse-preview').innerHTML=`Příklady: <strong>Erik 50</strong> &nbsp;·&nbsp; <strong>Michal Bago 30</strong>`;
+=======
+    p.innerHTML=`<strong>${esc(label)}</strong>`
+      +(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()?` <span class="badge badge-alias">≡ ${esc(parsed.rawName)}</span>`:'')
+      +(!resolved?` <span class="badge badge-new">Nový hráč</span>`:'')
+      +` &nbsp;·&nbsp; ${esc(parsed.reason)} &nbsp;·&nbsp; <strong>${parsed.amount} ${CONFIG.CURRENCY}</strong>`;
+  }else{p.innerHTML=`Formát: <strong>Hráč Důvod Částka</strong> nebo <strong>Hráč – Důvod – Částka</strong>`;}
+};
+window.submitQuick=function(){
+  const val=document.getElementById('quick-input').value.trim();
+  const parsed=parseChunk(val); if(!parsed){alert('Zadej: Jméno Důvod Částka');return;}
+  const resolved=resolvePlayerName(parsed.rawName)||parsed.rawName;
+  ensurePlayer(resolved); addFine(resolved,parsed.reason,parsed.amount);
+  document.getElementById('quick-input').value='';
+  document.getElementById('parse-preview').innerHTML=`Formát: <strong>Hráč Důvod Částka</strong> nebo <strong>Hráč – Důvod – Částka</strong>`;
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
 };
 
 // ─── PLAYER AUTOCOMPLETE (FIX #3) ─────────────────────────────────
@@ -609,6 +685,7 @@ function renderRecentPlayers(){
   `).join('');
 }
 
+<<<<<<< HEAD
 // ─── REASON TILES – 3 categories (Fix #6) ────────────────────────
 const CAT_META={
   yellow:{label:'Žlutá',   cls:'tile-yellow'},
@@ -669,10 +746,38 @@ window.addReason=async function(){
 window.deleteReason=async function(i){
   const list=getReasonList(); list.splice(i,1);
   await saveReasonList(list); renderReasonTiles();
+=======
+// ─── REASONS TILES (FIX #3) ───────────────────────────────────────
+function renderReasonTiles(){
+  const row=document.getElementById('reason-tiles-row'); if(!row) return;
+  const selected=document.getElementById('f-reason')?.value||'';
+  const reasons=getReasons();
+  const managerRow=document.getElementById('reason-manage-row');
+  if(managerRow) managerRow.style.display=isManager?'block':'none';
+  row.innerHTML=reasons.map((r,i)=>`
+    <div class="tile tile-reason${r===selected?' selected':''}" onclick="selectReason('${esc(r)}')">${esc(r)}${isManager?`<span class="tile-del" onclick="event.stopPropagation();deleteReason(${i})" title="Smazat">✕</span>`:''}</div>
+  `).join('');
+}
+window.selectReason=function(r){
+  const inp=document.getElementById('f-reason'); if(inp){inp.value=r;}
+  renderReasonTiles();
+};
+window.addReason=async function(){
+  const inp=document.getElementById('new-reason-input'); if(!inp) return;
+  const val=inp.value.trim(); if(!val) return;
+  const reasons=getReasons();
+  if(reasons.includes(val)){showToast('Důvod již existuje.');return;}
+  reasons.push(val); await saveReasons(reasons); inp.value=''; renderReasonTiles();
+  showToast(`Důvod „${val}" přidán ✓`);
+};
+window.deleteReason=async function(i){
+  const reasons=getReasons(); reasons.splice(i,1); await saveReasons(reasons); renderReasonTiles();
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
 };
 
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
+<<<<<<< HEAD
   const reason=document.getElementById('f-reason').value.trim(); // optional
   let amt=parseFloat(document.getElementById('f-amount').value);
   // If no amount typed but reason has a price, auto-fill
@@ -682,6 +787,13 @@ window.submitManual=function(){
   }
   if(!player){alert('Vyber hráče.');return;}
   if(isNaN(amt)||amt<=0){alert('Zadej částku.');return;}
+=======
+  const reason=document.getElementById('f-reason').value.trim();
+  const amt=parseFloat(document.getElementById('f-amount').value);
+  if(!player){alert('Vyber hráče.');return;}
+  if(!reason){alert('Vyplň důvod.');return;}
+  if(isNaN(amt)||amt<=0){alert('Zadej platnou částku.');return;}
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
   addFine(player,reason,amt);
   document.getElementById('f-player-text').value='';
   document.getElementById('f-player').value='';
@@ -740,10 +852,14 @@ function buildReviewQueue(transcript){
   splitTranscript(transcript).forEach(chunk=>{
     const parsed=parseChunk(chunk); if(!parsed) return;
     const resolved=resolvePlayerName(parsed.rawName);
+<<<<<<< HEAD
     // Auto-price: if reason matches a catalogue entry and amount not given explicitly, use catalogue price
     let amount=parsed.amount;
     if(parsed.reason){const cp=reasonPrice(parsed.reason);if(cp&&!amount)amount=cp;}
     reviewQueue.push({rawName:parsed.rawName,resolvedPlayer:resolved||parsed.rawName,reason:parsed.reason||'',amount:amount||0,isNew:!resolved,isAlias:!!(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()),skip:false});
+=======
+    reviewQueue.push({rawName:parsed.rawName,resolvedPlayer:resolved||parsed.rawName,reason:parsed.reason,amount:parsed.amount,isNew:!resolved,isAlias:!!(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()),skip:false});
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
   });
   if(!reviewQueue.length){showToast('Nepodařilo se rozpoznat žádné pokuty.');return;}
   renderReviewQueue();
@@ -870,6 +986,7 @@ window.saveEdit=async function(){
   await saveState();window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');
 };
 
+<<<<<<< HEAD
 // ─── DASHBOARD (Fix #7: mini graphs on Main tab) ─────────────────
 function renderDashboard(){
   const el=document.getElementById('main-dashboard'); if(!el) return;
@@ -944,6 +1061,9 @@ function renderDashboard(){
       </div>
     </div>`;
 }
+=======
+// ─── SUMMARY ──────────────────────────────────────────────────────
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
 function renderSummary(){
   const fines=seasonFines(),totals={};
   (state.players||[]).forEach(p=>{totals[p.name]={total:0,count:0};});

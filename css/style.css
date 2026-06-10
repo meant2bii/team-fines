@@ -409,6 +409,7 @@ select { cursor:pointer; }
 .tile-del { font-size:11px; opacity:.6; margin-left:2px; }
 .tile-del:hover { opacity:1; }
 
+<<<<<<< HEAD
 .dashboard-outer { margin-bottom:0; }
 .dash-empty { font-size:13px; color:var(--tx-m); padding:8px 0 12px; display:flex; align-items:center; gap:6px; }
 
@@ -498,6 +499,8 @@ select { cursor:pointer; }
 .spark-bar  { width:100%; background:var(--navy); border-radius:3px 3px 0 0; min-height:4px; transition:height .3s; }
 .spark-lbl  { font-size:9px; color:var(--tx-m); font-weight:600; }
 
+=======
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
 /* ── BILLING NOTICE ── */
 .billing-notice {
   display:flex; gap:10px; align-items:flex-start;

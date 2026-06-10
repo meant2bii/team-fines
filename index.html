@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<<<<<<< HEAD
   <title>Pokuty – Čechoslovan</title>
+=======
+  <title>Team Fines – Čechoslovan</title>
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,7 +22,11 @@
     <div class="auth-logo-wrap">
       <img src="logo.png" alt="Čechoslovan" class="auth-logo-img" />
     </div>
+<<<<<<< HEAD
     <div class="auth-title">Pokuty</div>
+=======
+    <div class="auth-title">Team Fines</div>
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
     <div class="auth-sub">Čechoslovan Chuchle Praha</div>
 
     <div class="auth-tabs">
@@ -70,7 +78,25 @@
 
     <!-- PHONE -->
     <div id="auth-phone" class="auth-panel">
+<<<<<<< HEAD
       <p class="helper-text" style="margin-bottom:12px;">
+=======
+      <div class="billing-notice">
+        <i class="ti ti-info-circle"></i>
+        <div>
+          <strong>SMS přihlášení vyžaduje Firebase Blaze plán.</strong>
+          Pro zprovoznění telefonní autentifikace:
+          <ol style="margin:6px 0 0 16px;line-height:1.8;">
+            <li>Otevři <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a></li>
+            <li>Přejdi na <strong>Billing</strong> → upgraduj na <strong>Blaze (pay-as-you-go)</strong></li>
+            <li>V <strong>Authentication → Sign-in method</strong> povol <strong>Phone</strong></li>
+            <li>Přidej svou doménu do <strong>Authorized domains</strong></li>
+          </ol>
+          <span style="font-size:11px;color:var(--tx-m);margin-top:4px;display:block;">Bezplatné kvóty jsou štědré – za normální týmové použití neplatíš nic.</span>
+        </div>
+      </div>
+      <p class="helper-text" style="margin-top:12px;">
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
         Jsi hráč? Přihlaš se přes telefonní číslo a piš si pokutu sám sobě.
       </p>
       <div class="form-group">
@@ -119,7 +145,11 @@
       <div class="header-brand">
         <img src="logo.png" alt="Čechoslovan" class="brand-logo" />
         <div>
+<<<<<<< HEAD
           <div class="brand-title">Pokuty</div>
+=======
+          <div class="brand-title">Team Fines</div>
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
           <div class="brand-sub" id="season-label">Sezona</div>
         </div>
       </div>
@@ -145,7 +175,11 @@
   </header>
 
   <nav class="tab-nav">
+<<<<<<< HEAD
     <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-home"></i><span> Main</span></button>
+=======
+    <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-plus"></i><span> Přidat</span></button>
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
     <button class="tab"        data-tab="log"     onclick="switchTab('log')"><i class="ti ti-list"></i><span> Log</span></button>
     <button class="tab"        data-tab="summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
     <button class="tab"        data-tab="players" onclick="switchTab('players')"><i class="ti ti-users"></i><span> Hráči</span></button>
@@ -155,10 +189,13 @@
 
     <!-- ── ADD FINE ── -->
     <section id="panel-add" class="panel active">
+<<<<<<< HEAD
 
       <!-- Dashboard visible to all logged-in users -->
       <div id="main-dashboard" class="dashboard-outer"></div>
 
+=======
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
       <div id="self-fine-form" style="display:none;">
         <div class="card self-fine-card">
           <div class="card-label"><i class="ti ti-user"></i> &nbsp;Přidej pokutu sobě</div>
@@ -204,7 +241,11 @@
         <div class="card">
           <div class="card-label">Rychlý textový vstup</div>
           <div class="quick-row">
+<<<<<<< HEAD
             <input id="quick-input" type="text" placeholder="Erik 50  nebo  Michal Bago 30  nebo  Jirka – Bago – 30" autocomplete="off"
+=======
+            <input id="quick-input" type="text" placeholder="Michal - Bago - 30" autocomplete="off"
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
               oninput="parseQuick(this.value)" onkeydown="if(event.key==='Enter')submitQuick()" />
             <button class="btn btn-primary" onclick="submitQuick()">Přidat</button>
           </div>
@@ -227,6 +268,7 @@
 
           <!-- Reason field -->
           <div class="form-group">
+<<<<<<< HEAD
             <label>Důvod <span class="label-hint">(volitelné – nebo vyber níže)</span></label>
             <input id="f-reason" type="text" placeholder="Napiš vlastní nebo vyber kategorii…" />
           </div>
@@ -258,6 +300,18 @@
                 <option value="red" selected>🔴 Červená</option>
               </select>
               <button class="btn btn-secondary" style="padding:7px 12px;flex-shrink:0;" onclick="addReason()"><i class="ti ti-plus"></i></button>
+=======
+            <label>Důvod</label>
+            <input id="f-reason" type="text" placeholder="Napiš nebo vyber níže…" />
+          </div>
+          <!-- Reason tiles -->
+          <div id="reason-tiles-row" class="tile-row" style="margin-bottom:12px;"></div>
+          <!-- Manage reasons (manager only) -->
+          <div id="reason-manage-row" style="display:none;margin-bottom:10px;">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <input id="new-reason-input" type="text" placeholder="Nový důvod…" style="flex:1;min-width:120px;" onkeydown="if(event.key==='Enter')addReason()" />
+              <button class="btn btn-secondary" style="padding:7px 12px;" onclick="addReason()"><i class="ti ti-plus"></i></button>
+>>>>>>> 499fbf9d32d3b71aaa9ead4b98e131cb7e16eb9a
             </div>
           </div>
 
