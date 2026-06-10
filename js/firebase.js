@@ -17,12 +17,8 @@
  */
 
 import { initializeApp }  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-<<<<<<< HEAD
 import { getAuth, browserLocalPersistence, setPersistence }
                           from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-=======
-import { getAuth }         from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
->>>>>>> 6d52e5b05c3d04d13f8c974b4e028b22c84a04d8
 import { getFirestore }    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
