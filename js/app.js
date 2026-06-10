@@ -16,7 +16,7 @@ import { doc, setDoc, onSnapshot }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────
-const CONFIG = { PIN:'1234', CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
+const CONFIG = { PIN:'4444', CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -106,6 +106,26 @@ function enterApp(name){
   showScreen('app');
   const hu=document.getElementById('header-user'); if(hu) hu.textContent=name||'';
   initSeasonPicker(); startFirestoreListener();
+  // #6: player email match checked after Firestore loads (see startFirestoreListener)
+}
+
+// Called after Firestore first load to check if current email user is a roster player
+function checkEmailPlayerMatch(){
+  if(!currentUser||!currentUser.emailVerified) return;
+  if(phoneUser) return; // already in phone mode
+  const userEmail=currentUser.email.toLowerCase();
+  const match=(state.players||[]).find(p=>p.email&&p.email.toLowerCase()===userEmail);
+  if(match&&!isManager){
+    // This user is a known player — show self-fine form, hide manager wall
+    const sf=document.getElementById('self-fine-form');
+    const mw=document.getElementById('manager-wall');
+    if(sf){sf.style.display='block';document.getElementById('self-fine-name-label').textContent='Přihlášen jako: '+match.name;}
+    if(mw) mw.style.display='none';
+    // Pre-fill player in manual form too
+    const fp=document.getElementById('f-player'); if(fp) fp.value=match.name;
+    const ft=document.getElementById('f-player-text'); if(ft) ft.value=match.name;
+    showToast(`Vítej, ${match.name}! Můžeš přidat pokutu sobě.`);
+  }
 }
 function showScreen(n){
   document.getElementById('auth-screen').style.display  =n==='auth'  ?'flex':'none';
@@ -269,15 +289,17 @@ window.changeSeason=function(){
 // ─── FIRESTORE ────────────────────────────────────────────────────
 function startFirestoreListener(){
   stopFirestoreListener();
+  let firstLoad=true;
   unsubFirestore=onSnapshot(doc(db,CONFIG.FIRESTORE_DOC),snap=>{
     if(snap.exists()){state=snap.data();state.players=state.players||[];state.fines=state.fines||[];}
     else state={players:[],fines:[]};
     const t=document.querySelector('.tab.active')?.dataset.tab;
-    if(t==='add'){ renderRecentPlayers(); renderReasonTiles(); }
+    if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
     if(t==='log') renderLog();
     if(t==='summary') renderSummary();
     if(t==='players') renderPlayers();
     populatePlayerSelects();
+    if(firstLoad){ firstLoad=false; checkEmailPlayerMatch(); }
   });
 }
 function stopFirestoreListener(){ if(unsubFirestore){unsubFirestore();unsubFirestore=null;} }
@@ -390,7 +412,7 @@ window.switchTab=function(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
-  if(t==='add'){ renderRecentPlayers(); renderReasonTiles(); }
+  if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
   if(t==='log'){selectedFineIndices.clear();renderLog();}
   if(t==='summary') renderSummary();
   if(t==='players') renderPlayers();
@@ -421,37 +443,62 @@ function resolvePlayerName(raw){
   return p?p.name:null;
 }
 
-// ─── DEFAULT REASONS ──────────────────────────────────────────────
-const DEFAULT_REASONS = ['Píčovina','Červená karta','Pozdní příchod','Bago','Housle','Překopnutá branka'];
-function getReasons(){ return state.reasons && state.reasons.length ? state.reasons : [...DEFAULT_REASONS]; }
-async function saveReasons(list){ state.reasons=list; await saveState(); }
+// ─── REASONS (3 categories, each with price) – Fix #6 ─────────────
+// structure: { label, price, cat: 'yellow'|'orange'|'red' }
+const DEFAULT_REASON_LIST = [
+  {label:'Pozdní příchod',    price:50,  cat:'yellow'},
+  {label:'Housle',            price:50,  cat:'yellow'},
+  {label:'Bago',              price:100, cat:'yellow'},
+  {label:'Překopnutá branka', price:100, cat:'orange'},
+  {label:'Píčovina',          price:200, cat:'orange'},
+  {label:'Červená karta',     price:500, cat:'red'},
+];
+// Stored as array of {label,price,cat}; fallback to defaults if empty
+function getReasonList(){
+  const rs=state.reasonList;
+  return (rs&&rs.length)?rs:DEFAULT_REASON_LIST.map(r=>({...r}));
+}
+// Legacy flat array compat
+function getReasons(){ return getReasonList().map(r=>r.label); }
+async function saveReasonList(list){ state.reasonList=list; await saveState(); }
+// Lookup price by label
+function reasonPrice(label){
+  const r=getReasonList().find(r=>r.label.toLowerCase()===label.toLowerCase());
+  return r?r.price:null;
+}
 
-// ─── PARSE (FIX #2: flexible format – dashes optional) ────────────
-// Supports: "Michal - Bago - 30"  AND  "Michal Bago 30"  AND  "Michal Bago 30 Kč"
+// ─── PARSE (flexible: dashes optional, reason optional, auto-price) ─
+// Supports: "Michal - Bago - 30" / "Michal Bago 30" / "Michal 30" / "Erik 50"
+// Fix #4: reason is optional — "Erik 70" is valid → reason = '' (empty)
+// Fix #5: voice delimiters "a" / "další" / comma separate players
 function parseChunk(chunk){
-  const s=chunk.replace(/[–—]/g,'-').replace(/\s*kč\s*$/i,'').trim();
+  // Normalise dashes, strip trailing kč/czk
+  const s=chunk.replace(/[–—]/g,'-').replace(/\s*(kč|czk)\s*$/i,'').trim();
   if(!s) return null;
 
-  // Try dash-separated first  (Name - Reason - Amount)
+  // 1) Dash-separated: Name - Reason - Amount  OR  Name - Amount
   if(s.includes('-')){
     const parts=s.split('-').map(x=>x.trim()).filter(Boolean);
-    if(parts.length>=3){
-      const rawName=parts[0],amount=parseFloat(parts[parts.length-1].replace(/\s/g,''));
-      const reason=parts.slice(1,-1).join(' – ');
-      if(rawName&&reason&&!isNaN(amount)&&amount>0) return{rawName,reason,amount};
+    if(parts.length>=2){
+      const rawName=parts[0];
+      const lastAmt=parseFloat(parts[parts.length-1].replace(/\s/g,''));
+      if(!isNaN(lastAmt)&&lastAmt>0){
+        const reason=parts.length>=3?parts.slice(1,-1).join(' – '):'';
+        if(rawName) return{rawName,reason,amount:lastAmt};
+      }
     }
   }
 
-  // Fallback: last token is number = amount, first word(s) = name, middle = reason
-  // Heuristic: try splitting off the trailing number, then match name prefix against known players
+  // 2) Space-separated: extract trailing number
   const tokens=s.split(/\s+/);
-  if(tokens.length<3) return null;
+  if(tokens.length<2) return null;
   const lastToken=tokens[tokens.length-1];
   const amount=parseFloat(lastToken.replace(/[^\d.]/g,''));
   if(isNaN(amount)||amount<=0) return null;
   const withoutAmt=tokens.slice(0,-1).join(' ').trim();
+  if(!withoutAmt) return null;
 
-  // Try to match longest known player name prefix
+  // Try to match longest known player name/nickname as prefix
   const players=state.players||[];
   let bestMatch=null,bestLen=0;
   for(const p of players){
@@ -462,37 +509,77 @@ function parseChunk(chunk){
       if(withoutAmt.toLowerCase().startsWith(nk)&&nk.length>bestLen){bestMatch=p.name;bestLen=nk.length;}
     }
   }
-  if(bestMatch&&bestLen<withoutAmt.length){
+  if(bestMatch){
     const reason=withoutAmt.slice(bestLen).trim();
-    if(reason) return{rawName:bestMatch,reason,amount};
+    // Auto-fill price from reason list if no explicit amount given via reason match
+    return{rawName:bestMatch,reason,amount};
   }
-  // Fallback: first word = name, rest = reason
-  if(tokens.length>=3){
-    const rawName=tokens[0],reason=tokens.slice(1,-1).join(' ');
-    if(rawName&&reason) return{rawName,reason,amount};
+
+  // Fix #4: if only 2 tokens and last is number → Name + Amount (no reason)
+  if(tokens.length===2){
+    return{rawName:tokens[0],reason:'',amount};
   }
-  return null;
+
+  // Last fallback: first word = name, rest = reason
+  return{rawName:tokens[0],reason:tokens.slice(1,-1).join(' '),amount};
 }
-function splitTranscript(t){ return t.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean); }
+
+// Fix #5: voice split – handle comma, semicolon, newline AND spoken "a"/"další"/"a pak" as entry delimiter
+function splitTranscript(t){
+  // Replace spoken delimiters between entries
+  // "Erik 50 a Pepa 60" → "Erik 50, Pepa 60"
+  // "Erik 50 další Pepa 60" → "Erik 50, Pepa 60"
+  // "Erik 50, a Pepa 60" → "Erik 50, Pepa 60"
+  let s = t
+    // Remove "a pak", "a taky", "a ještě" connectors
+    .replace(/\s+a\s+(pak|taky|ještě|také)\s+/gi, ', ')
+    // ", a" or ", další" → just ","
+    .replace(/,\s*(a|další|potom|pak)\s+/gi, ', ')
+    // " další " standalone → ","
+    .replace(/\s+další\s+/gi, ', ')
+    // " a Capitalised" — "a" between entries where next word starts with capital or is a known player first token
+    // This replaces " a " when followed by a word that looks like a name (capital or known)
+    .replace(/\s+a\s+([A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ][a-záčďéěíňóřšťúůýž]*)/g, ', $1');
+
+  return s.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+}
+
+// Auto-fill price from reason list when a reason tile is selected or matched in voice
+function autoFillPrice(reason){
+  if(!reason) return;
+  const price=reasonPrice(reason);
+  if(price!=null){
+    const amtEl=document.getElementById('f-amount');
+    if(amtEl&&!amtEl.value) amtEl.value=price;
+  }
+}
 
 // ─── QUICK TEXT ───────────────────────────────────────────────────
 window.parseQuick=function(val){
   const p=document.getElementById('parse-preview'),parsed=parseChunk(val);
   if(parsed){
     const resolved=resolvePlayerName(parsed.rawName),label=resolved||parsed.rawName;
+    const priceTag=parsed.reason?reasonPrice(parsed.reason):null;
     p.innerHTML=`<strong>${esc(label)}</strong>`
       +(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()?` <span class="badge badge-alias">≡ ${esc(parsed.rawName)}</span>`:'')
       +(!resolved?` <span class="badge badge-new">Nový hráč</span>`:'')
-      +` &nbsp;·&nbsp; ${esc(parsed.reason)} &nbsp;·&nbsp; <strong>${parsed.amount} ${CONFIG.CURRENCY}</strong>`;
-  }else{p.innerHTML=`Formát: <strong>Hráč Důvod Částka</strong> nebo <strong>Hráč – Důvod – Částka</strong>`;}
+      +(parsed.reason?` &nbsp;·&nbsp; ${esc(parsed.reason)}`:'')
+      +` &nbsp;·&nbsp; <strong>${parsed.amount} ${CONFIG.CURRENCY}</strong>`
+      +(priceTag&&priceTag!==parsed.amount?` <span class="badge badge-alias">katalog: ${priceTag}</span>`:'');
+  }else{p.innerHTML=`Příklady: <strong>Erik 50</strong> &nbsp;·&nbsp; <strong>Michal Bago 30</strong> &nbsp;·&nbsp; <strong>Jirka – Červená karta – 500</strong>`;}
 };
 window.submitQuick=function(){
   const val=document.getElementById('quick-input').value.trim();
-  const parsed=parseChunk(val); if(!parsed){alert('Zadej: Jméno Důvod Částka');return;}
+  const parsed=parseChunk(val);
+  if(!parsed){alert('Zadej alespoň: Jméno Částka');return;}
+  // Auto-price from reason if amount not in input but reason matches
+  let amount=parsed.amount;
+  if(!amount&&parsed.reason){const p=reasonPrice(parsed.reason);if(p)amount=p;}
+  if(!amount){alert('Nepodařilo se určit částku.');return;}
   const resolved=resolvePlayerName(parsed.rawName)||parsed.rawName;
-  ensurePlayer(resolved); addFine(resolved,parsed.reason,parsed.amount);
+  ensurePlayer(resolved); addFine(resolved,parsed.reason||'',amount);
   document.getElementById('quick-input').value='';
-  document.getElementById('parse-preview').innerHTML=`Formát: <strong>Hráč Důvod Částka</strong> nebo <strong>Hráč – Důvod – Částka</strong>`;
+  document.getElementById('parse-preview').innerHTML=`Příklady: <strong>Erik 50</strong> &nbsp;·&nbsp; <strong>Michal Bago 30</strong>`;
 };
 
 // ─── PLAYER AUTOCOMPLETE (FIX #3) ─────────────────────────────────
@@ -544,40 +631,119 @@ function renderRecentPlayers(){
   `).join('');
 }
 
-// ─── REASONS TILES (FIX #3) ───────────────────────────────────────
-function renderReasonTiles(){
-  const row=document.getElementById('reason-tiles-row'); if(!row) return;
-  const selected=document.getElementById('f-reason')?.value||'';
-  const reasons=getReasons();
-  const managerRow=document.getElementById('reason-manage-row');
-  if(managerRow) managerRow.style.display=isManager?'block':'none';
-  row.innerHTML=reasons.map((r,i)=>`
-    <div class="tile tile-reason${r===selected?' selected':''}" onclick="selectReason('${esc(r)}')">${esc(r)}${isManager?`<span class="tile-del" onclick="event.stopPropagation();deleteReason(${i})" title="Smazat">✕</span>`:''}</div>
-  `).join('');
-}
-window.selectReason=function(r){
-  const inp=document.getElementById('f-reason'); if(inp){inp.value=r;}
-  renderReasonTiles();
-};
-window.addReason=async function(){
-  const inp=document.getElementById('new-reason-input'); if(!inp) return;
-  const val=inp.value.trim(); if(!val) return;
-  const reasons=getReasons();
-  if(reasons.includes(val)){showToast('Důvod již existuje.');return;}
-  reasons.push(val); await saveReasons(reasons); inp.value=''; renderReasonTiles();
-  showToast(`Důvod „${val}" přidán ✓`);
-};
-window.deleteReason=async function(i){
-  const reasons=getReasons(); reasons.splice(i,1); await saveReasons(reasons); renderReasonTiles();
+// ─── REASON TILES – 3 categories (Fix #6) ────────────────────────
+const CAT_META={
+  yellow:{label:'Žlutá',   cls:'tile-yellow'},
+  orange:{label:'Oranžová',cls:'tile-orange'},
+  red:   {label:'Červená', cls:'tile-red'},
 };
 
+function renderReasonTiles(){
+  const selected=document.getElementById('f-reason')?.value||'';
+  const list=getReasonList();
+  const managerRow=document.getElementById('reason-manage-row');
+  if(managerRow) managerRow.style.display=isManager?'block':'none';
+
+  ['yellow','orange','red'].forEach(cat=>{
+    const row=document.getElementById('reason-tiles-'+cat); if(!row) return;
+    const items=list.filter(r=>r.cat===cat);
+    if(!items.length){row.innerHTML='<span style="font-size:12px;color:var(--tx-m);">—</span>';return;}
+    row.innerHTML=items.map((r,localI)=>{
+      const globalI=list.indexOf(r);
+      const isSel=r.label===selected;
+      return`<div class="tile tile-reason ${CAT_META[cat].cls}${isSel?' selected':''}"
+        onclick="selectReason('${esc(r.label)}',${r.price})" title="${r.price} CZK">
+        ${esc(r.label)}<span class="tile-price">${r.price}</span>
+        ${isManager?`<span class="tile-del" onclick="event.stopPropagation();deleteReason(${globalI})" title="Smazat">✕</span>`:''}
+      </div>`;
+    }).join('');
+  });
+}
+
+window.selectReason=function(label,price){
+  const inp=document.getElementById('f-reason'); if(inp) inp.value=label;
+  // Auto-fill amount if field is empty
+  if(price!=null){
+    const amtEl=document.getElementById('f-amount');
+    if(amtEl&&!amtEl.value) amtEl.value=price;
+  }
+  renderReasonTiles();
+};
+
+window.addReason=async function(){
+  const labelEl=document.getElementById('new-reason-input');
+  const priceEl=document.getElementById('new-reason-price');
+  const catEl  =document.getElementById('new-reason-cat');
+  if(!labelEl) return;
+  const label=labelEl.value.trim();
+  const price=parseInt(priceEl?.value||'0')||0;
+  const cat  =catEl?.value||'red';
+  if(!label){showToast('Zadej název důvodu.');return;}
+  const list=getReasonList();
+  if(list.find(r=>r.label.toLowerCase()===label.toLowerCase())){showToast('Důvod již existuje.');return;}
+  list.push({label,price,cat});
+  await saveReasonList(list);
+  labelEl.value=''; if(priceEl) priceEl.value='';
+  renderReasonTiles();
+  showToast(`Důvod „${label}" přidán ✓`);
+};
+
+window.deleteReason=async function(i){
+  const list=getReasonList(); list.splice(i,1);
+  await saveReasonList(list); renderReasonTiles();
+};
+
+// ─── REASON AUTOCOMPLETE (Fix #3) ─────────────────────────────────
+let acReasonIndex=-1, acReasonFiltered=[];
+window.reasonAutocomplete=function(val){
+  const list=document.getElementById('reason-ac-list');
+  if(!val.trim()){if(list)list.style.display='none';acReasonFiltered=[];return;}
+  const norm=val.toLowerCase();
+  const all=getReasonList();
+  acReasonFiltered=all.filter(r=>r.label.toLowerCase().includes(norm));
+  if(!acReasonFiltered.length){if(list)list.style.display='none';return;}
+  acReasonIndex=-1;
+  if(list){
+    const catColor={yellow:'#b45309',orange:'#c2410c',red:'#b91c1c'};
+    list.innerHTML=acReasonFiltered.map((r,i)=>`
+      <div class="ac-item" onmousedown="selectReasonAC('${esc(r.label)}',${r.price})" data-i="${i}">
+        ${esc(r.label)}
+        <span class="ac-sub" style="color:${catColor[r.cat]||'var(--tx-m)'};">${r.price} CZK</span>
+      </div>`).join('');
+    list.style.display='block';
+  }
+};
+window.reasonAutocompleteKey=function(e){
+  const list=document.getElementById('reason-ac-list'); if(!list) return;
+  const items=list.querySelectorAll('.ac-item');
+  if(e.key==='ArrowDown'){acReasonIndex=Math.min(acReasonIndex+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('active',i===acReasonIndex));e.preventDefault();}
+  else if(e.key==='ArrowUp'){acReasonIndex=Math.max(acReasonIndex-1,0);items.forEach((el,i)=>el.classList.toggle('active',i===acReasonIndex));e.preventDefault();}
+  else if(e.key==='Enter'&&acReasonIndex>=0&&acReasonFiltered[acReasonIndex]){
+    const r=acReasonFiltered[acReasonIndex];
+    selectReasonAC(r.label,r.price);e.preventDefault();
+  }else if(e.key==='Escape'){list.style.display='none';}
+};
+window.selectReasonAC=function(label,price){
+  const inp=document.getElementById('f-reason'); if(inp) inp.value=label;
+  const list=document.getElementById('reason-ac-list'); if(list) list.style.display='none';
+  // Auto-fill price
+  if(price!=null){
+    const amtEl=document.getElementById('f-amount');
+    if(amtEl&&(!amtEl.value||parseFloat(amtEl.value)<=0)) amtEl.value=price;
+  }
+  renderReasonTiles();
+};
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
-  const reason=document.getElementById('f-reason').value.trim();
-  const amt=parseFloat(document.getElementById('f-amount').value);
+  const reason=document.getElementById('f-reason').value.trim(); // optional
+  let amt=parseFloat(document.getElementById('f-amount').value);
+  // If no amount typed but reason has a price, auto-fill
+  if(isNaN(amt)||amt<=0){
+    const p=reasonPrice(reason);
+    if(p) amt=p;
+  }
   if(!player){alert('Vyber hráče.');return;}
-  if(!reason){alert('Vyplň důvod.');return;}
-  if(isNaN(amt)||amt<=0){alert('Zadej platnou částku.');return;}
+  if(isNaN(amt)||amt<=0){alert('Zadej částku.');return;}
   addFine(player,reason,amt);
   document.getElementById('f-player-text').value='';
   document.getElementById('f-player').value='';
@@ -597,36 +763,92 @@ window.submitSelfFine=function(){
 // ─── VOICE ────────────────────────────────────────────────────────
 window.toggleVoiceSession=function(){voiceActive?stopVoiceSession():startVoiceSession();};
 function startVoiceSession(){
-  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){alert('Hlasový vstup není podporován. Zkuste Chrome nebo Edge.');return;}
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){
+    alert('Hlasový vstup není podporován. Zkuste Chrome nebo Edge na Androidu/desktopu.');return;
+  }
+  // Clean any existing recognition first
+  if(recognition){try{recognition.abort();}catch(e){}recognition=null;}
   voiceActive=true;fullTranscript='';
+
   const btn=document.getElementById('voice-record-btn');
   btn.classList.add('recording');
   document.getElementById('voice-record-label').textContent='Zastavit nahrávání';
   document.getElementById('voice-status').textContent='🔴 Nahrávám…';
-  const live=document.getElementById('voice-live');live.style.display='block';live.textContent='';
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  recognition=new SR();recognition.lang='cs-CZ';recognition.continuous=true;recognition.interimResults=true;
-  recognition.onresult=e=>{
-    clearTimeout(silenceTimer);silenceTimer=setTimeout(()=>{if(voiceActive)stopVoiceSession();},3500);
-    let interim='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      const t=e.results[i][0].transcript;
-      if(e.results[i].isFinal)fullTranscript+=(fullTranscript?', ':'')+t; else interim=t;
+  const live=document.getElementById('voice-live');
+  live.style.display='block';live.textContent='';
+
+  function createAndStart(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    const r=new SR();
+    r.lang='cs-CZ';
+    r.continuous=true;
+    r.interimResults=true;
+    r.maxAlternatives=1;
+
+    r.onresult=e=>{
+      clearTimeout(silenceTimer);
+      // Auto-stop after 4s silence
+      silenceTimer=setTimeout(()=>{if(voiceActive)stopVoiceSession();},4000);
+      let interim='';
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal) fullTranscript+=(fullTranscript?', ':'')+t;
+        else interim=t;
+      }
+      live.textContent=fullTranscript+(interim?' '+interim:'');
+    };
+
+    r.onerror=err=>{
+      // 'aborted' fires when we stop intentionally – ignore it
+      if(err.error==='aborted') return;
+      console.warn('Speech error:',err.error);
+      if(err.error==='not-allowed'){
+        voiceActive=false;
+        alert('Mikrofon není povolen. Povol přístup k mikrofonu v nastavení prohlížeče.');
+        resetVoiceUI();
+      }
+      // For no-speech / network / audio-capture: just restart
+    };
+
+    r.onend=()=>{
+      // Only restart if user hasn't stopped
+      if(voiceActive){
+        try{createAndStart();}catch(e){stopVoiceSession();}
+      }
+    };
+
+    recognition=r;
+    try{r.start();}catch(e){
+      console.warn('start() failed:',e);
+      if(voiceActive) setTimeout(()=>{if(voiceActive)try{createAndStart();}catch(ex){stopVoiceSession();}},300);
     }
-    live.textContent=fullTranscript+(interim?' '+interim:'');
-  };
-  recognition.onerror=err=>{if(['no-speech','audio-capture'].includes(err.error))stopVoiceSession();};
-  recognition.onend=()=>{if(voiceActive){try{recognition.start();}catch(e){stopVoiceSession();}}};
-  recognition.start();
+  }
+  createAndStart();
 }
+
+function resetVoiceUI(){
+  const btn=document.getElementById('voice-record-btn');
+  if(btn) btn.classList.remove('recording');
+  const lbl=document.getElementById('voice-record-label');
+  if(lbl) lbl.textContent='Spustit nahrávání';
+  const st=document.getElementById('voice-status');
+  if(st) st.textContent='';
+  const live=document.getElementById('voice-live');
+  if(live) live.style.display='none';
+}
+
 function stopVoiceSession(){
-  voiceActive=false;clearTimeout(silenceTimer);
-  if(recognition){recognition.onend=null;try{recognition.stop();}catch(e){}recognition=null;}
-  document.getElementById('voice-record-btn').classList.remove('recording');
-  document.getElementById('voice-record-label').textContent='Spustit nahrávání';
-  document.getElementById('voice-status').textContent='';
-  document.getElementById('voice-live').style.display='none';
-  const t=fullTranscript.trim(); if(!t){showToast('Žádný hlasový vstup.');return;}
+  voiceActive=false;
+  clearTimeout(silenceTimer);
+  if(recognition){
+    recognition.onend=null; // prevent restart loop
+    recognition.onerror=null;
+    try{recognition.abort();}catch(e){}
+    recognition=null;
+  }
+  resetVoiceUI();
+  const t=fullTranscript.trim();
+  if(!t){showToast('Žádný hlasový vstup.');return;}
   buildReviewQueue(t);
 }
 
@@ -636,7 +858,10 @@ function buildReviewQueue(transcript){
   splitTranscript(transcript).forEach(chunk=>{
     const parsed=parseChunk(chunk); if(!parsed) return;
     const resolved=resolvePlayerName(parsed.rawName);
-    reviewQueue.push({rawName:parsed.rawName,resolvedPlayer:resolved||parsed.rawName,reason:parsed.reason,amount:parsed.amount,isNew:!resolved,isAlias:!!(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()),skip:false});
+    // Auto-price: if reason matches a catalogue entry and amount not given explicitly, use catalogue price
+    let amount=parsed.amount;
+    if(parsed.reason){const cp=reasonPrice(parsed.reason);if(cp&&!amount)amount=cp;}
+    reviewQueue.push({rawName:parsed.rawName,resolvedPlayer:resolved||parsed.rawName,reason:parsed.reason||'',amount:amount||0,isNew:!resolved,isAlias:!!(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()),skip:false});
   });
   if(!reviewQueue.length){showToast('Nepodařilo se rozpoznat žádné pokuty.');return;}
   renderReviewQueue();
@@ -763,7 +988,147 @@ window.saveEdit=async function(){
   await saveState();window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');
 };
 
-// ─── SUMMARY ──────────────────────────────────────────────────────
+// ─── DASHBOARD ───────────────────────────────────────────────────
+const SEASON_BUDGET = 10000; // CZK target per half-season
+
+function renderDashboard(){
+  const el=document.getElementById('main-dashboard'); if(!el) return;
+  const fines=seasonFines();
+  const sl=activeSeason?seasonLabel(activeSeason):'sezóna';
+
+  if(!fines.length){
+    el.innerHTML=`<div class="dash-empty"><i class="ti ti-chart-bar"></i> Zatím žádné pokuty – ${sl}</div>`;
+    return;
+  }
+
+  const total=fines.reduce((a,f)=>a+f.amount,0);
+  const count=fines.length;
+  const pct=Math.min(100,Math.round((total/SEASON_BUDGET)*100));
+  const missing=Math.max(0,SEASON_BUDGET-total);
+  const budgetColor=pct>=100?'#16a34a':pct>=60?'#d97706':'#1B3A6B';
+
+  // Top 4 players by fine total
+  const byPlayer={};
+  fines.forEach(f=>{byPlayer[f.player]=(byPlayer[f.player]||0)+f.amount;});
+  const topPlayers=Object.entries(byPlayer).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const maxP=topPlayers[0]?topPlayers[0][1]:1;
+
+  // Top 5 reasons
+  const byReason={};
+  fines.forEach(f=>{if(f.reason)byReason[f.reason]=(byReason[f.reason]||0)+1;});
+  const topReasons=Object.entries(byReason).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxR=topReasons[0]?topReasons[0][1]:1;
+
+  // ── Last 7 days ──────────────────────────────────────────────
+  const now=Date.now(),DAY=86400000;
+  const days7=Array.from({length:7},(_,i)=>{
+    const from=now-(6-i)*DAY, to=from+DAY;
+    return{
+      sum:fines.filter(f=>f.ts>=from&&f.ts<to).reduce((a,f)=>a+f.amount,0),
+      count:fines.filter(f=>f.ts>=from&&f.ts<to).length,
+    };
+  });
+  const maxDay=Math.max(...days7.map(d=>d.sum),1);
+  const todayDow=(new Date().getDay()+6)%7;
+  const dayLabels=['Po','Út','St','Čt','Pá','So','Ne'];
+  const spark7=days7.map((d,i)=>{
+    const lbl=dayLabels[(todayDow-6+i+7)%7];
+    const h=Math.max(4,Math.round((d.sum/maxDay)*44));
+    const isToday=i===6;
+    return`<div class="spark-col">
+      <div class="spark-val">${d.sum>0?d.sum:''}</div>
+      <div class="spark-bar${isToday?' spark-bar-today':''}" style="height:${h}px" title="${d.sum} CZK, ${d.count} pokut"></div>
+      <div class="spark-lbl${isToday?' spark-lbl-today':''}">${lbl}</div>
+    </div>`;
+  }).join('');
+
+  // ── Last 7 weeks ─────────────────────────────────────────────
+  const WEEK=DAY*7;
+  const weeks7=Array.from({length:7},(_,i)=>{
+    const from=now-(6-i)*WEEK, to=from+WEEK;
+    const wFines=fines.filter(f=>f.ts>=from&&f.ts<to);
+    return{sum:wFines.reduce((a,f)=>a+f.amount,0),count:wFines.length};
+  });
+  const maxWeek=Math.max(...weeks7.map(d=>d.sum),1);
+  // Week label: "W23" style
+  function weekNum(offsetWeeks){
+    const d=new Date(now-(6-offsetWeeks)*WEEK);
+    const jan1=new Date(d.getFullYear(),0,1);
+    return `T${Math.ceil(((d-jan1)/DAY+jan1.getDay()+1)/7)}`;
+  }
+  const spark7w=weeks7.map((d,i)=>{
+    const h=Math.max(4,Math.round((d.sum/maxWeek)*44));
+    const isNow=i===6;
+    return`<div class="spark-col">
+      <div class="spark-val">${d.sum>0?d.sum:''}</div>
+      <div class="spark-bar${isNow?' spark-bar-today':''}" style="height:${h}px" title="${d.sum} CZK, ${d.count} pokut"></div>
+      <div class="spark-lbl${isNow?' spark-lbl-today':''}">${weekNum(i)}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+  <div class="dash-grid">
+
+    <!-- Fond sezóny with budget progress -->
+    <div class="dash-card dash-fond">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div class="dash-label">Fond sezóny · ${esc(sl)}</div>
+          <div class="dash-val">${total} <span class="dash-unit">CZK</span></div>
+          <div class="dash-sub">${count} pokut · cíl ${SEASON_BUDGET.toLocaleString('cs-CZ')} CZK</div>
+        </div>
+        <div class="budget-ring">
+          <svg viewBox="0 0 42 42" width="72" height="72">
+            <circle cx="21" cy="21" r="16" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="4"/>
+            <circle cx="21" cy="21" r="16" fill="none" stroke="${pct>=100?'#4ade80':'#fff'}" stroke-width="4"
+              stroke-dasharray="${Math.round(pct/100*100.53)} 100.53"
+              stroke-linecap="round" transform="rotate(-90 21 21)"/>
+            <text x="21" y="25" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">${pct}%</text>
+          </svg>
+        </div>
+      </div>
+      <div class="budget-bar-track" style="margin-top:10px;">
+        <div class="budget-bar-fill" style="width:${pct}%;background:${budgetColor};"></div>
+      </div>
+      <div class="dash-sub" style="margin-top:5px;">${pct>=100?'🎉 Cíl splněn!':'Chybí '+missing.toLocaleString('cs-CZ')+' CZK ('+( 100-pct)+'%)'}</div>
+    </div>
+
+    <!-- Největší dlužníci -->
+    <div class="dash-card">
+      <div class="dash-label">Největší dlužníci</div>
+      ${topPlayers.map(([name,amt])=>`
+        <div class="dash-bar-row">
+          <span class="dash-bar-name">${esc(name.split(' ')[0])}</span>
+          <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${Math.round(amt/maxP*100)}%"></div></div>
+          <span class="dash-bar-amt">${amt}</span>
+        </div>`).join('')}
+    </div>
+
+    <!-- Nejčastější přestupky -->
+    <div class="dash-card">
+      <div class="dash-label">Nejčastější přestupky</div>
+      ${topReasons.map(([r,c])=>`
+        <div class="dash-bar-row">
+          <span class="dash-bar-name" title="${esc(r)}">${esc(r.slice(0,15))}</span>
+          <div class="dash-bar-track"><div class="dash-bar-fill dash-bar-red" style="width:${Math.round(c/maxR*100)}%"></div></div>
+          <span class="dash-bar-amt">${c}×</span>
+        </div>`).join('')}
+    </div>
+
+    <!-- Posledních 7 dní -->
+    <div class="dash-card">
+      <div class="dash-label">Posledních 7 dní</div>
+      <div class="spark-wrap">${spark7}</div>
+    </div>
+
+    <!-- Posledních 7 týdnů -->
+    <div class="dash-card">
+      <div class="dash-label">Posledních 7 týdnů</div>
+      <div class="spark-wrap">${spark7w}</div>
+    </div>
+
+  </div>`;
+}
 function renderSummary(){
   const fines=seasonFines(),totals={};
   (state.players||[]).forEach(p=>{totals[p.name]={total:0,count:0};});

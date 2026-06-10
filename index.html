@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Team Fines – Čechoslovan</title>
+  <title>Pokuty – Čechoslovan</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,13 +18,12 @@
     <div class="auth-logo-wrap">
       <img src="logo.png" alt="Čechoslovan" class="auth-logo-img" />
     </div>
-    <div class="auth-title">Team Fines</div>
+    <div class="auth-title">Pokuty</div>
     <div class="auth-sub">Čechoslovan Chuchle Praha</div>
 
     <div class="auth-tabs">
-      <button class="auth-tab active" data-tab="login"    onclick="showAuthTab('login')">Přihlásit</button>
+      <button class="auth-tab active" data-tab="login"    onclick="showAuthTab('login')">Přihlásit se</button>
       <button class="auth-tab"        data-tab="register" onclick="showAuthTab('register')">Registrace</button>
-      <button class="auth-tab"        data-tab="phone"    onclick="showAuthTab('phone')">📱 Hráč</button>
     </div>
 
     <!-- LOGIN -->
@@ -70,21 +69,7 @@
 
     <!-- PHONE -->
     <div id="auth-phone" class="auth-panel">
-      <div class="billing-notice">
-        <i class="ti ti-info-circle"></i>
-        <div>
-          <strong>SMS přihlášení vyžaduje Firebase Blaze plán.</strong>
-          Pro zprovoznění telefonní autentifikace:
-          <ol style="margin:6px 0 0 16px;line-height:1.8;">
-            <li>Otevři <a href="https://console.firebase.google.com" target="_blank">Firebase Console</a></li>
-            <li>Přejdi na <strong>Billing</strong> → upgraduj na <strong>Blaze (pay-as-you-go)</strong></li>
-            <li>V <strong>Authentication → Sign-in method</strong> povol <strong>Phone</strong></li>
-            <li>Přidej svou doménu do <strong>Authorized domains</strong></li>
-          </ol>
-          <span style="font-size:11px;color:var(--tx-m);margin-top:4px;display:block;">Bezplatné kvóty jsou štědré – za normální týmové použití neplatíš nic.</span>
-        </div>
-      </div>
-      <p class="helper-text" style="margin-top:12px;">
+      <p class="helper-text" style="margin-bottom:12px;">
         Jsi hráč? Přihlaš se přes telefonní číslo a piš si pokutu sám sobě.
       </p>
       <div class="form-group">
@@ -130,13 +115,17 @@
 
   <header class="app-header">
     <div class="header-inner">
+
+      <!-- LEFT: logo + title + season label -->
       <div class="header-brand">
         <img src="logo.png" alt="Čechoslovan" class="brand-logo" />
-        <div>
-          <div class="brand-title">Team Fines</div>
-          <div class="brand-sub" id="season-label">Sezona</div>
+        <div class="brand-text">
+          <div class="brand-title">Pokuty</div>
+          <div class="brand-season" id="season-label">Sezona</div>
         </div>
       </div>
+
+      <!-- RIGHT: season picker (manager), email, manager btn, logout -->
       <div class="header-right">
         <div id="season-controls" style="display:none;" class="season-controls">
           <select id="season-year" onchange="changeSeason()"></select>
@@ -146,7 +135,6 @@
           </select>
         </div>
         <span id="header-user" class="header-user"></span>
-        <!-- FIX #4: manager btn with clear readable style when active -->
         <button class="manager-btn" id="lock-btn" onclick="toggleLock()">
           <i class="ti ti-lock"></i>
           <span id="lock-label">Manager</span>
@@ -155,11 +143,12 @@
           <i class="ti ti-logout"></i>
         </button>
       </div>
+
     </div>
   </header>
 
   <nav class="tab-nav">
-    <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-plus"></i><span> Přidat</span></button>
+    <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-home"></i><span> Main</span></button>
     <button class="tab"        data-tab="log"     onclick="switchTab('log')"><i class="ti ti-list"></i><span> Log</span></button>
     <button class="tab"        data-tab="summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
     <button class="tab"        data-tab="players" onclick="switchTab('players')"><i class="ti ti-users"></i><span> Hráči</span></button>
@@ -169,6 +158,10 @@
 
     <!-- ── ADD FINE ── -->
     <section id="panel-add" class="panel active">
+
+      <!-- Dashboard visible to all logged-in users -->
+      <div id="main-dashboard" class="dashboard-outer"></div>
+
       <div id="self-fine-form" style="display:none;">
         <div class="card self-fine-card">
           <div class="card-label"><i class="ti ti-user"></i> &nbsp;Přidej pokutu sobě</div>
@@ -214,7 +207,7 @@
         <div class="card">
           <div class="card-label">Rychlý textový vstup</div>
           <div class="quick-row">
-            <input id="quick-input" type="text" placeholder="Michal - Bago - 30" autocomplete="off"
+            <input id="quick-input" type="text" placeholder="Erik 50  nebo  Michal Bago 30  nebo  Jirka – Bago – 30" autocomplete="off"
               oninput="parseQuick(this.value)" onkeydown="if(event.key==='Enter')submitQuick()" />
             <button class="btn btn-primary" onclick="submitQuick()">Přidat</button>
           </div>
@@ -236,17 +229,42 @@
           <div id="recent-players-row" class="tile-row" style="margin-bottom:12px;"></div>
 
           <!-- Reason field -->
-          <div class="form-group">
-            <label>Důvod</label>
-            <input id="f-reason" type="text" placeholder="Napiš nebo vyber níže…" />
+          <div class="form-group" style="position:relative;">
+            <label>Důvod <span class="label-hint">(volitelné – nebo vyber níže)</span></label>
+            <input id="f-reason" type="text" placeholder="Napiš vlastní nebo vyber kategorii…"
+              oninput="reasonAutocomplete(this.value)"
+              onkeydown="reasonAutocompleteKey(event)"
+              onblur="setTimeout(()=>{const l=document.getElementById('reason-ac-list');if(l)l.style.display='none';},150)" />
+            <div id="reason-ac-list" class="ac-list" style="display:none;"></div>
           </div>
-          <!-- Reason tiles -->
-          <div id="reason-tiles-row" class="tile-row" style="margin-bottom:12px;"></div>
-          <!-- Manage reasons (manager only) -->
-          <div id="reason-manage-row" style="display:none;margin-bottom:10px;">
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              <input id="new-reason-input" type="text" placeholder="Nový důvod…" style="flex:1;min-width:120px;" onkeydown="if(event.key==='Enter')addReason()" />
-              <button class="btn btn-secondary" style="padding:7px 12px;" onclick="addReason()"><i class="ti ti-plus"></i></button>
+
+          <!-- 3-category reason tiles (fix #6) -->
+          <div id="reason-categories" class="reason-categories">
+            <div class="reason-cat">
+              <div class="reason-cat-header cat-yellow"><i class="ti ti-circle-filled"></i> Žlutá</div>
+              <div class="tile-row" id="reason-tiles-yellow"></div>
+            </div>
+            <div class="reason-cat">
+              <div class="reason-cat-header cat-orange"><i class="ti ti-circle-filled"></i> Oranžová</div>
+              <div class="tile-row" id="reason-tiles-orange"></div>
+            </div>
+            <div class="reason-cat">
+              <div class="reason-cat-header cat-red"><i class="ti ti-circle-filled"></i> Červená</div>
+              <div class="tile-row" id="reason-tiles-red"></div>
+            </div>
+          </div>
+
+          <!-- Manager: add new reason -->
+          <div id="reason-manage-row" style="display:none;margin-top:8px;margin-bottom:4px;">
+            <div class="reason-add-form">
+              <input id="new-reason-input" type="text" placeholder="Nový důvod…" style="flex:2;" onkeydown="if(event.key==='Enter')addReason()" />
+              <input id="new-reason-price" type="number" placeholder="CZK" style="flex:1;max-width:90px;" onkeydown="if(event.key==='Enter')addReason()" />
+              <select id="new-reason-cat" style="flex:1.2;">
+                <option value="yellow">🟡 Žlutá</option>
+                <option value="orange">🟠 Oranžová</option>
+                <option value="red" selected>🔴 Červená</option>
+              </select>
+              <button class="btn btn-secondary" style="padding:7px 12px;flex-shrink:0;" onclick="addReason()"><i class="ti ti-plus"></i></button>
             </div>
           </div>
 
