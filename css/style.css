@@ -37,6 +37,7 @@
   --blue-bg:    #dbeafe;
   --wa:         #25d366;
   --wa-dark:    #128c7e;
+  --hills-bg:   url('../img/material-hills.jpg');
 
   /* Roles */
   --role-a:       #1B3A6B;
@@ -65,7 +66,15 @@
 }
 
 html { font-size:16px; scroll-behavior:smooth; }
-body { font-family:var(--sans); background:var(--bg); color:var(--tx); min-height:100vh; line-height:1.6; -webkit-font-smoothing:antialiased; }
+body {
+  font-family:var(--sans);
+  background:
+    linear-gradient(135deg,rgba(244,248,255,.91) 0%,rgba(255,255,255,.82) 53%,rgba(255,242,243,.88) 100%),
+    linear-gradient(125deg,#1B3A6B 0%,#f8fbff 52%,#C0272D 100%),
+    var(--hills-bg) center / cover fixed;
+  background-blend-mode:normal,color,normal;
+  color:var(--tx); min-height:100vh; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
 
 /* ── BASE ELEMENTS ─────────────────────────────────────────────── */
 input,select,textarea {
@@ -136,7 +145,14 @@ select { cursor:pointer; }
 /* ══════════════════════════════════════════════════════════════
    AUTH – logo + brand colors
 ══════════════════════════════════════════════════════════════ */
-.auth-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1rem; background:linear-gradient(135deg,#0c1a3a 0%,#1B3A6B 60%,#C0272D 100%); }
+.auth-screen {
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:1rem;
+  background:
+    linear-gradient(135deg,rgba(9,24,55,.88) 0%,rgba(27,58,107,.72) 48%,rgba(192,39,45,.72) 100%),
+    linear-gradient(125deg,#1B3A6B 0%,#f8fbff 52%,#C0272D 100%),
+    var(--hills-bg) center / cover;
+  background-blend-mode:normal,color,normal;
+}
 .auth-card { background:var(--bg-c); border-radius:var(--r-xl); padding:2rem 1.75rem; width:min(420px,100%); box-shadow:0 20px 60px rgba(0,0,0,.35); }
 
 .auth-logo-wrap { text-align:center; margin-bottom:14px; }
