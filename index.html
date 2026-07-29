@@ -125,7 +125,7 @@
         </div>
       </div>
 
-      <!-- RIGHT: season picker (manager), email, manager btn, logout -->
+      <!-- RIGHT: season picker, email, logout -->
       <div class="header-right">
         <div id="season-controls" style="display:none;" class="season-controls">
           <select id="season-year" onchange="changeSeason()"></select>
@@ -135,10 +135,6 @@
           </select>
         </div>
         <span id="header-user" class="header-user"></span>
-        <button class="manager-btn" id="lock-btn" onclick="toggleLock()">
-          <i class="ti ti-lock"></i>
-          <span id="lock-label">Manager</span>
-        </button>
         <button class="btn-icon header-logout" onclick="doLogout()" title="Odhlásit se">
           <i class="ti ti-logout"></i>
         </button>
@@ -172,23 +168,17 @@
         </div>
       </div>
 
-      <div id="manager-wall" class="lock-wall">
-        <i class="ti ti-shield-lock lock-wall-icon"></i>
-        <p>Pro přidání pokut se přihlaste jako manažer.</p>
-        <button class="btn btn-primary" onclick="toggleLock()">Přihlásit jako manažer</button>
-      </div>
-
       <div id="add-form" style="display:none;">
         <div class="card voice-card">
           <div class="card-label"><i class="ti ti-microphone"></i> &nbsp;Hlasové nahrávání po tréninku</div>
-          <p class="helper-text">Stiskni a říkej pokuty za sebou. Např.: <em>„Michal – Bago a překopnutí – 90, Teichi – Píčovina – 120"</em></p>
+          <p class="helper-text">Říkej vždy <strong>hráč, důvod, částka</strong> a mezi pokutami řekni <strong>„další“</strong>. Např.: <em>„Michal Bago sto, další Teichi Píčovina dvě stě“</em>. Částku můžeš vynechat pouze u důvodu z ceníku.</p>
           <div class="voice-session-ui">
             <button class="voice-record-btn" id="voice-record-btn" onclick="toggleVoiceSession()">
               <span class="voice-record-pulse"></span>
               <i class="ti ti-microphone"></i>
               <span id="voice-record-label">Spustit nahrávání</span>
             </button>
-            <div class="voice-status" id="voice-status"></div>
+            <div class="voice-status" id="voice-status" aria-live="polite"></div>
           </div>
           <div id="voice-live" class="voice-live" style="display:none;"></div>
         </div>
@@ -311,11 +301,6 @@
 
     <!-- ── PLAYERS ── -->
     <section id="panel-players" class="panel">
-      <div id="manager-wall2" class="lock-wall">
-        <i class="ti ti-shield-lock lock-wall-icon"></i>
-        <p>Pro správu hráčů se přihlašte jako manažer.</p>
-        <button class="btn btn-primary" onclick="toggleLock()">Přihlásit jako manažer</button>
-      </div>
       <div id="players-form" style="display:none;">
         <!-- FIX #3: CSV import as upload button -->
         <div class="card import-card">
@@ -380,21 +365,6 @@
 </div>
 
 <!-- ══ MODALS ══════════════════════════════════════════════════════ -->
-
-<!-- PIN -->
-<div class="modal-backdrop" id="pin-modal">
-  <div class="modal">
-    <div class="modal-header"><h3>Manager přístup</h3><button class="btn-icon" onclick="closePinModal()"><i class="ti ti-x"></i></button></div>
-    <p class="modal-sub">Zadej manažerský PIN.</p>
-    <input id="pin-input" type="password" placeholder="PIN" maxlength="6" onkeydown="if(event.key==='Enter')checkPin()" />
-    <div id="pin-err" class="error-msg" style="display:none;">Nesprávný PIN</div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closePinModal()">Zrušit</button>
-      <button class="btn btn-primary"   onclick="checkPin()">Odemknout</button>
-    </div>
-
-  </div>
-</div>
 
 <!-- EDIT FINE -->
 <div class="modal-backdrop" id="edit-modal">

@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { parseVoiceChunk, parseVoiceTranscript, resolveVoicePlayer } from '../js/voice.js';
+
+const players = [
+  { name: 'Michal Novák', nicknames: ['Míša', 'Bago'] },
+  { name: 'Lukáš Teichmann', nicknames: ['Teichi'] },
+  { name: 'Pavel Malý', nicknames: [] },
+  { name: 'Pavel Velký', nicknames: [] },
+];
+const reasons = [
+  { label: 'Bago', price: 100 },
+  { label: 'Píčovina', price: 200 },
+];
+
+test('parses a nickname, catalogue reason and spoken amount', () => {
+  const fine = parseVoiceChunk('Míša Bago sto', players, reasons);
+  assert.equal(fine.resolution.player, 'Michal Novák');
+  assert.equal(fine.reason, 'Bago');
+  assert.equal(fine.amount, 100);
+  assert.deepEqual(fine.issues, []);
+});
+
+test('uses catalogue price when the amount is intentionally omitted', () => {
+  const fine = parseVoiceChunk('Teichi Píčovina', players, reasons);
+  assert.equal(fine.resolution.player, 'Lukáš Teichmann');
+  assert.equal(fine.amount, 200);
+  assert.equal(fine.usedCatalogPrice, true);
+});
+
+test('splits a spoken batch using the explicit další separator', () => {
+  const fines = parseVoiceTranscript('Míša Bago sto další Teichi Píčovina dvě stě', players, reasons);
+  assert.equal(fines.length, 2);
+  assert.deepEqual(fines.map(f => f.resolution.player), ['Michal Novák', 'Lukáš Teichmann']);
+  assert.deepEqual(fines.map(f => f.amount), [100, 200]);
+});
+
+test('keeps an unknown player unresolved instead of inventing a player', () => {
+  const fine = parseVoiceChunk('Neznámý Bago sto', players, reasons);
+  assert.equal(fine.resolution.player, null);
+  assert.ok(fine.issues.includes('player'));
+});
+
+test('refuses an ambiguous player match', () => {
+  const result = resolveVoicePlayer('Pavel', players);
+  assert.equal(result.status, 'ambiguous');
+  assert.equal(result.player, null);
+});

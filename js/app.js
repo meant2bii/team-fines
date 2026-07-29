@@ -14,9 +14,12 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { doc, setDoc, onSnapshot }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
+  from './voice.js';
+import { seasonForDate, seasonKey as calendarSeasonKey } from './season.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────
-const CONFIG = { PIN:'4444', CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
+const CONFIG = { CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -54,6 +57,7 @@ const WA_MEMBERS = [
 let isManager=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
 let currentUser=null, phoneUser=null, unsubFirestore=null, activeSeason=null;
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
+let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
 let reviewQueue=[];
 let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
@@ -70,17 +74,13 @@ const ROLES=[
 function roleClass(id){ return (ROLES.find(r=>r.id===id)||{cls:'badge-season'}).cls; }
 
 // ─── SEASON HELPERS ───────────────────────────────────────────────
-function seasonKey(s){ return `${s.year}-${s.half}`; }
+function seasonKey(s){ return calendarSeasonKey(s); }
 function seasonLabel(s){ return `${s.half} ${s.year}`; }
 function currentYear(){ return new Date().getFullYear(); }
 function seasonFines(){
   if(!activeSeason) return state.fines||[];
-  const {year,half}=activeSeason;
-  return (state.fines||[]).filter(f=>{
-    const d=new Date(f.ts),y=d.getFullYear(),m=d.getMonth()+1;
-    if(half==='Podzim') return (y===year&&m>=8)||(y===year+1&&m<=1);
-    return y===year&&m>=2&&m<=7;
-  });
+  const key=seasonKey(activeSeason);
+  return (state.fines||[]).filter(f=>seasonKey(seasonForDate(new Date(f.ts)))===key);
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────
@@ -103,9 +103,12 @@ function resetAuthButtons(){
   if(rb){rb.disabled=false;rb.innerHTML='<i class="ti ti-user-plus"></i> Vytvořit účet';}
 }
 function enterApp(name){
+  // Every verified email account can manage the team; the former PIN only
+  // created a false sense of security because it lived in the client code.
+  isManager=!phoneUser;
   showScreen('app');
   const hu=document.getElementById('header-user'); if(hu) hu.textContent=name||'';
-  initSeasonPicker(); startFirestoreListener();
+  initSeasonPicker(); updateLockUI(); startFirestoreListener();
   // #6: player email match checked after Firestore loads (see startFirestoreListener)
 }
 
@@ -264,8 +267,9 @@ window.resendVerification=async function(){
 
 // ─── SEASON PICKER ────────────────────────────────────────────────
 function initSeasonPicker(){
-  const m=new Date().getMonth()+1,y=currentYear();
-  activeSeason={year:y,half:(m>=8||m===1)?'Podzim':'Jaro'};
+  const current=seasonForDate();
+  activeSeason=current;
+  const y=currentYear();
   const ys=document.getElementById('season-year'),hs=document.getElementById('season-half');
   if(!ys||!hs) return;
   ys.innerHTML='';
@@ -365,41 +369,17 @@ window.confirmCSVImport=async function(){
   window.cancelCSVImport();
 };
 
-// ─── LOCK / PIN ───────────────────────────────────────────────────
-window.toggleLock=function(){
-  if(isManager){isManager=false;updateLockUI();showToast('Manažer odhlášen');return;}
-  document.getElementById('pin-modal').classList.add('open');
-  setTimeout(()=>document.getElementById('pin-input').focus(),80);
-};
-window.closePinModal=function(){
-  document.getElementById('pin-modal').classList.remove('open');
-  document.getElementById('pin-input').value='';
-  document.getElementById('pin-err').style.display='none';
-};
-window.checkPin=function(){
-  if(document.getElementById('pin-input').value===CONFIG.PIN){
-    isManager=true;window.closePinModal();updateLockUI();showToast('Manažer přihlášen ✓');
-  }else{
-    document.getElementById('pin-err').style.display='block';
-    document.getElementById('pin-input').select();
-  }
-};
-
+// ─── ACCESS UI ─────────────────────────────────────────────────────
 function updateLockUI(){
-  const btn=document.getElementById('lock-btn'),lbl=document.getElementById('lock-label');
   const sc=document.getElementById('season-controls');
   const mw=document.getElementById('manager-wall'),mw2=document.getElementById('manager-wall2');
   const af=document.getElementById('add-form'),pf=document.getElementById('players-form');
   if(isManager){
-    if(lbl) lbl.textContent='Odhlásit';
-    if(btn){btn.classList.add('active');btn.querySelector('.ti').className='ti ti-lock-open';}
     if(sc) sc.style.display='flex';
     if(mw) mw.style.display='none'; if(mw2) mw2.style.display='none';
     if(af) af.style.display='block'; if(pf) pf.style.display='block';
     populatePlayerSelects(); renderPlayers(); renderReasonTiles();
   }else{
-    if(lbl) lbl.textContent='Manager';
-    if(btn){btn.classList.remove('active');btn.querySelector('.ti').className='ti ti-lock';}
     if(sc) sc.style.display='none';
     if(mw) mw.style.display='block'; if(mw2) mw2.style.display='block';
     if(af) af.style.display='none'; if(pf) pf.style.display='none';
@@ -436,11 +416,8 @@ function populatePlayerSelects(){
 
 // ─── NICKNAME RESOLUTION ──────────────────────────────────────────
 function resolvePlayerName(raw){
-  const norm=raw.toLowerCase().trim();
-  let p=state.players.find(p=>p.name.toLowerCase()===norm); if(p) return p.name;
-  p=state.players.find(p=>(p.nicknames||[]).some(n=>n.toLowerCase()===norm)); if(p) return p.name;
-  p=state.players.find(p=>p.name.toLowerCase().includes(norm)||norm.includes(p.name.toLowerCase())||(p.nicknames||[]).some(n=>n.toLowerCase().includes(norm)||norm.includes(n.toLowerCase())));
-  return p?p.name:null;
+  const match=resolveVoicePlayer(raw,state.players||[]);
+  return (match.status==='exact'||match.status==='fuzzy')?match.player:null;
 }
 
 // ─── REASONS (3 categories, each with price) – Fix #6 ─────────────
@@ -764,66 +741,87 @@ window.submitSelfFine=function(){
 window.toggleVoiceSession=function(){voiceActive?stopVoiceSession():startVoiceSession();};
 function startVoiceSession(){
   if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){
-    alert('Hlasový vstup není podporován. Zkuste Chrome nebo Edge na Androidu/desktopu.');return;
+    showVoiceProblem('Tento prohlížeč nepodporuje diktování. Otevři aplikaci v aktuálním Chrome nebo Edge a povol mikrofon.');return;
   }
-  // Clean any existing recognition first
+  if(!window.isSecureContext){
+    showVoiceProblem('Diktování vyžaduje zabezpečené připojení HTTPS. Otevři aplikaci přes její veřejnou adresu, ne z lokálního souboru.');return;
+  }
   if(recognition){try{recognition.abort();}catch(e){}recognition=null;}
-  voiceActive=true;fullTranscript='';
+  clearTimeout(voiceRestartTimer);clearTimeout(silenceTimer);
+  voiceActive=true;voiceStopRequested=false;voiceRestartAttempts=0;fullTranscript='';
 
   const btn=document.getElementById('voice-record-btn');
   btn.classList.add('recording');
   document.getElementById('voice-record-label').textContent='Zastavit nahrávání';
-  document.getElementById('voice-status').textContent='🔴 Nahrávám…';
+  document.getElementById('voice-status').textContent='🔴 Poslouchám… po každé pokutě řekni „další“.';
   const live=document.getElementById('voice-live');
   live.style.display='block';live.textContent='';
 
   function createAndStart(){
+    if(!voiceActive||voiceStopRequested) return;
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     const r=new SR();
     r.lang='cs-CZ';
     r.continuous=true;
     r.interimResults=true;
-    r.maxAlternatives=1;
+    r.maxAlternatives=3;
 
     r.onresult=e=>{
       clearTimeout(silenceTimer);
-      // Auto-stop after 4s silence
-      silenceTimer=setTimeout(()=>{if(voiceActive)stopVoiceSession();},4000);
+      // A pause after a final phrase is enough to finish a batch. Interims do
+      // not trigger it, so the recognizer never cuts a speaker mid-sentence.
       let interim='';
       for(let i=e.resultIndex;i<e.results.length;i++){
-        const t=e.results[i][0].transcript;
-        if(e.results[i].isFinal) fullTranscript+=(fullTranscript?', ':'')+t;
-        else interim=t;
+        const result=e.results[i];
+        const alternatives=Array.from(result).map(a=>a.transcript);
+        const t=alternatives.sort((a,b)=>scoreVoiceAlternative(b,state.players||[],getReasonList())-scoreVoiceAlternative(a,state.players||[],getReasonList()))[0]||'';
+        if(result.isFinal){
+          fullTranscript+=(fullTranscript?', ':'')+t;
+          silenceTimer=setTimeout(()=>{if(voiceActive)stopVoiceSession();},6500);
+        }else interim=t;
       }
       live.textContent=fullTranscript+(interim?' '+interim:'');
     };
 
     r.onerror=err=>{
-      // 'aborted' fires when we stop intentionally – ignore it
-      if(err.error==='aborted') return;
+      if(err.error==='aborted'||voiceStopRequested) return;
       console.warn('Speech error:',err.error);
-      if(err.error==='not-allowed'){
-        voiceActive=false;
-        alert('Mikrofon není povolen. Povol přístup k mikrofonu v nastavení prohlížeče.');
-        resetVoiceUI();
+      const fatal={
+        'not-allowed':'Mikrofon není povolen. V adresním řádku klikni na ikonu zámku, povol mikrofon a spusť diktování znovu.',
+        'service-not-allowed':'Služba rozpoznávání řeči není v tomto prohlížeči povolena. Použij aktuální Chrome nebo Edge.',
+        'audio-capture':'Počítač nenalezl mikrofon. Zkontroluj připojení a výchozí mikrofon ve Windows.',
+        'language-not-supported':'Čeština není v tomto prohlížeči pro diktování dostupná. Použij aktuální Chrome nebo Edge.',
+        'network':'Rozpoznávání řeči potřebuje internetové připojení. Zkontroluj síť a zkus to znovu.',
+      };
+      if(fatal[err.error]){
+        voiceActive=false;voiceStopRequested=true;clearTimeout(voiceRestartTimer);clearTimeout(silenceTimer);
+        resetVoiceUI();showVoiceProblem(fatal[err.error]);
       }
-      // For no-speech / network / audio-capture: just restart
     };
 
     r.onend=()=>{
-      // Only restart if user hasn't stopped
-      if(voiceActive){
-        try{createAndStart();}catch(e){stopVoiceSession();}
+      if(!voiceActive||voiceStopRequested) return;
+      voiceRestartAttempts++;
+      if(voiceRestartAttempts>8){
+        voiceActive=false;resetVoiceUI();showVoiceProblem('Diktování se opakovaně ukončilo. Zkontroluj mikrofon a obnov stránku.');return;
       }
+      document.getElementById('voice-status').textContent='Znovu připojuji diktování…';
+      voiceRestartTimer=setTimeout(createAndStart,Math.min(900,150+voiceRestartAttempts*100));
     };
 
     recognition=r;
     try{r.start();}catch(e){
       console.warn('start() failed:',e);
-      if(voiceActive) setTimeout(()=>{if(voiceActive)try{createAndStart();}catch(ex){stopVoiceSession();}},300);
+      if(voiceActive) voiceRestartTimer=setTimeout(createAndStart,400);
     }
   }
   createAndStart();
+}
+
+function showVoiceProblem(message){
+  const status=document.getElementById('voice-status');
+  if(status) status.textContent='⚠️ '+message;
+  showToast(message);
 }
 
 function resetVoiceUI(){
@@ -838,8 +836,8 @@ function resetVoiceUI(){
 }
 
 function stopVoiceSession(){
-  voiceActive=false;
-  clearTimeout(silenceTimer);
+  voiceActive=false;voiceStopRequested=true;
+  clearTimeout(silenceTimer);clearTimeout(voiceRestartTimer);
   if(recognition){
     recognition.onend=null; // prevent restart loop
     recognition.onerror=null;
@@ -855,13 +853,13 @@ function stopVoiceSession(){
 // ─── REVIEW ───────────────────────────────────────────────────────
 function buildReviewQueue(transcript){
   reviewQueue=[];
-  splitTranscript(transcript).forEach(chunk=>{
-    const parsed=parseChunk(chunk); if(!parsed) return;
-    const resolved=resolvePlayerName(parsed.rawName);
-    // Auto-price: if reason matches a catalogue entry and amount not given explicitly, use catalogue price
-    let amount=parsed.amount;
-    if(parsed.reason){const cp=reasonPrice(parsed.reason);if(cp&&!amount)amount=cp;}
-    reviewQueue.push({rawName:parsed.rawName,resolvedPlayer:resolved||parsed.rawName,reason:parsed.reason||'',amount:amount||0,isNew:!resolved,isAlias:!!(resolved&&resolved.toLowerCase()!==parsed.rawName.toLowerCase()),skip:false});
+  parseVoiceTranscript(transcript,state.players||[],getReasonList()).forEach(parsed=>{
+    const resolved=parsed.resolution.player;
+    reviewQueue.push({
+      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||'',amount:parsed.amount||0,
+      needsPlayer:!resolved,needsAmount:!parsed.amount,candidates:parsed.resolution.candidates||[],
+      isAlias:parsed.resolution.status==='fuzzy',skip:false
+    });
   });
   if(!reviewQueue.length){showToast('Nepodařilo se rozpoznat žádné pokuty.');return;}
   renderReviewQueue();
@@ -873,25 +871,27 @@ function renderReviewQueue(){
   document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;
   document.getElementById('review-list').innerHTML=reviewQueue.map((r,i)=>{
     const opts=(state.players||[]).map(p=>`<option value="${esc(p.name)}"${p.name===r.resolvedPlayer?' selected':''}>${esc(p.name)}</option>`).join('');
-    const newOpt=r.isNew?`<option value="${esc(r.resolvedPlayer)}" selected>${esc(r.resolvedPlayer)} (nový)</option>`:'';
+    const candidateHint=r.needsPlayer&&r.candidates.length?`<div class="review-warning">Nejbližší shoda: ${r.candidates.map(c=>`${esc(c.player)} (${Math.round(c.score*100)} % )`).join(', ')}</div>`:'';
     return`<div class="review-item${r.skip?' skipped':''}">
       <div class="review-item-header">
         <span class="review-item-num">${i+1}</span>
-        <span class="review-item-tags">${r.isAlias?`<span class="badge badge-alias">≡ ${esc(r.rawName)}</span>`:''} ${r.isNew?`<span class="badge badge-new">Nový hráč</span>`:''}</span>
+        <span class="review-item-tags">${r.isAlias?`<span class="badge badge-alias">≈ opraveno z „${esc(r.rawName)}“</span>`:''} ${r.needsPlayer?`<span class="badge badge-new">Vyžaduje hráče</span>`:''} ${r.needsAmount?`<span class="badge badge-new">Vyžaduje částku</span>`:''}</span>
         <button class="btn-icon${r.skip?'':' danger'}" onclick="toggleSkip(${i})"><i class="ti ${r.skip?'ti-rotate-clockwise':'ti-trash'}"></i></button>
       </div>
       <div class="review-fields"${r.skip?' style="opacity:.4;pointer-events:none;"':''}>
-        <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)">${newOpt}${opts}</select></div>
+        <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)"><option value=""${r.resolvedPlayer?'':' selected'}>— vyber hráče —</option>${opts}</select>${candidateHint}</div>
         <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/></div>
         <div class="review-field review-field-amt"><label>Částka</label><input type="number" value="${r.amount}" oninput="updateReview(${i},'amount',parseFloat(this.value))"/></div>
       </div></div>`;
   }).join('');
 }
-window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].isNew=!state.players.find(p=>p.name===v);reviewQueue[i].isAlias=false;}const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
+window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].needsPlayer=!v;reviewQueue[i].isAlias=false;}if(k==='amount')reviewQueue[i].needsAmount=!(Number(v)>0);const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
 window.toggleSkip=function(i){reviewQueue[i].skip=!reviewQueue[i].skip;renderReviewQueue();};
 window.confirmReview=async function(){
   const toSave=reviewQueue.filter(r=>!r.skip);if(!toSave.length){window.discardReview();return;}
-  toSave.forEach(r=>{ensurePlayer(r.resolvedPlayer);state.fines.unshift({player:r.resolvedPlayer,reason:r.reason,amount:r.amount,ts:Date.now(),season:seasonKey(activeSeason)});});
+  const invalid=toSave.find(r=>!r.resolvedPlayer||!state.players.some(p=>p.name===r.resolvedPlayer)||!(Number(r.amount)>0));
+  if(invalid){showToast('Před uložením vyber hráče a částku u všech nezahozených pokut.');return;}
+  toSave.forEach(r=>{state.fines.unshift({player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),ts:Date.now(),season:seasonKey(activeSeason)});});
   await saveState();showToast(`✓ Uloženo ${toSave.length} pokut`);window.discardReview();populatePlayerSelects();
 };
 window.discardReview=function(){reviewQueue=[];document.getElementById('voice-review').style.display='none';};
@@ -1360,7 +1360,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.modal-backdrop').forEach(el=>{
     el.addEventListener('click',e=>{
       if(e.target!==el) return;
-      if(el.id==='pin-modal')          window.closePinModal();
       if(el.id==='edit-modal')         window.closeEditModal();
       if(el.id==='nick-modal')         window.closeNickModal();
       if(el.id==='edit-player-modal')  window.closeEditPlayerModal();

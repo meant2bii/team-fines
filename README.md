@@ -6,7 +6,7 @@ A mobile-friendly web app for managing football team fines. Supports multi-devic
 
 - **Firebase Auth** — register/login with email + password; email verification link required before access
 - **Firestore sync** — all data stored in the cloud, every device sees the same fines in real time
-- **Manager PIN** — separate layer: only managers can add/edit/delete fines
+- **Shared team access** — every user with a verified team account can add, edit and delete fines
 - **Batch voice session** — speak all post-training fines at once; app parses them and shows a review screen before saving
 - **Nickname matching** — assign nicknames per player; voice/text input resolves nicknames to real names automatically
 - **Review & confirm** — every voice batch shows editable cards before committing
@@ -92,21 +92,19 @@ Open `js/app.js` top section:
 
 ```js
 const CONFIG = {
-  PIN:      '1234',     // ← change manager PIN
   CURRENCY: 'CZK',     // ← EUR, GBP, USD, …
-  SEASON:   '2025/26', // ← update each season
   FIRESTORE_DOC: 'teamdata/main', // ← one shared document for the whole team
 };
 ```
 
 ## How voice input works
 
-1. Manager taps **Spustit nahrávání**
+1. A signed-in team member taps **Spustit nahrávání**
 2. Says all fines in sequence: *„Michal – Bago a překopnutí – 90, Teichi – Píčovina – 120, Pepa – pokuta – 100"*
 3. 3.5 s of silence auto-stops the recording
 4. App splits by comma/semicolon, parses each chunk as `Name – Reason – Amount`
 5. Nicknames are resolved to real player names automatically
-6. A review screen appears — manager can correct any entry or skip it
+6. A review screen appears — the user can correct any entry or skip it
 7. Tap **Uložit** → all confirmed fines are written to Firestore instantly
 
 Requires Chrome or Edge (Web Speech API).
@@ -121,7 +119,7 @@ In the **Hráči** tab, each player has a tag icon. Tap it to open the nickname 
 - [ ] Per-season archive / reset
 - [ ] Mark fines as "paid"
 - [ ] Push notification reminders before party date
-- [ ] Role-based access (manager role stored in Firestore, not just PIN)
+- [ ] Role-based access stored in Firestore, if the team later needs different permissions
 
 ## License
 
