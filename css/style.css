@@ -646,3 +646,100 @@ select { cursor:pointer; }
   .header-user { display:none; }
   .fine-reason { max-width:80px; }
 }
+
+/* ==================================================================
+   MOBILE-FIRST CASHIER MODE
+   The treasurer normally adds fines while standing at a training or a
+   match.  On phones the primary controls therefore become large, the
+   navigation sits in the thumb zone and forms never require horizontal
+   precision.
+   ================================================================== */
+@media (max-width: 600px) {
+  html { font-size: 16px; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+
+  /* iOS zooms into fields below 16px, which is especially disruptive
+     when adding a sequence of fines. */
+  input, select, textarea { min-height: 46px; font-size: 16px; }
+  .btn, .btn-icon, .manager-btn { min-height: 44px; }
+  .btn { justify-content: center; padding: 11px 16px; }
+  .btn-icon { width:44px; height:44px; }
+
+  .app-shell { width:100%; }
+  .app-header { padding:0 .75rem; }
+  .header-inner { min-height:58px; height:auto; gap:6px; }
+  .header-brand { gap:6px; min-width:0; }
+  .brand-logo { height:34px; padding:2px 4px; }
+  .brand-title { font-size:16px; }
+  .brand-season { font-size:11px; }
+  .header-user { display:none; }
+  .header-right { gap:5px; margin-left:auto; }
+  .season-controls { gap:3px; }
+  .season-controls select { min-height:36px; min-width:0; width:58px; padding:4px 3px; font-size:11px; }
+  .season-controls select:last-child { width:64px; }
+  .manager-btn { min-height:40px; width:40px; padding:0; justify-content:center; gap:0; }
+  .manager-btn #lock-label { display:none; }
+  .header-logout { width:40px; height:40px; }
+
+  /* Persistent bottom navigation is considerably easier to reach one-handed. */
+  .tab-nav {
+    position:fixed;
+    top:auto;
+    bottom:0;
+    left:0;
+    right:0;
+    z-index:100;
+    min-height:64px;
+    padding-bottom:env(safe-area-inset-bottom);
+    border-top:1px solid var(--bdr);
+    border-bottom:none;
+    box-shadow:0 -4px 16px rgba(27,58,107,.12);
+  }
+  .tab { min-width:0; min-height:60px; padding:7px 4px 5px; margin:0; border-bottom:0; border-top:3px solid transparent; flex-direction:column; gap:1px; font-size:11px; line-height:1.1; }
+  .tab.active { border-top-color:var(--navy); border-bottom-color:transparent; }
+  .tab span { display:block; }
+  .tab .ti { font-size:20px; }
+
+  .app-main { padding:.9rem .75rem calc(5.75rem + env(safe-area-inset-bottom)); }
+  .card { padding:1rem; margin-bottom:.8rem; border-radius:var(--r-md); }
+  .card-label { margin-bottom:10px; }
+  .helper-text { font-size:13px; }
+
+  /* Fast entry stays visible and keeps every action within a generous target. */
+  .voice-card { border-left-width:4px; }
+  .voice-session-ui { display:block; margin:10px 0 0; }
+  .voice-record-btn { width:100%; min-height:54px; justify-content:center; font-size:16px; }
+  .voice-status { margin-top:8px; text-align:center; }
+  .quick-row { display:grid; grid-template-columns:1fr; gap:8px; }
+  .quick-row .btn { width:100%; }
+  .parse-preview { min-height:42px; padding:10px 12px; }
+  .form-actions { display:block; margin-top:12px; }
+  .form-actions .btn { width:100%; }
+  #f-amount, #self-amount { max-width:none !important; }
+
+  /* Chips are frequently used while entering a fine. */
+  .tile { min-height:40px; padding:8px 12px; font-size:13px; }
+  .reason-categories { gap:12px; }
+  .reason-add-form { display:grid; grid-template-columns:1fr 86px 44px; }
+  .reason-add-form select { grid-column:1 / 3; max-width:none !important; }
+  .reason-add-form .btn { grid-column:3; grid-row:1 / 3; height:100%; padding:0; }
+
+  .review-actions, .import-actions, .modal-actions { display:grid; grid-template-columns:1fr 1fr; }
+  .review-actions .btn, .import-actions .btn, .modal-actions .btn { width:100%; }
+  .log-filters { grid-template-columns:1fr !important; }
+  .log-bulk-bar { align-items:stretch; }
+  .log-bulk-bar .btn { width:100%; }
+  .add-player-grid { grid-template-columns:1fr; }
+  .import-row { align-items:stretch; }
+  .import-row .btn-upload-label { width:100%; }
+
+  /* Editing should behave as a bottom sheet rather than a narrow desktop modal. */
+  .modal-backdrop { align-items:flex-end; padding:0; }
+  .modal { width:100%; max-height:88vh; border-radius:18px 18px 0 0; padding:1.25rem 1rem calc(1rem + env(safe-area-inset-bottom)); }
+  .modal-wide { width:100%; }
+
+  .lock-wall { padding:2.25rem 1rem; }
+  .dash-grid { gap:8px; }
+  .dash-card { padding:12px; }
+  .dash-fond .dash-val { font-size:28px; }
+}
