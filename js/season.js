@@ -1,10 +1,9 @@
-// Football half-seasons: spring runs January–June; autumn runs July–December.
+// Football years run from 1 July through 30 June, e.g. 2026/27.
 export function seasonForDate(date = new Date()) {
-  const month = date.getMonth() + 1;
-  const year = date.getFullYear();
-  return { year, half: month >= 7 ? 'Podzim' : 'Jaro' };
+  const year = date.getFullYear() - (date.getMonth() < 6 ? 1 : 0);
+  return { year };
 }
 
 export function seasonKey(season) {
-  return `${season.year}-${season.half}`;
+  return `${season.year}/${String(Number(season.year) + 1).slice(-2)}`;
 }

@@ -371,6 +371,10 @@ select { cursor:pointer; }
 .rate-history-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; background:var(--bg-s); border-radius:var(--r-sm); }
 .rate-history-item strong { display:block; color:var(--navy); }
 .rate-history-item span:not(.badge) { display:block; color:var(--tx-s); font-size:12px; margin-top:2px; }
+.rate-history-item { width:100%; border:0; text-align:left; font:inherit; cursor:pointer; }
+.rate-history-item .ti { color:var(--navy); }
+.rate-period-editor { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:center; padding:12px; margin-bottom:12px; background:var(--bg-s); border-radius:var(--r-sm); }
+.rate-period-editor .section-label,.rate-period-editor .label-hint { grid-column:1/-1; margin:0; }
 
 /* ── VOICE ── */
 .voice-card { border-left:4px solid var(--navy); background:linear-gradient(135deg,var(--bg-c),var(--bg-s)); }
@@ -383,6 +387,11 @@ select { cursor:pointer; }
 .voice-record-btn.recording .voice-record-pulse { display:block; }
 @keyframes pulse-bg { 0%,100%{opacity:0;} 50%{opacity:1;} }
 .voice-status { font-size:13px; color:var(--red); font-weight:600; }
+.voice-wave { display:none; height:34px; align-items:center; justify-content:center; gap:4px; margin:4px 0 8px; }
+.voice-wave.active { display:flex; }
+.voice-wave i { display:block; width:4px; height:8px; border-radius:99px; background:var(--red); animation:voice-wave .8s ease-in-out infinite alternate; }
+.voice-wave i:nth-child(2){ animation-delay:.12s; }.voice-wave i:nth-child(3){ animation-delay:.25s; }.voice-wave i:nth-child(4){ animation-delay:.08s; }.voice-wave i:nth-child(5){ animation-delay:.32s; }.voice-wave i:nth-child(6){ animation-delay:.18s; }.voice-wave i:nth-child(7){ animation-delay:.4s; }
+@keyframes voice-wave { from{height:7px;opacity:.45;} to{height:31px;opacity:1;} }
 .voice-live { margin-top:10px; background:var(--bg-s); border:1.5px dashed var(--navy); border-radius:var(--r-md); padding:10px 12px; font-size:13px; color:var(--tx-s); min-height:44px; line-height:1.6; font-style:italic; }
 
 /* ── REVIEW ── */

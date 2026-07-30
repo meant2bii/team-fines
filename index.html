@@ -128,11 +128,7 @@
       <div class="header-right">
         <div id="season-controls" style="display:none;" class="season-controls">
           <span class="season-caption"><i class="ti ti-calendar-event"></i> Sezóna</span>
-          <select id="season-year" aria-label="Rok sezóny" onchange="changeSeason()"></select>
-          <select id="season-half" aria-label="Část sezóny" onchange="changeSeason()">
-            <option value="Podzim">Podzim</option>
-            <option value="Jaro">Jaro</option>
-          </select>
+          <select id="season-year" aria-label="Ročník" onchange="changeSeason()"></select>
           <button class="season-today" type="button" onclick="resetSeasonToToday()" title="Přejít na aktuální sezónu"><i class="ti ti-calendar-check"></i><span>Dnes</span></button>
         </div>
         <span id="header-user" class="header-user"></span>
@@ -148,7 +144,7 @@
     <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-home"></i><span> Main</span></button>
     <button class="tab"        data-tab="log"     onclick="switchTab('log')"><i class="ti ti-list"></i><span> Log</span></button>
     <button class="tab"        data-tab="summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
-    <button class="tab"        data-tab="rates"   onclick="switchTab('rates')"><i class="ti ti-currency-crown"></i><span> Sazebník</span></button>
+    <button class="tab"        data-tab="rates"   onclick="switchTab('rates')"><i class="ti ti-receipt-2"></i><span> Sazebník</span></button>
     <button class="tab"        data-tab="players" onclick="switchTab('players')"><i class="ti ti-users"></i><span> Hráči</span></button>
   </nav>
 
@@ -182,6 +178,7 @@
             </button>
             <div class="voice-status" id="voice-status" aria-live="polite"></div>
           </div>
+          <div id="voice-wave" class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
           <div id="voice-live" class="voice-live" style="display:none;"></div>
         </div>
 
@@ -382,6 +379,13 @@
     <div class="modal-header"><h3 id="rate-history-title">Vývoj sazby</h3><button class="btn-icon" onclick="closeRateHistory()"><i class="ti ti-x"></i></button></div>
     <p class="modal-sub">Sazby navazují na půlsezóny. Cena se u pokut vždy určí podle sezóny, do které je záznam zařazen.</p>
     <div id="rate-history-chart" class="rate-history-chart"></div>
+    <div class="rate-period-editor">
+      <div class="section-label">Přidat nebo upravit sazbu v období</div>
+      <input id="rate-period-date" type="date" aria-label="Platnost od" />
+      <input id="rate-period-price" type="number" min="1" placeholder="Cena (CZK)" aria-label="Cena" />
+      <button class="btn btn-primary" onclick="saveRatePeriod()"><i class="ti ti-device-floppy"></i> Uložit sazbu</button>
+      <p class="label-hint">Vyber přesný den, od kterého cena platí. Další záznam automaticky ukončí předchozí období.</p>
+    </div>
     <div id="rate-history-list" class="rate-history-list"></div>
     <div class="modal-actions"><button class="btn btn-secondary" onclick="closeRateHistory()">Zavřít</button></div>
   </div>
