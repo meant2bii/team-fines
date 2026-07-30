@@ -810,7 +810,8 @@ function rateColor(price,list){
   const ratio=max===min?.5:(Number(price)-min)/(max-min);
   return `hsl(${Math.round(48*(1-ratio))} 88% ${44+Math.round((1-ratio)*7)}%)`;
 }
-function timelineForRate(label){ return (getRateHistory()[label]||[]).slice(); }
+function timelineForRate(label){ return (getRateHistory()[label]||[]).slice().sort((a,b)=>a.from.localeCompare(b.from)); }
+function todayLocalISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function renderRates(){
   const label=document.getElementById('rate-season-label'); if(label) label.textContent=seasonLabel(activeSeason);
   const list=getReasonList(),search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
@@ -843,14 +844,23 @@ window.openRateHistory=function(label){
   chart.innerHTML=items.map(item=>`<div class="rate-chart-point"><span class="rate-chart-value">${item.price}</span><span class="rate-chart-bar" style="height:${Math.max(12,Math.round(item.price/max*100))}%"></span><span class="rate-chart-label">${item.from.split('-').reverse().join('. ')}</span></div>`).join('');
   list.innerHTML=items.map((item,index)=>{
     const end=calculatedRateEnd(items,index),until=end?`do ${new Date(`${end}T12:00:00`).toLocaleDateString('cs-CZ')}`:'dosud';
+    const today=todayLocalISO(),active=item.from<=today&&(!end||end>=today);
     return `<button type="button" class="rate-history-item" onclick="editRatePeriod('${item.from}',${item.price},'${item.to||''}')"><div><strong>${Number(item.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><span>Platí od ${new Date(`${item.from}T12:00:00`).toLocaleDateString('cs-CZ')}, ${until}</span></div><i class="ti ti-pencil"></i></button>`;
   }).join('');
-  document.getElementById('rate-period-date').value=seasonStartDate(activeSeason);
+  list.querySelectorAll('.rate-history-item').forEach((button,index)=>{
+    const end=calculatedRateEnd(items,index),today=todayLocalISO();
+    if(items[index].from<=today&&(!end||end>=today)){
+      button.classList.add('is-current');
+      button.insertAdjacentHTML('beforeend','<em>Aktuální</em>');
+    }
+  });
+  document.getElementById('rate-period-date').value=todayLocalISO();
   document.getElementById('rate-period-end').value='';
   document.getElementById('rate-period-price').value='';
   document.getElementById('rate-period-editor-title').textContent='Přidat sazbu v období';
   document.getElementById('rate-period-delete').style.display='none';
   document.getElementById('rate-history-modal').dataset.label=label;
+  delete document.getElementById('rate-history-modal').dataset.editFrom;
   document.getElementById('rate-history-modal').classList.add('open');
 };
 window.editRatePeriod=function(from,price,to=''){
@@ -870,8 +880,9 @@ window.saveRatePeriod=async function(){
 };
 window.deleteRatePeriod=async function(){
   const modal=document.getElementById('rate-history-modal'),label=modal.dataset.label,from=modal.dataset.editFrom;
-  if(!label||!from)return;
+  if(!label||!from){showToast('Nejdřív klepni na období, které chceš smazat.');return;}
   if(!confirm('Opravdu smazat celé vybrané období sazby?'))return;
+  if(!state.rateHistory) state.rateHistory={};
   const items=state.rateHistory?.[label]||[];
   state.rateHistory[label]=items.filter(item=>(item.from||legacyRateStart(item.season))!==from);
   if(!state.rateHistory[label].length)delete state.rateHistory[label];

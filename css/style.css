@@ -373,6 +373,9 @@ select { cursor:pointer; }
 .rate-history-item span:not(.badge) { display:block; color:var(--tx-s); font-size:12px; margin-top:2px; }
 .rate-history-item { width:100%; border:0; text-align:left; font:inherit; cursor:pointer; }
 .rate-history-item .ti { color:var(--navy); }
+.rate-history-item.is-current { background:linear-gradient(135deg,#dbeafe,#eff6ff); border:1px solid #60a5fa; box-shadow:0 4px 12px rgba(37,99,235,.12); }
+.rate-history-item.is-current strong { color:#0f3d91; }
+.rate-history-item em { margin-left:auto; padding:3px 8px; border-radius:99px; background:#1455bd; color:#fff; font-style:normal; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
 .rate-period-editor { display:grid; grid-template-columns:minmax(145px,1fr) minmax(145px,1fr) minmax(118px,135px) auto; gap:8px; align-items:center; padding:12px; margin-bottom:12px; background:var(--bg-s); border-radius:var(--r-sm); }
 .rate-period-editor input[type="number"] { min-width:118px; }
 .rate-period-editor .section-label,.rate-period-editor .label-hint { grid-column:1/-1; margin:0; }
