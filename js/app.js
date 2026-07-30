@@ -286,8 +286,16 @@ function updateSeasonLabel(){
 window.changeSeason=function(){
   if(!isManager) return;
   activeSeason={year:parseInt(document.getElementById('season-year').value),half:document.getElementById('season-half').value};
-  updateSeasonLabel(); renderLog(); renderSummary();
+  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary();
   showToast('Zobrazuji: '+seasonLabel(activeSeason));
+};
+window.resetSeasonToToday=function(){
+  if(!isManager) return;
+  activeSeason=seasonForDate();
+  document.getElementById('season-year').value=String(activeSeason.year);
+  document.getElementById('season-half').value=activeSeason.half;
+  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary();
+  showToast('Nastaveno na aktuální sezónu: '+seasonLabel(activeSeason));
 };
 
 // ─── FIRESTORE ────────────────────────────────────────────────────

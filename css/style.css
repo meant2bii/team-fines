@@ -218,6 +218,7 @@ select { cursor:pointer; }
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 /* User email – always fully visible, no truncation */
@@ -226,26 +227,57 @@ select { cursor:pointer; }
   font-weight: 500;
   color: rgba(255,255,255,.8);
   white-space: nowrap;
-  max-width: none;       /* remove old truncation */
-  overflow: visible;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .season-controls {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
+  padding: 4px 6px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.20);
+  border-radius: var(--r-md);
+  flex-shrink: 0;
+}
+.season-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.78);
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
 .season-controls select {
   font-size: 12px;
   padding: 5px 8px;
   width: auto;
-  min-width: 64px;
-  background: rgba(255,255,255,.12);
+  min-width: 68px;
+  min-height: 32px;
+  background: rgba(255,255,255,.16);
   border: 1px solid rgba(255,255,255,.25);
   color: #fff;
   border-radius: var(--r-sm);
 }
 .season-controls select option { background: var(--navy-dark); color: #fff; }
+.season-today {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: #fff;
+  font: 600 12px var(--sans);
+  cursor: pointer;
+}
+.season-today:hover { background: rgba(255,255,255,.15); }
 
 /* Manager button */
 .manager-btn {
@@ -281,8 +313,10 @@ select { cursor:pointer; }
 .header-logout:hover { background: rgba(255,255,255,.2); color: #fff; }
 
 /* Responsive: on very small screens, collapse email */
-@media (max-width: 420px) {
+@media (max-width: 760px) {
   .header-user { display: none; }
+}
+@media (max-width: 420px) {
   .brand-title  { font-size: 15px; }
   .brand-season { font-size: 11px; }
 }
@@ -662,24 +696,24 @@ select { cursor:pointer; }
   /* iOS zooms into fields below 16px, which is especially disruptive
      when adding a sequence of fines. */
   input, select, textarea { min-height: 46px; font-size: 16px; }
-  .btn, .btn-icon, .manager-btn { min-height: 44px; }
+  .btn, .btn-icon { min-height: 44px; }
   .btn { justify-content: center; padding: 11px 16px; }
   .btn-icon { width:44px; height:44px; }
 
   .app-shell { width:100%; }
   .app-header { padding:0 .75rem; }
-  .header-inner { min-height:58px; height:auto; gap:6px; }
+  .header-inner { min-height:106px; height:106px; padding:10px 0 48px; gap:6px; position:relative; align-items:flex-start; }
   .header-brand { gap:6px; min-width:0; }
   .brand-logo { height:34px; padding:2px 4px; }
   .brand-title { font-size:16px; }
-  .brand-season { font-size:11px; }
+  .brand-season { display:none; }
   .header-user { display:none; }
   .header-right { gap:5px; margin-left:auto; }
-  .season-controls { gap:3px; }
-  .season-controls select { min-height:36px; min-width:0; width:58px; padding:4px 3px; font-size:11px; }
-  .season-controls select:last-child { width:64px; }
-  .manager-btn { min-height:40px; width:40px; padding:0; justify-content:center; gap:0; }
-  .manager-btn #lock-label { display:none; }
+  .season-controls { position:absolute; left:0; right:0; bottom:8px; justify-content:center; gap:5px; padding:3px 5px; }
+  .season-caption { font-size:10px; }
+  .season-controls select { min-height:34px; min-width:0; width:76px; padding:4px 5px; font-size:16px; }
+  .season-controls select:last-of-type { width:86px; }
+  .season-today { min-height:34px; padding:4px 7px; font-size:12px; }
   .header-logout { width:40px; height:40px; }
 
   /* Persistent bottom navigation is considerably easier to reach one-handed. */

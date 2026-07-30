@@ -128,11 +128,13 @@
       <!-- RIGHT: season picker, email, logout -->
       <div class="header-right">
         <div id="season-controls" style="display:none;" class="season-controls">
-          <select id="season-year" onchange="changeSeason()"></select>
-          <select id="season-half" onchange="changeSeason()">
+          <span class="season-caption"><i class="ti ti-calendar-event"></i> Sezóna</span>
+          <select id="season-year" aria-label="Rok sezóny" onchange="changeSeason()"></select>
+          <select id="season-half" aria-label="Část sezóny" onchange="changeSeason()">
             <option value="Podzim">Podzim</option>
             <option value="Jaro">Jaro</option>
           </select>
+          <button class="season-today" type="button" onclick="resetSeasonToToday()" title="Přejít na aktuální sezónu"><i class="ti ti-calendar-check"></i><span>Dnes</span></button>
         </div>
         <span id="header-user" class="header-user"></span>
         <button class="btn-icon header-logout" onclick="doLogout()" title="Odhlásit se">
