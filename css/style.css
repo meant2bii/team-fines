@@ -814,3 +814,72 @@ select { cursor:pointer; }
   .dash-card { padding:12px; }
   .dash-fond .dash-val { font-size:28px; }
 }
+
+/* ==================================================================
+   2026 mobile UI refresh — Tailwind-inspired surface, spacing, ring
+   and responsive patterns. The palette intentionally stays club blue,
+   red and white and remains legible in bright daylight on a phone.
+   ================================================================== */
+:root {
+  color-scheme:light;
+  --navy:#0f3d91; --navy-dark:#0b2f72; --navy-light:#2563eb;
+  --red:#dc2626; --red-dark:#b91c1c; --red-light:#fef2f2;
+  --bg:#f8fafc; --bg-c:#ffffff; --bg-s:#f1f5f9;
+  --tx:#0f172a; --tx-s:#475569; --tx-m:#64748b;
+  --bdr:#e2e8f0; --bdr-f:#2563eb;
+  --sh-sm:0 1px 2px rgba(15,23,42,.04),0 1px 3px rgba(15,23,42,.08);
+  --sh-md:0 10px 22px rgba(15,23,42,.08),0 2px 6px rgba(15,23,42,.04);
+  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-xl:24px;
+}
+body { background:linear-gradient(180deg,#eff6ff 0,#f8fafc 280px); }
+.app-shell { max-width:820px; }
+.app-header { background:linear-gradient(115deg,#0b2f72,#1455bd); border-bottom:0; box-shadow:0 8px 22px rgba(15,61,145,.22); }
+.header-inner { height:72px; }
+.brand-logo { border-radius:10px; padding:4px 8px; box-shadow:0 2px 8px rgba(15,23,42,.18); }
+.brand-title { font-size:20px; letter-spacing:-.035em; }
+.season-controls { background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.2); border-radius:12px; }
+.season-controls select,.season-today { background:rgba(255,255,255,.15); border-color:rgba(255,255,255,.28); border-radius:9px; }
+.header-user { font-weight:600; }
+.tab-nav { top:72px; background:rgba(255,255,255,.92); backdrop-filter:blur(14px); border-bottom:1px solid var(--bdr); box-shadow:0 1px 0 rgba(15,23,42,.03); }
+.tab { min-height:54px; color:#64748b; border-bottom-width:2px; font-weight:700; }
+.tab:hover { color:var(--navy); background:#f8fafc; }
+.tab.active { color:var(--navy); border-bottom-color:var(--red); }
+.app-main { padding:1.5rem 1.25rem 4rem; }
+.card { border:1px solid rgba(226,232,240,.9); border-radius:20px; padding:1.25rem; box-shadow:var(--sh-md); background:rgba(255,255,255,.96); }
+.card-label { color:#2563eb; font-size:11px; letter-spacing:.085em; }
+.helper-text { color:#475569; font-size:14px; }
+input,select,textarea { background:#fff; border-color:#cbd5e1; border-radius:12px; min-height:44px; padding:10px 13px; }
+input:hover,select:hover,textarea:hover { border-color:#94a3b8; }
+input:focus,select:focus,textarea:focus { border-color:#2563eb; box-shadow:0 0 0 4px rgba(37,99,235,.13); }
+.btn { min-height:44px; border-radius:12px; padding:10px 16px; font-weight:700; box-shadow:0 1px 2px rgba(15,23,42,.08); }
+.btn-primary { background:#1455bd; }
+.btn-primary:hover { background:#0f3d91; }
+.btn-danger { background:#dc2626; }
+.btn-secondary { background:#fff; color:#334155; }
+.btn-icon { border-radius:12px; background:#fff; border-color:#cbd5e1; }
+.voice-card { border:1px solid #bfdbfe; border-left:5px solid #2563eb; background:linear-gradient(135deg,#eff6ff,#fff); }
+.voice-record-btn { min-height:50px; border-radius:14px; background:#1455bd; box-shadow:0 8px 16px rgba(20,85,189,.22); }
+.voice-status { color:#dc2626; }
+.quick-row input { background:#fff; }
+.parse-preview { background:#eff6ff; color:#1e3a8a; border-radius:12px; padding:10px 12px; }
+.dashboard-card,.stat-card { border-radius:18px; }
+.rate-card { border-left-color:#dc2626; }
+.rate-row-open:hover { background:#f8fafc; }
+.rate-row { padding:12px 8px; }
+.empty-state { background:rgba(255,255,255,.65); border:1px dashed #cbd5e1; border-radius:18px; }
+
+@media (max-width:600px) {
+  body { background:#f8fafc; }
+  .app-header { padding:0 1rem; }
+  .header-inner { min-height:98px; height:98px; padding:11px 0 45px; }
+  .brand-logo { height:36px; }
+  .brand-title { font-size:18px; }
+  .season-controls { bottom:6px; background:rgba(255,255,255,.12); }
+  .tab-nav { top:auto; border-top:1px solid #e2e8f0; background:rgba(255,255,255,.97); }
+  .tab { color:#64748b; }
+  .tab.active { color:#1455bd; border-top-color:#dc2626; }
+  .app-main { padding:1rem 1rem calc(6.2rem + env(safe-area-inset-bottom)); }
+  .card { border-radius:18px; padding:1.1rem; box-shadow:0 4px 12px rgba(15,23,42,.06); }
+  .card-label { font-size:10px; }
+  .voice-record-btn { min-height:56px; }
+}
