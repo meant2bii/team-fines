@@ -527,6 +527,7 @@ async function saveRatePeriod(label,price,from,to=''){
 // Fix #4: reason is optional — "Erik 70" is valid → reason = '' (empty)
 // Fix #5: voice delimiters "a" / "další" / comma separate players
 function parseChunk(chunk){
+  chunk=String(chunk).replace(/\s*(?:k\u010d|kc|korun|koruny|koruna|czk)\s*$/iu,'');
   // Normalise dashes, strip trailing kč/czk
   const s=chunk.replace(/[–—]/g,'-').replace(/\s*(kč|czk)\s*$/i,'').trim();
   if(!s) return null;
@@ -982,7 +983,14 @@ function startVoiceSession(){
         const alternatives=Array.from(result).map(a=>a.transcript);
         const t=alternatives.sort((a,b)=>scoreVoiceAlternative(b,state.players||[],getReasonList())-scoreVoiceAlternative(a,state.players||[],getReasonList()))[0]||'';
         if(result.isFinal){
-          fullTranscript+=(fullTranscript?', ':'')+t;
+          const endsSession=/\b(?:konec|stop)\b/iu.test(t);
+          const spoken=t.split(/\b(?:konec|stop)\b/iu)[0].trim();
+          if(spoken) fullTranscript+=(fullTranscript?', ':'')+spoken;
+          if(endsSession){
+            live.textContent=fullTranscript;
+            setTimeout(()=>{if(voiceActive)stopVoiceSession();},0);
+            return;
+          }
           silenceTimer=setTimeout(()=>{if(voiceActive)stopVoiceSession();},6500);
         }else interim=t;
       }
@@ -1072,6 +1080,11 @@ function buildReviewQueue(transcript){
   renderReviewQueue();
   document.getElementById('voice-review').style.display='block';
   document.getElementById('voice-review').scrollIntoView({behavior:'smooth'});
+  const unknown=[...new Set(reviewQueue.filter(r=>r.needsPlayer).map(r=>voiceDisplayName(r.rawName)))];
+  if(unknown.length) setTimeout(()=>alert(`Hráč ${unknown.join(', ')} není v databázi. Nejdřív ho přidej v kontrole níže a zadej telefon ve formátu +420 nebo +421.`),0);
+}
+function voiceDisplayName(name=''){
+  return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part.charAt(0).toUpperCase()+part.slice(1).toLowerCase()).join(' ');
 }
 function renderReviewQueue(){
   const n=reviewQueue.filter(r=>!r.skip).length;
@@ -1079,6 +1092,7 @@ function renderReviewQueue(){
   document.getElementById('review-list').innerHTML=reviewQueue.map((r,i)=>{
     const opts=(state.players||[]).map(p=>`<option value="${esc(p.name)}"${p.name===r.resolvedPlayer?' selected':''}>${esc(p.name)}</option>`).join('');
     const candidateHint=r.needsPlayer&&r.candidates.length?`<div class="review-warning">Nejbližší shoda: ${r.candidates.map(c=>`${esc(c.player)} (${Math.round(c.score*100)} % )`).join(', ')}</div>`:'';
+    const unknownPlayer=r.needsPlayer?`<div class="review-warning review-new-player"><strong>Hráč „${esc(voiceDisplayName(r.rawName))}“ není v databázi.</strong><span>Pro přidání zadej číslo s +420 nebo +421.</span><div><input id="review-phone-${i}" type="tel" inputmode="tel" placeholder="+420 123 456 789" /><button type="button" class="btn btn-primary" onclick="addReviewPlayer(${i})"><i class="ti ti-user-plus"></i> Přidat hráče</button></div></div>`:'';
     return`<div class="review-item${r.skip?' skipped':''}">
       <div class="review-item-header">
         <span class="review-item-num">${i+1}</span>
@@ -1087,11 +1101,23 @@ function renderReviewQueue(){
       </div>
       <div class="review-fields"${r.skip?' style="opacity:.4;pointer-events:none;"':''}>
         <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)"><option value=""${r.resolvedPlayer?'':' selected'}>— vyber hráče —</option>${opts}</select>${candidateHint}</div>
+        ${unknownPlayer}
         <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/></div>
         <div class="review-field review-field-amt"><label>Částka</label><input type="number" value="${r.amount}" oninput="updateReview(${i},'amount',parseFloat(this.value))"/></div>
       </div></div>`;
   }).join('');
 }
+window.addReviewPlayer=async function(index){
+  const review=reviewQueue[index]; if(!review||!review.needsPlayer)return;
+  const phone=document.getElementById(`review-phone-${index}`)?.value.replace(/\s+/g,'')||'';
+  if(!/^\+(?:420|421)\d{9}$/.test(phone)){alert('Zadej telefon přesně ve formátu +420123456789 nebo +421123456789.');return;}
+  const name=voiceDisplayName(review.rawName);
+  if(!name){alert('Nepodařilo se určit jméno hráče.');return;}
+  if(state.players.some(p=>p.phone===phone)){alert('Toto telefonní číslo už patří jinému hráči.');return;}
+  state.players.push({name,phone,email:'',nicknames:[],seasons:[seasonKey(activeSeason)],roles:{}});
+  review.resolvedPlayer=name;review.needsPlayer=false;review.isAlias=false;
+  await saveState();renderReviewQueue();showToast(`Hráč ${name} přidán`);
+};
 window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].needsPlayer=!v;reviewQueue[i].isAlias=false;}if(k==='amount')reviewQueue[i].needsAmount=!(Number(v)>0);const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
 window.toggleSkip=function(i){reviewQueue[i].skip=!reviewQueue[i].skip;renderReviewQueue();};
 window.confirmReview=async function(){

@@ -46,3 +46,16 @@ test('refuses an ambiguous player match', () => {
   assert.equal(result.status, 'ambiguous');
   assert.equal(result.player, null);
 });
+
+test('keeps an amount said with korun out of the reason', () => {
+  const fine = parseVoiceChunk('Michal Novák 22 korun', players, reasons);
+  assert.equal(fine.resolution.player, 'Michal Novák');
+  assert.equal(fine.reason, '');
+  assert.equal(fine.amount, 22);
+});
+
+test('další separates entries and konec ends the voice batch', () => {
+  const fines = parseVoiceTranscript('Míša 22 korun další Teichi 30 konec Míša 99', players, reasons);
+  assert.equal(fines.length, 2);
+  assert.deepEqual(fines.map(f => f.amount), [22, 30]);
+});

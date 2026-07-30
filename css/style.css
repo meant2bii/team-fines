@@ -408,6 +408,12 @@ select { cursor:pointer; }
 .review-field label { font-size:11px; font-weight:700; color:var(--tx-m); text-transform:uppercase; letter-spacing:.05em; }
 .review-field input,.review-field select { font-size:13px; padding:6px 9px; }
 .review-warning { margin-top:5px; font-size:11px; line-height:1.35; color:var(--amber); }
+.review-new-player { grid-column:1 / -1; padding:10px; border:1px solid #fbbf24; border-radius:12px; background:#fffbeb; color:#92400e; }
+.review-new-player strong,.review-new-player span { display:block; }
+.review-new-player span { margin-top:2px; }
+.review-new-player > div { display:flex; gap:8px; margin-top:8px; }
+.review-new-player input { min-width:0; flex:1; background:#fff; }
+.review-new-player .btn { min-height:42px; }
 .review-actions { display:flex; gap:8px; justify-content:flex-end; padding-top:12px; border-top:1.5px solid var(--bdr); margin-top:4px; }
 @media(max-width:520px){ .review-fields{grid-template-columns:1fr 1fr;} .review-field-reason{grid-column:1/-1;} }
 
@@ -914,4 +920,6 @@ input:focus,select:focus,textarea:focus { border-color:#2563eb; box-shadow:0 0 0
   #rate-history-modal .rate-period-editor { padding:12px; gap:10px; }
   #rate-history-modal .rate-history-item { min-height:64px; padding:12px; }
   .fine-actions .btn-icon { width:42px; height:42px; }
+  .review-new-player > div { display:grid; grid-template-columns:1fr; }
+  .review-new-player .btn { width:100%; }
 }
