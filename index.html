@@ -380,11 +380,13 @@
     <p class="modal-sub">Sazby navazují na půlsezóny. Cena se u pokut vždy určí podle sezóny, do které je záznam zařazen.</p>
     <div id="rate-history-chart" class="rate-history-chart"></div>
     <div class="rate-period-editor">
-      <div class="section-label">Přidat nebo upravit sazbu v období</div>
+      <div class="section-label" id="rate-period-editor-title">Přidat sazbu v období</div>
       <input id="rate-period-date" type="date" aria-label="Platnost od" />
+      <input id="rate-period-end" type="date" aria-label="Platnost do" />
       <input id="rate-period-price" type="number" min="1" placeholder="Cena (CZK)" aria-label="Cena" />
       <button class="btn btn-primary" onclick="saveRatePeriod()"><i class="ti ti-device-floppy"></i> Uložit sazbu</button>
-      <p class="label-hint">Vyber přesný den, od kterého cena platí. Další záznam automaticky ukončí předchozí období.</p>
+      <button id="rate-period-delete" class="btn btn-danger" type="button" onclick="deleteRatePeriod()" style="display:none;"><i class="ti ti-trash"></i> Smazat období</button>
+      <p class="label-hint">Nastav přesné datum od–do. Pokud konec nevyplníš, sazba platí až do další změny.</p>
     </div>
     <div id="rate-history-list" class="rate-history-list"></div>
     <div class="modal-actions"><button class="btn btn-secondary" onclick="closeRateHistory()">Zavřít</button></div>

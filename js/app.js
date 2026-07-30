@@ -463,13 +463,13 @@ function seasonReferenceDate(season){
 }
 function getRateHistory(){
   const history={};
-  const add=(label,price,from)=>{
+  const add=(label,price,from,to='')=>{
     if(!label||!Number.isFinite(Number(price))) return;
     const key=from||CATALOG_START;
     if(key<CATALOG_MIN_DATE) return;
     if(!history[label]) history[label]=[];
     const entry=history[label].find(x=>x.from===key);
-    if(entry) entry.price=Number(price); else history[label].push({from:key,price:Number(price)});
+    if(entry){ entry.price=Number(price); entry.to=to||''; } else history[label].push({from:key,to:to||'',price:Number(price)});
   };
   const base=(state.reasonList&&state.reasonList.length?state.reasonList:DEFAULT_REASON_LIST);
   base.forEach(r=>add(r.label,r.price,CATALOG_START));
@@ -477,20 +477,32 @@ function getRateHistory(){
     (list||[]).forEach(r=>add(r.label,r.price,legacyRateStart(key)));
   });
   Object.entries(state.rateHistory||{}).forEach(([label,items])=>{
-    (items||[]).forEach(item=>add(label,item.price,item.from||legacyRateStart(item.season)));
+    (items||[]).forEach(item=>add(label,item.price,item.from||legacyRateStart(item.season),item.to));
   });
-  Object.values(history).forEach(items=>items.sort((a,b)=>a.from.localeCompare(b.from)));
+  Object.entries(history).forEach(([label,items])=>{
+    const removed=new Set(state.deletedRatePeriods?.[label]||[]);
+    history[label]=items.filter(item=>!removed.has(item.from)).sort((a,b)=>a.from.localeCompare(b.from));
+  });
   return history;
+}
+function calculatedRateEnd(items,index){
+  const item=items[index],next=items[index+1]?.from;
+  if(item.to) return item.to;
+  return next?new Date(new Date(`${next}T12:00:00`).getTime()-86400000).toISOString().slice(0,10):null;
 }
 function rateAtDate(label,date=seasonReferenceDate(activeSeason||seasonForDate())){
   const target=typeof date==='string'?date:new Date(date).toISOString().slice(0,10);
   const items=getRateHistory()[label]||[];
-  return items.filter(item=>item.from<=target).at(-1)||null;
+  return items.filter((item,index)=>item.from<=target&&(!calculatedRateEnd(items,index)||calculatedRateEnd(items,index)>=target)).at(-1)||null;
 }
 function getReasonList(season=activeSeason||seasonForDate()){
   return Object.entries(getRateHistory()).map(([label,items])=>{
-    const rate=items.filter(item=>item.from<=seasonReferenceDate(season)).at(-1);
-    return rate?{label,price:rate.price}:null;
+    const start=seasonStartDate(season),end=seasonEndDate(season);
+    const overlapping=items.filter((item,index)=>item.from<=end&&(!calculatedRateEnd(items,index)||calculatedRateEnd(items,index)>=start));
+    const rate=rateAtDate(label,seasonReferenceDate(season));
+    if(!rate&&!overlapping.length) return null;
+    const prices=overlapping.map(item=>item.price);
+    return {label,price:rate?.price??overlapping.at(-1).price,minPrice:Math.min(...prices),maxPrice:Math.max(...prices)};
   }).filter(Boolean);
 }
 function getReasons(){ return getReasonList().map(r=>r.label); }
@@ -498,13 +510,14 @@ function reasonPrice(label,season=activeSeason||seasonForDate(),atDate=null){
   const date=atDate||seasonReferenceDate(season);
   return rateAtDate(label,date)?.price??null;
 }
-async function saveRatePeriod(label,price,from){
+async function saveRatePeriod(label,price,from,to=''){
   if(!state.rateHistory) state.rateHistory={};
+  if(state.deletedRatePeriods?.[label]) state.deletedRatePeriods[label]=state.deletedRatePeriods[label].filter(date=>date!==from);
   if(!state.rateHistory[label]) state.rateHistory[label]=[];
   const items=state.rateHistory[label];
   const existing=items.find(item=>(item.from||legacyRateStart(item.season))===from);
-  if(existing){ existing.price=Number(price); existing.from=from; delete existing.season; }
-  else items.push({from,price:Number(price)});
+  if(existing){ existing.price=Number(price); existing.from=from; existing.to=to||''; delete existing.season; }
+  else items.push({from,to:to||'',price:Number(price)});
   items.sort((a,b)=>(a.from||legacyRateStart(a.season)).localeCompare(b.from||legacyRateStart(b.season)));
   await saveState();
 }
@@ -805,7 +818,8 @@ function renderRates(){
   empty.style.display=rows.length?'none':'block';
   el.innerHTML=rows.map(r=>{
     const color=rateColor(r.price,list);
-    return `<button type="button" class="rate-row rate-row-open" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><i class="ti ti-chevron-right"></i></button>`;
+    const display=r.minPrice!==r.maxPrice?`${Number(r.minPrice).toLocaleString('cs-CZ')}–${Number(r.maxPrice).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`:`${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`;
+    return `<button type="button" class="rate-row rate-row-open" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${display}</strong><i class="ti ti-chevron-right"></i></button>`;
   }).join('');
   renderReasonOptions();
 }
@@ -826,21 +840,43 @@ window.openRateHistory=function(label){
   const max=Math.max(...items.map(i=>i.price),1);
   chart.innerHTML=items.map(item=>`<div class="rate-chart-point"><span class="rate-chart-value">${item.price}</span><span class="rate-chart-bar" style="height:${Math.max(12,Math.round(item.price/max*100))}%"></span><span class="rate-chart-label">${item.from.split('-').reverse().join('. ')}</span></div>`).join('');
   list.innerHTML=items.map((item,index)=>{
-    const next=items[index+1]?.from||null;
-    const until=next?`do ${new Date(`${next}T12:00:00`).getTime()-86400000?new Date(new Date(`${next}T12:00:00`).getTime()-86400000).toLocaleDateString('cs-CZ'):'?'}`:'dosud';
-    return `<button type="button" class="rate-history-item" onclick="editRatePeriod('${item.from}',${item.price})"><div><strong>${Number(item.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><span>Platí od ${new Date(`${item.from}T12:00:00`).toLocaleDateString('cs-CZ')}, ${until}</span></div><i class="ti ti-pencil"></i></button>`;
+    const end=calculatedRateEnd(items,index),until=end?`do ${new Date(`${end}T12:00:00`).toLocaleDateString('cs-CZ')}`:'dosud';
+    return `<button type="button" class="rate-history-item" onclick="editRatePeriod('${item.from}',${item.price},'${item.to||''}')"><div><strong>${Number(item.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><span>Platí od ${new Date(`${item.from}T12:00:00`).toLocaleDateString('cs-CZ')}, ${until}</span></div><i class="ti ti-pencil"></i></button>`;
   }).join('');
   document.getElementById('rate-period-date').value=seasonStartDate(activeSeason);
+  document.getElementById('rate-period-end').value='';
   document.getElementById('rate-period-price').value='';
+  document.getElementById('rate-period-editor-title').textContent='Přidat sazbu v období';
+  document.getElementById('rate-period-delete').style.display='none';
   document.getElementById('rate-history-modal').dataset.label=label;
   document.getElementById('rate-history-modal').classList.add('open');
 };
-window.editRatePeriod=function(from,price){document.getElementById('rate-period-date').value=from;document.getElementById('rate-period-price').value=price;};
+window.editRatePeriod=function(from,price,to=''){
+  document.getElementById('rate-period-date').value=from;document.getElementById('rate-period-end').value=to;document.getElementById('rate-period-price').value=price;
+  document.getElementById('rate-period-editor-title').textContent='Upravit vybrané období';
+  document.getElementById('rate-period-delete').style.display='inline-flex';
+  document.getElementById('rate-history-modal').dataset.editFrom=from;
+  document.getElementById('rate-period-price').focus();
+};
 window.saveRatePeriod=async function(){
   const modal=document.getElementById('rate-history-modal'),label=modal.dataset.label;
-  const from=document.getElementById('rate-period-date').value,price=Number(document.getElementById('rate-period-price').value);
-  if(!label||!from||from<CATALOG_MIN_DATE||!Number.isFinite(price)||price<=0){showToast('Zadej datum od 1. 7. 2025 a cenu vyšší než 0.');return;}
-  await saveRatePeriod(label,price,from);renderRates();openRateHistory(label);showToast('Sazba pro zvolené období uložena');
+  const from=document.getElementById('rate-period-date').value,to=document.getElementById('rate-period-end').value,price=Number(document.getElementById('rate-period-price').value);
+  if(!label||!from||from<CATALOG_MIN_DATE||!Number.isFinite(price)||price<=0||to&&to<from){showToast('Zadej datum od 1. 7. 2025, správné datum do a cenu vyšší než 0.');return;}
+  const original=modal.dataset.editFrom;
+  if(original&&original!==from){const items=state.rateHistory?.[label]||[];const entry=items.find(item=>(item.from||legacyRateStart(item.season))===original);if(entry) entry.from=from;}
+  await saveRatePeriod(label,price,from,to);renderRates();openRateHistory(label);showToast('Sazba pro zvolené období uložena');
+};
+window.deleteRatePeriod=async function(){
+  const modal=document.getElementById('rate-history-modal'),label=modal.dataset.label,from=modal.dataset.editFrom;
+  if(!label||!from)return;
+  if(!confirm('Opravdu smazat celé vybrané období sazby?'))return;
+  const items=state.rateHistory?.[label]||[];
+  state.rateHistory[label]=items.filter(item=>(item.from||legacyRateStart(item.season))!==from);
+  if(!state.rateHistory[label].length)delete state.rateHistory[label];
+  if(!state.deletedRatePeriods)state.deletedRatePeriods={};
+  if(!state.deletedRatePeriods[label])state.deletedRatePeriods[label]=[];
+  if(!state.deletedRatePeriods[label].includes(from))state.deletedRatePeriods[label].push(from);
+  await saveState();renderRates();openRateHistory(label);showToast('Období sazby smazáno');
 };
 window.closeRateHistory=function(){document.getElementById('rate-history-modal').classList.remove('open');};
 

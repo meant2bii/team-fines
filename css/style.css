@@ -373,7 +373,8 @@ select { cursor:pointer; }
 .rate-history-item span:not(.badge) { display:block; color:var(--tx-s); font-size:12px; margin-top:2px; }
 .rate-history-item { width:100%; border:0; text-align:left; font:inherit; cursor:pointer; }
 .rate-history-item .ti { color:var(--navy); }
-.rate-period-editor { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:center; padding:12px; margin-bottom:12px; background:var(--bg-s); border-radius:var(--r-sm); }
+.rate-period-editor { display:grid; grid-template-columns:minmax(145px,1fr) minmax(145px,1fr) minmax(118px,135px) auto; gap:8px; align-items:center; padding:12px; margin-bottom:12px; background:var(--bg-s); border-radius:var(--r-sm); }
+.rate-period-editor input[type="number"] { min-width:118px; }
 .rate-period-editor .section-label,.rate-period-editor .label-hint { grid-column:1/-1; margin:0; }
 
 /* ── VOICE ── */
@@ -779,6 +780,9 @@ select { cursor:pointer; }
   .rate-add-row .btn { width:100%; }
   .rate-toolbar { display:grid; grid-template-columns:1fr; }
   .rate-toolbar input,.rate-toolbar select { width:100%; min-width:0; }
+  .rate-period-editor { grid-template-columns:1fr 1fr; }
+  .rate-period-editor input[type="number"],.rate-period-editor .btn { min-width:0; width:100%; }
+  .rate-period-editor .btn-primary,.rate-period-editor .btn-danger { grid-column:span 1; }
   .parse-preview { min-height:42px; padding:10px 12px; }
   .form-actions { display:block; margin-top:12px; }
   .form-actions .btn { width:100%; }
