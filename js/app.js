@@ -286,7 +286,7 @@ function updateSeasonLabel(){
 window.changeSeason=function(){
   if(!isManager) return;
   activeSeason={year:parseInt(document.getElementById('season-year').value),half:document.getElementById('season-half').value};
-  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary();
+  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary(); renderRates();
   showToast('Zobrazuji: '+seasonLabel(activeSeason));
 };
 window.resetSeasonToToday=function(){
@@ -294,7 +294,7 @@ window.resetSeasonToToday=function(){
   activeSeason=seasonForDate();
   document.getElementById('season-year').value=String(activeSeason.year);
   document.getElementById('season-half').value=activeSeason.half;
-  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary();
+  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary(); renderRates();
   showToast('Nastaveno na aktuální sezónu: '+seasonLabel(activeSeason));
 };
 
@@ -309,6 +309,7 @@ function startFirestoreListener(){
     if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
     if(t==='log') renderLog();
     if(t==='summary') renderSummary();
+    if(t==='rates') renderRates();
     if(t==='players') renderPlayers();
     populatePlayerSelects();
     if(firstLoad){ firstLoad=false; checkEmailPlayerMatch(); }
@@ -403,6 +404,7 @@ window.switchTab=function(t){
   if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
   if(t==='log'){selectedFineIndices.clear();renderLog();}
   if(t==='summary') renderSummary();
+  if(t==='rates') renderRates();
   if(t==='players') renderPlayers();
 };
 
@@ -440,12 +442,18 @@ const DEFAULT_REASON_LIST = [
 ];
 // Stored as array of {label,price,cat}; fallback to defaults if empty
 function getReasonList(){
+  const seasonal=state.reasonLists?.[seasonKey(activeSeason||seasonForDate())];
+  if(seasonal&&seasonal.length) return seasonal;
   const rs=state.reasonList;
   return (rs&&rs.length)?rs:DEFAULT_REASON_LIST.map(r=>({...r}));
 }
 // Legacy flat array compat
 function getReasons(){ return getReasonList().map(r=>r.label); }
-async function saveReasonList(list){ state.reasonList=list; await saveState(); }
+async function saveReasonList(list){
+  if(!state.reasonLists) state.reasonLists={};
+  state.reasonLists[seasonKey(activeSeason||seasonForDate())]=list;
+  await saveState();
+}
 // Lookup price by label
 function reasonPrice(label){
   const r=getReasonList().find(r=>r.label.toLowerCase()===label.toLowerCase());
@@ -471,6 +479,9 @@ function parseChunk(chunk){
         const reason=parts.length>=3?parts.slice(1,-1).join(' – '):'';
         if(rawName) return{rawName,reason,amount:lastAmt};
       }
+      const reason=parts.slice(1).join(' – ');
+      const catalogAmount=reasonPrice(reason);
+      if(rawName&&catalogAmount!=null) return{rawName,reason,amount:catalogAmount};
     }
   }
 
@@ -622,6 +633,12 @@ const CAT_META={
   orange:{label:'Oranžová',cls:'tile-orange'},
   red:   {label:'Červená', cls:'tile-red'},
 };
+function reasonCategory(reason,list){
+  if(reason.cat) return reason.cat;
+  const prices=list.map(r=>Number(r.price)||0),min=Math.min(...prices),max=Math.max(...prices);
+  const ratio=max===min?.5:(Number(reason.price)-min)/(max-min);
+  return ratio<.34?'yellow':ratio<.67?'orange':'red';
+}
 
 function renderReasonTiles(){
   const selected=document.getElementById('f-reason')?.value||'';
@@ -631,7 +648,7 @@ function renderReasonTiles(){
 
   ['yellow','orange','red'].forEach(cat=>{
     const row=document.getElementById('reason-tiles-'+cat); if(!row) return;
-    const items=list.filter(r=>r.cat===cat);
+    const items=list.filter(r=>reasonCategory(r,list)===cat);
     if(!items.length){row.innerHTML='<span style="font-size:12px;color:var(--tx-m);">—</span>';return;}
     row.innerHTML=items.map((r,localI)=>{
       const globalI=list.indexOf(r);
@@ -676,6 +693,42 @@ window.addReason=async function(){
 window.deleteReason=async function(i){
   const list=getReasonList(); list.splice(i,1);
   await saveReasonList(list); renderReasonTiles();
+};
+
+// ── RATE CARD ───────────────────────────────────────────────────────────────
+function rateColor(price,list){
+  const values=list.map(r=>Number(r.price)||0);
+  const min=Math.min(...values),max=Math.max(...values);
+  const ratio=max===min?.5:(Number(price)-min)/(max-min);
+  return `hsl(${Math.round(48*(1-ratio))} 88% ${44+Math.round((1-ratio)*7)}%)`;
+}
+function renderRates(){
+  const label=document.getElementById('rate-season-label'); if(label) label.textContent=seasonLabel(activeSeason);
+  const list=getReasonList();
+  const search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
+  const sort=document.getElementById('rate-sort')?.value||'price';
+  const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs'));
+  const el=document.getElementById('rate-list'),empty=document.getElementById('rate-empty'); if(!el||!empty)return;
+  empty.style.display=rows.length?'none':'block';
+  el.innerHTML=rows.map(r=>{
+    const originalIndex=list.indexOf(r),color=rateColor(r.price,list);
+    return `<div class="rate-row"><span class="rate-dot" style="--rate-color:${color}" title="Cena ${r.price} CZK"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><button class="btn-icon danger" title="Smazat prohřešek" onclick="deleteRate(${originalIndex})"><i class="ti ti-trash"></i></button></div>`;
+  }).join('');
+}
+window.renderRates=renderRates;
+window.addRate=async function(){
+  const nameEl=document.getElementById('rate-name'),priceEl=document.getElementById('rate-price'),err=document.getElementById('rate-error');
+  const label=nameEl.value.trim(),price=Number(priceEl.value);
+  err.style.display='none';
+  if(!label||!Number.isFinite(price)||price<=0){err.textContent='Zadej název prohřešku a cenu vyšší než 0.';err.style.display='block';return;}
+  const list=getReasonList();
+  if(list.some(r=>r.label.toLowerCase()===label.toLowerCase())){err.textContent='Tento prohřešek už v sazebníku je.';err.style.display='block';return;}
+  list.push({label,price});await saveReasonList(list);nameEl.value='';priceEl.value='';renderRates();renderReasonTiles();showToast(`Sazba „${label}“ přidána`);
+};
+window.deleteRate=async function(index){
+  const list=getReasonList(),item=list[index];if(!item)return;
+  if(!confirm(`Smazat prohřešek „${item.label}“ ze sazebníku ${seasonLabel(activeSeason)}?`))return;
+  list.splice(index,1);await saveReasonList(list);renderRates();renderReasonTiles();
 };
 
 // ─── REASON AUTOCOMPLETE (Fix #3) ─────────────────────────────────

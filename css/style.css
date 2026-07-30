@@ -355,6 +355,21 @@ select { cursor:pointer; }
 .quick-row input { flex:1; }
 .parse-preview { font-size:13px; color:var(--tx-s); background:var(--bg-s); border-radius:var(--r-sm); padding:8px 12px; min-height:36px; line-height:1.4; }
 
+/* ── RATE CARD ── */
+.rate-card { border-left:4px solid var(--red); }
+.rate-add-row,.rate-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.rate-add-row input:first-child,.rate-toolbar input { flex:1; min-width:170px; }
+.rate-add-row input:nth-child(2) { width:130px; }
+.rate-toolbar { margin-bottom:12px; }
+.rate-toolbar select { width:auto; min-width:175px; }
+.rate-list { display:flex; flex-direction:column; }
+.rate-row { display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1.5px solid var(--bdr); }
+.rate-row:last-child { border-bottom:none; }
+.rate-dot { width:14px; height:14px; border-radius:50%; background:var(--rate-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--rate-color) 18%,transparent); flex-shrink:0; }
+.rate-name { flex:1; font-weight:700; font-size:14px; }
+.rate-price { color:var(--navy); font-family:var(--mono); font-size:13px; white-space:nowrap; }
+.rate-row .btn-icon { width:32px; height:32px; }
+
 /* ── VOICE ── */
 .voice-card { border-left:4px solid var(--navy); background:linear-gradient(135deg,var(--bg-c),var(--bg-s)); }
 .voice-session-ui { display:flex; align-items:center; gap:12px; margin:12px 0 6px; flex-wrap:wrap; }
@@ -747,6 +762,12 @@ select { cursor:pointer; }
   .voice-status { margin-top:8px; text-align:center; }
   .quick-row { display:grid; grid-template-columns:1fr; gap:8px; }
   .quick-row .btn { width:100%; }
+  .rate-add-row { display:grid; grid-template-columns:1fr 110px; }
+  .rate-add-row input:first-child { grid-column:1/-1; min-width:0; }
+  .rate-add-row input:nth-child(2) { width:auto; }
+  .rate-add-row .btn { width:100%; }
+  .rate-toolbar { display:grid; grid-template-columns:1fr; }
+  .rate-toolbar input,.rate-toolbar select { width:100%; min-width:0; }
   .parse-preview { min-height:42px; padding:10px 12px; }
   .form-actions { display:block; margin-top:12px; }
   .form-actions .btn { width:100%; }

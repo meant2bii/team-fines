@@ -149,6 +149,7 @@
     <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-home"></i><span> Main</span></button>
     <button class="tab"        data-tab="log"     onclick="switchTab('log')"><i class="ti ti-list"></i><span> Log</span></button>
     <button class="tab"        data-tab="summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
+    <button class="tab"        data-tab="rates"   onclick="switchTab('rates')"><i class="ti ti-currency-crown"></i><span> Sazebník</span></button>
     <button class="tab"        data-tab="players" onclick="switchTab('players')"><i class="ti ti-users"></i><span> Hráči</span></button>
   </nav>
 
@@ -199,11 +200,11 @@
         <div class="card">
           <div class="card-label">Rychlý textový vstup</div>
           <div class="quick-row">
-            <input id="quick-input" type="text" placeholder="Erik 50  nebo  Michal Bago 30  nebo  Jirka – Bago – 30" autocomplete="off"
+            <input id="quick-input" type="text" placeholder="Erik – Červená  nebo  Michal Bago 30" autocomplete="off"
               oninput="parseQuick(this.value)" onkeydown="if(event.key==='Enter')submitQuick()" />
             <button class="btn btn-primary" onclick="submitQuick()">Přidat</button>
           </div>
-          <div class="parse-preview" id="parse-preview">Formát: <strong>Hráč – Důvod – Částka</strong></div>
+          <div class="parse-preview" id="parse-preview">Formát: <strong>Hráč – Prohřešek</strong> (cena ze sazebníku) nebo <strong>Hráč – Prohřešek – Částka</strong></div>
         </div>
 
         <div class="card">
@@ -298,6 +299,31 @@
         <p class="helper-text">Vygeneruj shrnutí pokut ke zkopírování.</p>
         <button class="btn btn-secondary" onclick="generateEmailReport()"><i class="ti ti-mail"></i> Generovat report</button>
         <div id="email-report" style="display:none;margin-top:1rem;"></div>
+      </div>
+    </section>
+
+    <!-- ── RATE CARD ── -->
+    <section id="panel-rates" class="panel">
+      <div class="card rate-card">
+        <div class="card-label"><i class="ti ti-currency-crown"></i> &nbsp;Sazebník pro <span id="rate-season-label"></span></div>
+        <p class="helper-text">Při textovém i hlasovém zadání stačí říct například <strong>„Erik – Červená“</strong>; částka se doplní ze sazebníku aktuálně vybrané sezóny.</p>
+        <div class="rate-add-row">
+          <input id="rate-name" type="text" placeholder="Název prohřešku" onkeydown="if(event.key==='Enter')addRate()" />
+          <input id="rate-price" type="number" min="1" placeholder="Cena (CZK)" onkeydown="if(event.key==='Enter')addRate()" />
+          <button class="btn btn-primary" onclick="addRate()"><i class="ti ti-plus"></i> Přidat</button>
+        </div>
+        <div id="rate-error" class="error-msg" style="display:none;"></div>
+      </div>
+      <div class="card">
+        <div class="rate-toolbar">
+          <input id="rate-search" type="search" placeholder="Filtrovat prohřešek…" oninput="renderRates()" />
+          <select id="rate-sort" onchange="renderRates()" aria-label="Řazení sazebníku">
+            <option value="price">Cena: od nejnižší</option>
+            <option value="name">Abecedně: A–Z</option>
+          </select>
+        </div>
+        <div id="rate-list" class="rate-list"></div>
+        <div id="rate-empty" class="empty-state" style="display:none;"><i class="ti ti-list-search"></i><p>Pro tuto sezónu zatím není žádný prohřešek.</p></div>
       </div>
     </section>
 
