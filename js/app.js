@@ -58,6 +58,7 @@ let isManager=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
 let currentUser=null, phoneUser=null, unsubFirestore=null, activeSeason=null;
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
+let voiceMeterStream=null, voiceMeterContext=null, voiceMeterAnalyser=null, voiceMeterFrame=null;
 let reviewQueue=[];
 let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
@@ -959,6 +960,7 @@ function startVoiceSession(){
   const btn=document.getElementById('voice-record-btn');
   btn.classList.add('recording');
   document.getElementById('voice-wave')?.classList.add('active');
+  startVoiceMeter();
   document.getElementById('voice-record-label').textContent='Zastavit nahrávání';
   document.getElementById('voice-status').textContent='🔴 Poslouchám… po každé pokutě řekni „další“.';
   const live=document.getElementById('voice-live');
@@ -1042,6 +1044,7 @@ function resetVoiceUI(){
   const btn=document.getElementById('voice-record-btn');
   if(btn) btn.classList.remove('recording');
   document.getElementById('voice-wave')?.classList.remove('active');
+  stopVoiceMeter();
   const lbl=document.getElementById('voice-record-label');
   if(lbl) lbl.textContent='Spustit nahrávání';
   const st=document.getElementById('voice-status');
@@ -1082,6 +1085,35 @@ function buildReviewQueue(transcript){
   document.getElementById('voice-review').scrollIntoView({behavior:'smooth'});
   const unknown=[...new Set(reviewQueue.filter(r=>r.needsPlayer).map(r=>voiceDisplayName(r.rawName)))];
   if(unknown.length) setTimeout(()=>alert(`Hráč ${unknown.join(', ')} není v databázi. Nejdřív ho přidej v kontrole níže a zadej telefon ve formátu +420 nebo +421.`),0);
+}
+
+async function startVoiceMeter(){
+  if(!navigator.mediaDevices?.getUserMedia||voiceMeterStream) return;
+  try{
+    voiceMeterStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    if(!voiceActive){voiceMeterStream.getTracks().forEach(track=>track.stop());voiceMeterStream=null;return;}
+    voiceMeterContext=new (window.AudioContext||window.webkitAudioContext)();
+    voiceMeterAnalyser=voiceMeterContext.createAnalyser();
+    voiceMeterAnalyser.fftSize=512;
+    voiceMeterContext.createMediaStreamSource(voiceMeterStream).connect(voiceMeterAnalyser);
+    const data=new Uint8Array(voiceMeterAnalyser.fftSize),wave=document.getElementById('voice-wave');
+    const render=()=>{
+      if(!voiceMeterAnalyser||!wave)return;
+      voiceMeterAnalyser.getByteTimeDomainData(data);
+      let sum=0;for(const value of data){const sample=(value-128)/128;sum+=sample*sample;}
+      const level=Math.min(1,Math.max(.02,Math.sqrt(sum/data.length)*7));
+      wave.style.setProperty('--voice-level',level.toFixed(3));
+      voiceMeterFrame=requestAnimationFrame(render);
+    };
+    render();
+  }catch(error){console.warn('Voice meter unavailable',error);}
+}
+function stopVoiceMeter(){
+  if(voiceMeterFrame)cancelAnimationFrame(voiceMeterFrame);
+  voiceMeterFrame=null;
+  voiceMeterStream?.getTracks().forEach(track=>track.stop());
+  voiceMeterStream=null;voiceMeterAnalyser=null;
+  if(voiceMeterContext){voiceMeterContext.close();voiceMeterContext=null;}
 }
 function voiceDisplayName(name=''){
   return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part.charAt(0).toUpperCase()+part.slice(1).toLowerCase()).join(' ');

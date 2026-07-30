@@ -890,6 +890,40 @@ input:focus,select:focus,textarea:focus { border-color:#2563eb; box-shadow:0 0 0
   .voice-record-btn { min-height:56px; }
 }
 
+/* Voice-first mobile command centre. */
+.voice-card { text-align:center; border:0; border-left:0; background:radial-gradient(circle at 50% 32%,#dbeafe 0,#eff6ff 36%,#fff 74%); box-shadow:0 12px 30px rgba(20,85,189,.12); padding:1.7rem 1.25rem 1.35rem; }
+.voice-hero-title { color:#0f3d91; font-size:20px; line-height:1.2; font-weight:800; letter-spacing:-.03em; }
+.voice-hero-hint { color:#475569; font-size:14px; margin:6px 0 18px; }
+.voice-session-ui { display:flex; flex-direction:column; align-items:center; gap:12px; margin:0; }
+.voice-record-btn { width:148px; height:148px; min-height:148px; border-radius:50%; padding:0; display:flex; flex-direction:column; justify-content:center; gap:7px; background:linear-gradient(145deg,#2563eb,#0f3d91); box-shadow:0 16px 30px rgba(20,85,189,.3),inset 0 1px 1px rgba(255,255,255,.35); }
+.voice-record-btn .ti { font-size:40px; }
+.voice-record-btn.recording { background:linear-gradient(145deg,#ef4444,#b91c1c); }
+.voice-record-btn.recording .voice-record-pulse { display:block; animation:pulse-bg 1.2s ease-in-out infinite; }
+.voice-status { min-height:20px; text-align:center; }
+.voice-wave { display:none; min-height:42px; height:42px; align-items:center; justify-content:center; gap:5px; margin:12px 0 2px; --voice-level:.02; }
+.voice-wave.active { display:flex; }
+.voice-wave i,.voice-wave i:nth-child(n) { width:5px; height:calc(4px + var(--voice-level) * 38px); background:#2563eb; border-radius:99px; animation:none; opacity:.9; transition:height .06s linear; }
+.voice-wave i:nth-child(2),.voice-wave i:nth-child(6) { transform:scaleY(.65); }
+.voice-wave i:nth-child(3),.voice-wave i:nth-child(5) { transform:scaleY(.84); }
+.voice-hero-foot { margin-top:8px; color:#64748b; font-size:12px; }
+
+@media (max-width:600px) {
+  .header-inner { min-height:116px; height:116px; padding:12px 0 52px; align-items:center; }
+  .header-brand { position:absolute; left:50%; transform:translateX(-50%); gap:8px; }
+  .header-right { width:100%; justify-content:flex-end; }
+  .header-logout { position:absolute; right:0; top:10px; width:42px; height:42px; z-index:2; }
+  .season-controls { left:0; right:0; bottom:8px; padding:4px; border-radius:10px; }
+  .season-caption { display:none; }
+  .season-controls select { width:112px; }
+  .tab-nav { min-height:70px; padding:4px 7px env(safe-area-inset-bottom); background:#fff; box-shadow:0 -8px 24px rgba(15,23,42,.1); }
+  .tab { min-height:60px; border-radius:12px; color:#64748b; }
+  .tab.active { background:#eff6ff; color:#1455bd; border-top-color:transparent; }
+  .tab.active .ti { color:#dc2626; }
+  .voice-card { padding:1.5rem 1rem 1.2rem; border-radius:22px; }
+  .voice-record-btn { width:156px; height:156px; min-height:156px; }
+  .voice-hero-title { font-size:21px; }
+}
+
 /* Final interaction pass: explicit selected states and modal containment. */
 .header-logout { background:rgba(220,38,38,.18); border-color:rgba(255,255,255,.38); color:#fff; }
 .header-logout:hover,.header-logout:focus-visible { background:#dc2626; border-color:#fecaca; color:#fff; }

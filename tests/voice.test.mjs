@@ -59,3 +59,11 @@ test('další separates entries and konec ends the voice batch', () => {
   assert.equal(fines.length, 2);
   assert.deepEqual(fines.map(f => f.amount), [22, 30]);
 });
+
+test('supports the spoken separators used during a continuous entry', () => {
+  const separators = ['středník', 'dále', 'a další', 'ještě', 'plus', 'navíc', 'a také', 'taky'];
+  for (const separator of separators) {
+    const fines = parseVoiceTranscript(`Míša 20 ${separator} Teichi 30`, players, reasons);
+    assert.equal(fines.length, 2, separator);
+  }
+});

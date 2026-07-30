@@ -136,8 +136,7 @@ function splitVoiceTranscriptLegacy(transcript, players = []) {
 export function splitVoiceTranscript(transcript, players = []) {
   const text = String(transcript || '')
     .split(/\b(?:konec|stop)\b/iu)[0]
-    .replace(/\s+(?:dal\u0161\u00ed|dalsi|potom|n\u00e1sleduje|nasleduje)\s+/giu, ', ')
-    .replace(/\s+a\s+(?:pak|je\u0161t\u011b|jeste|taky|tak\u00e9)\s+/giu, ', ');
+    .replace(/\s+(?:st\u0159edn\u00edk|dal\u0161\u00ed|dalsi|d\u00e1le|dale|a\s+dal\u0161\u00ed|je\u0161t\u011b|jeste|plus|nav\u00edc|a\s+tak\u00e9|a\s+taky|taky|potom|n\u00e1sleduje|nasleduje)\s+/giu, ', ');
   return text.split(/[,;\n]+/).map(part => part.trim()).filter(Boolean);
 }
 

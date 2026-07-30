@@ -168,17 +168,18 @@
 
       <div id="add-form" style="display:none;">
         <div class="card voice-card">
-          <div class="card-label"><i class="ti ti-microphone"></i> &nbsp;Hlasové nahrávání po tréninku</div>
-          <p class="helper-text">Říkej vždy <strong>hráč, důvod, částka</strong> a mezi pokutami řekni <strong>„další“</strong>. Např.: <em>„Michal Bago sto, další Teichi Píčovina dvě stě“</em>. Částku můžeš vynechat pouze u důvodu z ceníku.</p>
+          <div class="voice-hero-title">Zapsat pokuty hlasem</div>
+          <p class="voice-hero-hint">Klepni, nadiktuj pokuty a řekni <strong>konec</strong>.</p>
           <div class="voice-session-ui">
             <button class="voice-record-btn" id="voice-record-btn" onclick="toggleVoiceSession()">
               <span class="voice-record-pulse"></span>
               <i class="ti ti-microphone"></i>
-              <span id="voice-record-label">Spustit nahrávání</span>
+              <span id="voice-record-label">Nahrávat</span>
             </button>
             <div class="voice-status" id="voice-status" aria-live="polite"></div>
           </div>
           <div id="voice-wave" class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="voice-hero-foot">Oddělit můžeš: další, dále, ještě, plus nebo navíc.</div>
           <div id="voice-live" class="voice-live" style="display:none;"></div>
         </div>
 
