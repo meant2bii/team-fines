@@ -883,3 +883,35 @@ input:focus,select:focus,textarea:focus { border-color:#2563eb; box-shadow:0 0 0
   .card-label { font-size:10px; }
   .voice-record-btn { min-height:56px; }
 }
+
+/* Final interaction pass: explicit selected states and modal containment. */
+.header-logout { background:rgba(220,38,38,.18); border-color:rgba(255,255,255,.38); color:#fff; }
+.header-logout:hover,.header-logout:focus-visible { background:#dc2626; border-color:#fecaca; color:#fff; }
+.fine-check {
+  appearance:none; -webkit-appearance:none; width:22px; height:22px; min-height:22px;
+  border:2px solid #94a3b8; border-radius:7px; background:#fff; outline:none;
+  display:grid; place-content:center; flex-shrink:0;
+}
+.fine-check:checked { background:#1455bd; border-color:#1455bd; outline:none; }
+.fine-check:checked::after { content:'✓'; color:#fff; font-size:15px; font-weight:900; line-height:1; }
+.fine-check:focus-visible { box-shadow:0 0 0 4px rgba(20,85,189,.2); }
+.fine-row.selected { background:#eff6ff; outline-color:#2563eb; }
+
+#rate-history-modal { overflow:hidden; }
+#rate-history-modal .modal { width:min(620px,calc(100vw - 24px)); max-height:calc(100dvh - 24px); overflow-x:hidden; }
+#rate-history-modal .rate-period-editor { min-width:0; }
+
+@media (max-width:720px) {
+  #rate-history-modal .rate-period-editor { grid-template-columns:1fr 1fr; }
+  #rate-history-modal .rate-period-editor input[type="number"],
+  #rate-history-modal .rate-period-editor .btn { grid-column:span 2; min-width:0; width:100%; }
+  #rate-history-modal .rate-period-editor .btn { min-height:48px; }
+}
+
+@media (max-width:600px) {
+  #rate-history-modal .modal { width:100%; max-height:92dvh; }
+  #rate-history-modal .rate-history-chart { min-height:128px; margin-bottom:12px; }
+  #rate-history-modal .rate-period-editor { padding:12px; gap:10px; }
+  #rate-history-modal .rate-history-item { min-height:64px; padding:12px; }
+  .fine-actions .btn-icon { width:42px; height:42px; }
+}

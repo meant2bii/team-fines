@@ -1139,8 +1139,8 @@ function renderLog(){
       <span class="fine-reason">${esc(f.reason)}</span>
       <span class="fine-amt">${f.amount} ${CONFIG.CURRENCY}</span>
       ${isManager?`<div class="fine-actions">
-        <button class="btn-icon" onclick="openEdit(${idx})"><i class="ti ti-edit"></i></button>
-        <button class="btn-icon danger" onclick="deleteFine(${idx})"><i class="ti ti-trash"></i></button>
+        <button type="button" class="btn-icon" aria-label="Upravit pokutu" onclick="event.stopPropagation();openEdit(${idx})"><i class="ti ti-edit"></i></button>
+        <button type="button" class="btn-icon danger" aria-label="Smazat pokutu" onclick="event.stopPropagation();deleteFine(${idx})"><i class="ti ti-trash"></i></button>
       </div>`:''}
     </div>`;
   }).join('');
@@ -1174,8 +1174,19 @@ window.deleteSelected=async function(){
 };
 
 window.deleteFine=async function(idx){
-  if(!confirm('Smazat tuto pokutu?')) return;
-  state.fines.splice(idx,1);await saveState();renderLog();
+  const fine=state.fines?.[idx];
+  if(!fine) { showToast('Záznam už neexistuje. Obnovuji seznam.'); renderLog(); return; }
+  if(!confirm(`Smazat pokutu ${fine.player} – ${fine.amount} ${CONFIG.CURRENCY}?`)) return;
+  try{
+    state.fines.splice(idx,1);
+    selectedFineIndices.clear();
+    await saveState();
+    renderLog();
+    showToast('Pokuta smazána');
+  }catch(error){
+    console.error('Fine deletion failed',error);
+    showToast('Pokutu se nepodařilo smazat. Zkus to prosím znovu.');
+  }
 };
 window.openEdit=function(idx){
   editIndex=idx;const f=state.fines[idx];
