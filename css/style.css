@@ -203,16 +203,6 @@ select { cursor:pointer; }
   letter-spacing: -.02em;
   line-height: 1;
 }
-/* Season label – prominent, accent colour */
-.brand-season {
-  font-size: 13px;
-  font-weight: 600;
-  color: #f9a8a8; /* soft red – visible on navy, references club red */
-  letter-spacing: .01em;
-  line-height: 1;
-  margin-top: 3px;
-}
-
 /* Right side */
 .header-right {
   display: flex;
@@ -365,10 +355,22 @@ select { cursor:pointer; }
 .rate-list { display:flex; flex-direction:column; }
 .rate-row { display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1.5px solid var(--bdr); }
 .rate-row:last-child { border-bottom:none; }
+.rate-row-open { width:100%; border:0; background:transparent; color:var(--tx); text-align:left; cursor:pointer; font:inherit; border-radius:var(--r-sm); }
+.rate-row-open:hover { background:var(--bg-s); }
+.rate-row-open .ti { color:var(--tx-m); }
 .rate-dot { width:14px; height:14px; border-radius:50%; background:var(--rate-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--rate-color) 18%,transparent); flex-shrink:0; }
 .rate-name { flex:1; font-weight:700; font-size:14px; }
 .rate-price { color:var(--navy); font-family:var(--mono); font-size:13px; white-space:nowrap; }
 .rate-row .btn-icon { width:32px; height:32px; }
+.rate-history-chart { min-height:160px; display:flex; align-items:end; gap:14px; padding:18px 8px 4px; margin:8px 0 18px; border-bottom:2px solid var(--bdr); overflow-x:auto; }
+.rate-chart-point { height:138px; min-width:72px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:end; gap:5px; }
+.rate-chart-value { font:700 12px var(--mono); color:var(--navy); }
+.rate-chart-bar { display:block; width:30px; min-height:12px; background:linear-gradient(180deg,var(--red),#f87171); border-radius:6px 6px 0 0; }
+.rate-chart-label { font-size:11px; color:var(--tx-m); text-align:center; line-height:1.15; }
+.rate-history-list { display:flex; flex-direction:column; gap:8px; }
+.rate-history-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; background:var(--bg-s); border-radius:var(--r-sm); }
+.rate-history-item strong { display:block; color:var(--navy); }
+.rate-history-item span:not(.badge) { display:block; color:var(--tx-s); font-size:12px; margin-top:2px; }
 
 /* ── VOICE ── */
 .voice-card { border-left:4px solid var(--navy); background:linear-gradient(135deg,var(--bg-c),var(--bg-s)); }

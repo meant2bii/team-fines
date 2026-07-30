@@ -77,10 +77,16 @@ function roleClass(id){ return (ROLES.find(r=>r.id===id)||{cls:'badge-season'}).
 function seasonKey(s){ return calendarSeasonKey(s); }
 function seasonLabel(s){ return `${s.half} ${s.year}`; }
 function currentYear(){ return new Date().getFullYear(); }
+function parseSeasonKey(key){
+  const [year,half]=String(key||'').split('-');
+  return {year:Number(year),half:half==='Podzim'?'Podzim':'Jaro'};
+}
+function seasonOrder(season){ return Number(season.year)*2+(season.half==='Podzim'?1:0); }
+function fineSeason(f){ return f?.season ? parseSeasonKey(f.season) : seasonForDate(new Date(f.ts)); }
 function seasonFines(){
   if(!activeSeason) return state.fines||[];
   const key=seasonKey(activeSeason);
-  return (state.fines||[]).filter(f=>seasonKey(seasonForDate(new Date(f.ts)))===key);
+  return (state.fines||[]).filter(f=>seasonKey(fineSeason(f))===key);
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────
@@ -306,7 +312,7 @@ function startFirestoreListener(){
     if(snap.exists()){state=snap.data();state.players=state.players||[];state.fines=state.fines||[];}
     else state={players:[],fines:[]};
     const t=document.querySelector('.tab.active')?.dataset.tab;
-    if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
+    if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonOptions(); }
     if(t==='log') renderLog();
     if(t==='summary') renderSummary();
     if(t==='rates') renderRates();
@@ -387,7 +393,7 @@ function updateLockUI(){
     if(sc) sc.style.display='flex';
     if(mw) mw.style.display='none'; if(mw2) mw2.style.display='none';
     if(af) af.style.display='block'; if(pf) pf.style.display='block';
-    populatePlayerSelects(); renderPlayers(); renderReasonTiles();
+    populatePlayerSelects(); renderPlayers(); renderReasonOptions();
   }else{
     if(sc) sc.style.display='none';
     if(mw) mw.style.display='block'; if(mw2) mw2.style.display='block';
@@ -401,7 +407,7 @@ window.switchTab=function(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
-  if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonTiles(); }
+  if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonOptions(); }
   if(t==='log'){selectedFineIndices.clear();renderLog();}
   if(t==='summary') renderSummary();
   if(t==='rates') renderRates();
@@ -440,24 +446,54 @@ const DEFAULT_REASON_LIST = [
   {label:'Píčovina',          price:200, cat:'orange'},
   {label:'Červená karta',     price:500, cat:'red'},
 ];
-// Stored as array of {label,price,cat}; fallback to defaults if empty
-function getReasonList(){
-  const seasonal=state.reasonLists?.[seasonKey(activeSeason||seasonForDate())];
-  if(seasonal&&seasonal.length) return seasonal;
-  const rs=state.reasonList;
-  return (rs&&rs.length)?rs:DEFAULT_REASON_LIST.map(r=>({...r}));
+// Each offence has a price history.  Legacy season lists are read as history so
+// existing installations keep their prices without a data migration.
+const CATALOG_START={year:2000,half:'Jaro'};
+function getRateHistory(){
+  const history={};
+  const add=(label,price,season)=>{
+    if(!label||!Number.isFinite(Number(price))) return;
+    const key=seasonKey(season);
+    if(!history[label]) history[label]=[];
+    const entry=history[label].find(x=>x.season===key);
+    if(entry) entry.price=Number(price); else history[label].push({season:key,price:Number(price)});
+  };
+  const base=(state.reasonList&&state.reasonList.length?state.reasonList:DEFAULT_REASON_LIST);
+  base.forEach(r=>add(r.label,r.price,CATALOG_START));
+  Object.entries(state.reasonLists||{}).forEach(([key,list])=>{
+    const season=parseSeasonKey(key);
+    (list||[]).forEach(r=>add(r.label,r.price,season));
+  });
+  Object.entries(state.rateHistory||{}).forEach(([label,items])=>{
+    (items||[]).forEach(item=>add(label,item.price,parseSeasonKey(item.season)));
+  });
+  Object.values(history).forEach(items=>items.sort((a,b)=>seasonOrder(parseSeasonKey(a.season))-seasonOrder(parseSeasonKey(b.season))));
+  return history;
 }
-// Legacy flat array compat
+function rateAtSeason(label,season=activeSeason||seasonForDate()){
+  const target=seasonOrder(season);
+  const items=getRateHistory()[label]||[];
+  return items.filter(item=>seasonOrder(parseSeasonKey(item.season))<=target).at(-1)||null;
+}
+function getReasonList(season=activeSeason||seasonForDate()){
+  return Object.entries(getRateHistory()).map(([label,items])=>{
+    const rate=items.filter(item=>seasonOrder(parseSeasonKey(item.season))<=seasonOrder(season)).at(-1);
+    return rate?{label,price:rate.price}:null;
+  }).filter(Boolean);
+}
 function getReasons(){ return getReasonList().map(r=>r.label); }
-async function saveReasonList(list){
-  if(!state.reasonLists) state.reasonLists={};
-  state.reasonLists[seasonKey(activeSeason||seasonForDate())]=list;
-  await saveState();
+function reasonPrice(label,season=activeSeason||seasonForDate()){
+  const found=getReasonList(season).find(r=>r.label.toLowerCase()===String(label||'').toLowerCase());
+  return found?found.price:null;
 }
-// Lookup price by label
-function reasonPrice(label){
-  const r=getReasonList().find(r=>r.label.toLowerCase()===label.toLowerCase());
-  return r?r.price:null;
+async function saveRateForSeason(label,price,season=activeSeason||seasonForDate()){
+  if(!state.rateHistory) state.rateHistory={};
+  if(!state.rateHistory[label]) state.rateHistory[label]=[];
+  const key=seasonKey(season),items=state.rateHistory[label];
+  const existing=items.find(item=>item.season===key);
+  if(existing) existing.price=Number(price); else items.push({season:key,price:Number(price)});
+  items.sort((a,b)=>seasonOrder(parseSeasonKey(a.season))-seasonOrder(parseSeasonKey(b.season)));
+  await saveState();
 }
 
 // ─── PARSE (flexible: dashes optional, reason optional, auto-price) ─
@@ -546,7 +582,7 @@ function autoFillPrice(reason){
   const price=reasonPrice(reason);
   if(price!=null){
     const amtEl=document.getElementById('f-amount');
-    if(amtEl&&!amtEl.value) amtEl.value=price;
+    if(amtEl) amtEl.value=price;
   }
 }
 
@@ -628,6 +664,7 @@ function renderRecentPlayers(){
 }
 
 // ─── REASON TILES – 3 categories (Fix #6) ────────────────────────
+/* Legacy colour/category editor retired in favour of the rate card.
 const CAT_META={
   yellow:{label:'Žlutá',   cls:'tile-yellow'},
   orange:{label:'Oranžová',cls:'tile-orange'},
@@ -694,8 +731,16 @@ window.deleteReason=async function(i){
   const list=getReasonList(); list.splice(i,1);
   await saveReasonList(list); renderReasonTiles();
 };
+*/
+
+function renderReasonOptions(){
+  const options=document.getElementById('reason-options'); if(!options) return;
+  options.innerHTML=getReasonList().sort((a,b)=>a.label.localeCompare(b.label,'cs'))
+    .map(r=>`<option value="${esc(r.label)}">${r.price} ${CONFIG.CURRENCY}</option>`).join('');
+}
 
 // ── RATE CARD ───────────────────────────────────────────────────────────────
+/* Previous one-season rate card implementation.
 function rateColor(price,list){
   const values=list.map(r=>Number(r.price)||0);
   const min=Math.min(...values),max=Math.max(...values);
@@ -730,6 +775,57 @@ window.deleteRate=async function(index){
   if(!confirm(`Smazat prohřešek „${item.label}“ ze sazebníku ${seasonLabel(activeSeason)}?`))return;
   list.splice(index,1);await saveReasonList(list);renderRates();renderReasonTiles();
 };
+*/
+
+function rateColor(price,list){
+  const values=list.map(r=>Number(r.price)||0),min=Math.min(...values),max=Math.max(...values);
+  const ratio=max===min?.5:(Number(price)-min)/(max-min);
+  return `hsl(${Math.round(48*(1-ratio))} 88% ${44+Math.round((1-ratio)*7)}%)`;
+}
+function ratePeriodLabel(season){
+  return season.half==='Jaro' ? `1. 1. ${season.year} – 30. 6. ${season.year}` : `1. 7. ${season.year} – 31. 12. ${season.year}`;
+}
+function periodEndBefore(next){
+  return next.half==='Jaro' ? `31. 12. ${next.year-1}` : `30. 6. ${next.year}`;
+}
+function timelineForRate(label){ return (getRateHistory()[label]||[]).slice(); }
+function renderRates(){
+  const label=document.getElementById('rate-season-label'); if(label) label.textContent=seasonLabel(activeSeason);
+  const list=getReasonList(),search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
+  const sort=document.getElementById('rate-sort')?.value||'price';
+  const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs'));
+  const el=document.getElementById('rate-list'),empty=document.getElementById('rate-empty'); if(!el||!empty)return;
+  empty.style.display=rows.length?'none':'block';
+  el.innerHTML=rows.map(r=>{
+    const color=rateColor(r.price,list);
+    return `<button type="button" class="rate-row rate-row-open" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><i class="ti ti-chevron-right"></i></button>`;
+  }).join('');
+  renderReasonOptions();
+}
+window.renderRates=renderRates;
+window.addRate=async function(){
+  const nameEl=document.getElementById('rate-name'),priceEl=document.getElementById('rate-price'),err=document.getElementById('rate-error');
+  const label=nameEl.value.trim(),price=Number(priceEl.value);
+  err.style.display='none';
+  if(!label||!Number.isFinite(price)||price<=0){err.textContent='Zadej název prohřešku a cenu vyšší než 0.';err.style.display='block';return;}
+  await saveRateForSeason(label,price);
+  nameEl.value='';priceEl.value='';renderRates();showToast(`Sazba „${label}“ platná od ${seasonLabel(activeSeason)} uložena`);
+};
+window.openRateHistory=function(label){
+  const items=timelineForRate(label),title=document.getElementById('rate-history-title');
+  const chart=document.getElementById('rate-history-chart'),list=document.getElementById('rate-history-list');
+  if(!items.length||!title||!chart||!list)return;
+  title.textContent=`Vývoj sazby: ${label}`;
+  const max=Math.max(...items.map(i=>i.price),1);
+  chart.innerHTML=items.map(item=>{const season=parseSeasonKey(item.season);return `<div class="rate-chart-point"><span class="rate-chart-value">${item.price}</span><span class="rate-chart-bar" style="height:${Math.max(12,Math.round(item.price/max*100))}%"></span><span class="rate-chart-label">${esc(seasonLabel(season))}</span></div>`;}).join('');
+  list.innerHTML=items.map((item,index)=>{
+    const from=parseSeasonKey(item.season),next=items[index+1]?parseSeasonKey(items[index+1].season):null;
+    const until=next?`do ${periodEndBefore(next)}`:'dosud';
+    return `<div class="rate-history-item"><div><strong>${Number(item.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}</strong><span>Platí ${ratePeriodLabel(from)}, ${until}</span></div><span class="badge badge-season">${esc(seasonLabel(from))}</span></div>`;
+  }).join('');
+  document.getElementById('rate-history-modal').classList.add('open');
+};
+window.closeRateHistory=function(){document.getElementById('rate-history-modal').classList.remove('open');};
 
 // ─── REASON AUTOCOMPLETE (Fix #3) ─────────────────────────────────
 let acReasonIndex=-1, acReasonFiltered=[];
@@ -773,21 +869,16 @@ window.selectReasonAC=function(label,price){
 };
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
-  const reason=document.getElementById('f-reason').value.trim(); // optional
-  let amt=parseFloat(document.getElementById('f-amount').value);
-  // If no amount typed but reason has a price, auto-fill
-  if(isNaN(amt)||amt<=0){
-    const p=reasonPrice(reason);
-    if(p) amt=p;
-  }
+  const reason=document.getElementById('f-reason').value.trim();
+  const amt=reasonPrice(reason);
   if(!player){alert('Vyber hráče.');return;}
-  if(isNaN(amt)||amt<=0){alert('Zadej částku.');return;}
+  if(!reason||amt==null){alert('Vyber prohřešek z platného sazebníku.');return;}
   addFine(player,reason,amt);
   document.getElementById('f-player-text').value='';
   document.getElementById('f-player').value='';
   document.getElementById('f-reason').value='';
   document.getElementById('f-amount').value='';
-  renderReasonTiles(); renderRecentPlayers();
+  renderReasonOptions(); renderRecentPlayers();
 };
 window.submitSelfFine=function(){
   if(!phoneUser) return;
@@ -1036,16 +1127,23 @@ window.openEdit=function(idx){
   populatePlayerSelects();
   document.getElementById('edit-player').value=f.player;
   document.getElementById('edit-reason').value=f.reason;
-  document.getElementById('edit-amount').value=f.amount;
+  const catalogPrice=reasonPrice(f.reason,fineSeason(f));
+  document.getElementById('edit-amount').value=catalogPrice??f.amount;
   document.getElementById('edit-modal').classList.add('open');
 };
 window.closeEditModal=function(){document.getElementById('edit-modal').classList.remove('open');};
+window.syncEditCatalogPrice=function(){
+  const f=state.fines[editIndex]; if(!f) return;
+  const price=reasonPrice(document.getElementById('edit-reason').value.trim(),fineSeason(f));
+  document.getElementById('edit-amount').value=price??'';
+};
 window.saveEdit=async function(){
   const f=state.fines[editIndex];
   f.player=document.getElementById('edit-player').value;
   f.reason=document.getElementById('edit-reason').value.trim();
-  f.amount=parseFloat(document.getElementById('edit-amount').value);
-  if(!f.player||!f.reason||isNaN(f.amount)||f.amount<=0){alert('Zkontroluj všechna pole.');return;}
+  const catalogPrice=reasonPrice(f.reason,fineSeason(f));
+  if(!f.player||!f.reason||catalogPrice==null){alert('Vyber prohřešek, který má v této sezóně platnou sazbu.');return;}
+  f.amount=catalogPrice;
   await saveState();window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');
 };
 

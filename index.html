@@ -121,7 +121,6 @@
         <img src="logo.png" alt="Čechoslovan" class="brand-logo" />
         <div class="brand-text">
           <div class="brand-title">Pokuty</div>
-          <div class="brand-season" id="season-label">Sezona</div>
         </div>
       </div>
 
@@ -221,49 +220,18 @@
           <!-- Recent players tiles -->
           <div id="recent-players-row" class="tile-row" style="margin-bottom:12px;"></div>
 
-          <!-- Reason field -->
+          <!-- Reason field: the catalogue is the single source of truth -->
           <div class="form-group" style="position:relative;">
-            <label>Důvod <span class="label-hint">(volitelné – nebo vyber níže)</span></label>
-            <input id="f-reason" type="text" placeholder="Napiš vlastní nebo vyber kategorii…"
-              oninput="reasonAutocomplete(this.value)"
-              onkeydown="reasonAutocompleteKey(event)"
-              onblur="setTimeout(()=>{const l=document.getElementById('reason-ac-list');if(l)l.style.display='none';},150)" />
-            <div id="reason-ac-list" class="ac-list" style="display:none;"></div>
-          </div>
-
-          <!-- 3-category reason tiles (fix #6) -->
-          <div id="reason-categories" class="reason-categories">
-            <div class="reason-cat">
-              <div class="reason-cat-header cat-yellow"><i class="ti ti-circle-filled"></i> Žlutá</div>
-              <div class="tile-row" id="reason-tiles-yellow"></div>
-            </div>
-            <div class="reason-cat">
-              <div class="reason-cat-header cat-orange"><i class="ti ti-circle-filled"></i> Oranžová</div>
-              <div class="tile-row" id="reason-tiles-orange"></div>
-            </div>
-            <div class="reason-cat">
-              <div class="reason-cat-header cat-red"><i class="ti ti-circle-filled"></i> Červená</div>
-              <div class="tile-row" id="reason-tiles-red"></div>
-            </div>
-          </div>
-
-          <!-- Manager: add new reason -->
-          <div id="reason-manage-row" style="display:none;margin-top:8px;margin-bottom:4px;">
-            <div class="reason-add-form">
-              <input id="new-reason-input" type="text" placeholder="Nový důvod…" style="flex:2;" onkeydown="if(event.key==='Enter')addReason()" />
-              <input id="new-reason-price" type="number" placeholder="CZK" style="flex:1;max-width:90px;" onkeydown="if(event.key==='Enter')addReason()" />
-              <select id="new-reason-cat" style="flex:1.2;">
-                <option value="yellow">🟡 Žlutá</option>
-                <option value="orange">🟠 Oranžová</option>
-                <option value="red" selected>🔴 Červená</option>
-              </select>
-              <button class="btn btn-secondary" style="padding:7px 12px;flex-shrink:0;" onclick="addReason()"><i class="ti ti-plus"></i></button>
-            </div>
+            <label>Prohřešek ze sazebníku</label>
+            <input id="f-reason" type="text" list="reason-options" placeholder="Vyber nebo napiš prohřešek…"
+              onchange="autoFillPrice(this.value)" />
+            <datalist id="reason-options"></datalist>
+            <p class="label-hint">Cena se vždy převezme z platné sazby pro zvolenou sezónu.</p>
           </div>
 
           <div class="form-group">
             <label>Částka (CZK)</label>
-            <input id="f-amount" type="number" min="1" placeholder="50" style="max-width:120px;" />
+            <input id="f-amount" type="number" min="1" placeholder="Vyber prohřešek" style="max-width:160px;" readonly />
           </div>
           <div class="form-actions"><button class="btn btn-primary" onclick="submitManual()"><i class="ti ti-plus"></i> Přidat pokutu</button></div>
         </div>
@@ -306,7 +274,7 @@
     <section id="panel-rates" class="panel">
       <div class="card rate-card">
         <div class="card-label"><i class="ti ti-currency-crown"></i> &nbsp;Sazebník pro <span id="rate-season-label"></span></div>
-        <p class="helper-text">Při textovém i hlasovém zadání stačí říct například <strong>„Erik – Červená“</strong>; částka se doplní ze sazebníku aktuálně vybrané sezóny.</p>
+        <p class="helper-text">Zadej název a cenu platnou pro právě vybranou sezónu. Pro změnu sazby napiš stejný název znovu s novou cenou; původní cena zůstane v historii. Při textovém i hlasovém zadání pak stačí například <strong>„Erik – Červená“</strong>.</p>
         <div class="rate-add-row">
           <input id="rate-name" type="text" placeholder="Název prohřešku" onkeydown="if(event.key==='Enter')addRate()" />
           <input id="rate-price" type="number" min="1" placeholder="Cena (CZK)" onkeydown="if(event.key==='Enter')addRate()" />
@@ -399,12 +367,23 @@
   <div class="modal">
     <div class="modal-header"><h3>Upravit pokutu</h3><button class="btn-icon" onclick="closeEditModal()"><i class="ti ti-x"></i></button></div>
     <div class="form-group"><label>Hráč</label><select id="edit-player"></select></div>
-    <div class="form-group"><label>Důvod</label><input id="edit-reason" type="text" /></div>
-    <div class="form-group"><label>Částka</label><input id="edit-amount" type="number" style="max-width:120px;" /></div>
+    <div class="form-group"><label>Prohřešek ze sazebníku</label><input id="edit-reason" type="text" list="reason-options" oninput="syncEditCatalogPrice()" /></div>
+    <div class="form-group"><label>Částka podle sazebníku</label><input id="edit-amount" type="number" style="max-width:140px;" readonly /></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeEditModal()">Zrušit</button>
       <button class="btn btn-primary"   onclick="saveEdit()">Uložit</button>
     </div>
+  </div>
+</div>
+
+<!-- RATE HISTORY -->
+<div class="modal-backdrop" id="rate-history-modal">
+  <div class="modal modal-wide">
+    <div class="modal-header"><h3 id="rate-history-title">Vývoj sazby</h3><button class="btn-icon" onclick="closeRateHistory()"><i class="ti ti-x"></i></button></div>
+    <p class="modal-sub">Sazby navazují na půlsezóny. Cena se u pokut vždy určí podle sezóny, do které je záznam zařazen.</p>
+    <div id="rate-history-chart" class="rate-history-chart"></div>
+    <div id="rate-history-list" class="rate-history-list"></div>
+    <div class="modal-actions"><button class="btn btn-secondary" onclick="closeRateHistory()">Zavřít</button></div>
   </div>
 </div>
 
