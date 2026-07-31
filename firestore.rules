@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function primaryAdmin() {
+      return signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email == 'lyrixzz@gmail.com';
+    }
+    function myAccess() {
+      return get(/databases/$(database)/documents/accessRequests/$(request.auth.uid));
+    }
+    function approved() {
+      return signedIn() && (primaryAdmin() ||
+        (exists(/databases/$(database)/documents/accessRequests/$(request.auth.uid)) &&
+         myAccess().data.status == 'approved'));
+    }
+    function admin() {
+      return primaryAdmin() || (approved() && myAccess().data.role == 'admin');
+    }
+    function manager() {
+      return admin() || (approved() && myAccess().data.role == 'cashier');
+    }
+
+    // A user can create/read only their own request; administrators manage all.
+    match /accessRequests/{uid} {
+      allow create: if primaryAdmin() || (signedIn() && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.role == 'viewer');
+      allow read: if signedIn() && (request.auth.uid == uid || admin());
+      allow update, delete: if admin();
+    }
+
+    // Existing shared application data can be read only after approval.
+    match /teamdata/{document=**} {
+      allow read: if approved();
+      allow write: if manager();
+    }
+
+    // Used by Firebase's Trigger Email extension. Keep this narrow in production
+    // if the extension is installed; it accepts only pending-account mail here.
+    match /mail/{messageId} {
+      allow create: if signedIn() && request.resource.data.requestedBy == request.auth.uid;
+      allow read, update, delete: if admin();
+    }
+  }
+}

@@ -121,6 +121,18 @@ In the **Hráči** tab, each player has a tag icon. Tap it to open the nickname 
 - [ ] Push notification reminders before party date
 - [ ] Role-based access stored in Firestore, if the team later needs different permissions
 
+## Schvalování uživatelů
+
+Účet s e-mailem `lyrixzz@gmail.com` je hlavní administrátor. Každý nový e-mailový účet po ověření e-mailu čeká na schválení a do aplikace se nedostane. Administrátor jej najde v nové sekci **Uživatelé** a může nastavit:
+
+- **Náhled** — pouze prohlížení;
+- **Pokladník** — běžná práce s pokutami;
+- **Administrátor** — kompletní správa včetně uživatelů.
+
+Do Firestore je přidaný soubor `firestore.rules`. Je nutné jeho obsah zkopírovat do **Firebase Console → Firestore Database → Rules → Publish**. Bez těchto pravidel by role v uživatelském rozhraní nebyly skutečnou bezpečnostní bariérou.
+
+Při registraci aplikace vytvoří ve Firestore dokument v kolekci `mail` adresovaný na `lyrixzz@gmail.com`. Aby se zpráva o žádosti opravdu doručila e-mailem, v Firebase Console nainstaluj rozšíření **Trigger Email from Firestore** a nastav mu kolekci `mail` a SMTP odesílatele. Samotné GitHub Pages nemůže bezpečně posílat e-maily bez takovéto serverové služby.
+
 ## License
 
 MIT

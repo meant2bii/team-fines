@@ -12,14 +12,14 @@ import {
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { doc, setDoc, onSnapshot }
+import { doc, setDoc, onSnapshot, collection, addDoc, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
   from './voice.js';
 import { seasonForDate, seasonKey as calendarSeasonKey } from './season.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────
-const CONFIG = { CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main' };
+const CONFIG = { CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main', PRIMARY_ADMIN_EMAIL:'lyrixzz@gmail.com' };
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -54,8 +54,9 @@ const WA_MEMBERS = [
 ];
 
 // ─── STATE ────────────────────────────────────────────────────────
-let isManager=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
-let currentUser=null, phoneUser=null, unsubFirestore=null, activeSeason=null;
+let isManager=false, isAdmin=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
+let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, activeSeason=null;
+let accessRequest=null, accessUsers=[], appSessionActive=false;
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
 let voiceMeterStream=null, voiceMeterContext=null, voiceMeterAnalyser=null, voiceMeterFrame=null;
@@ -93,14 +94,14 @@ function seasonFines(){
 // ─── AUTH ─────────────────────────────────────────────────────────
 onAuthStateChanged(auth,user=>{
   currentUser=user; resetAuthButtons();
-  if(!user){ if(!phoneUser) showScreen('auth'); stopFirestoreListener(); return; }
+  if(!user){ if(!phoneUser) showScreen('auth'); stopFirestoreListener(); stopAccessListeners(); appSessionActive=false; return; }
   if(!user.emailVerified){
     showScreen('verify');
     const s=document.getElementById('verify-sub');
     if(s) s.textContent=`Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a vrať se sem.`;
     stopFirestoreListener(); return;
   }
-  enterApp(user.displayName||user.email);
+  startAccessListener(user);
 });
 
 function resetAuthButtons(){
@@ -109,13 +110,11 @@ function resetAuthButtons(){
   const rb=document.getElementById('reg-btn');
   if(rb){rb.disabled=false;rb.innerHTML='<i class="ti ti-user-plus"></i> Vytvořit účet';}
 }
-function enterApp(name){
-  // Every verified email account can manage the team; the former PIN only
-  // created a false sense of security because it lived in the client code.
-  isManager=!phoneUser;
+function enterApp(name,{listen=true}={}){
   showScreen('app');
   const hu=document.getElementById('header-user'); if(hu) hu.textContent=name||'';
-  initSeasonPicker(); updateLockUI(); startFirestoreListener();
+  if(!appSessionActive){ initSeasonPicker(); appSessionActive=true; }
+  updateLockUI(); if(listen) startFirestoreListener();
   // #6: player email match checked after Firestore loads (see startFirestoreListener)
 }
 
@@ -140,6 +139,7 @@ function checkEmailPlayerMatch(){
 function showScreen(n){
   document.getElementById('auth-screen').style.display  =n==='auth'  ?'flex':'none';
   document.getElementById('verify-screen').style.display=n==='verify'?'flex':'none';
+  document.getElementById('pending-screen').style.display=n==='pending'?'flex':'none';
   document.getElementById('app-screen').style.display   =n==='app'   ?'block':'none';
 }
 
@@ -166,6 +166,7 @@ window.doRegister=async function(){
     const {updateProfile}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
+    await createPendingAccessRequest(cred.user,name);
     await sendEmailVerification(cred.user);
   }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
@@ -182,8 +183,9 @@ window.doLogin=async function(){
 };
 
 window.doLogout=async function(){
-  isManager=false; phoneUser=null;
+  isManager=false; isAdmin=false; phoneUser=null; accessRequest=null; accessUsers=[];
   stopFirestoreListener(); state={players:[],fines:[]};
+  stopAccessListeners(); appSessionActive=false;
   updateLockUI(); await signOut(auth);
 };
 window.doForgotPassword=async function(){
@@ -263,6 +265,7 @@ function updatePhoneUserUI(){
 window.checkVerification=async function(){
   if(!currentUser) return;
   await currentUser.reload();
+  if(currentUser.emailVerified) startAccessListener(currentUser);
   if(currentUser.emailVerified) showToast('E-mail ověřen ✓');
   else showErr(document.getElementById('verify-msg'),'E-mail ještě není ověřen. Zkontroluj doručenou poštu (i spam).');
 };
@@ -273,6 +276,71 @@ window.resendVerification=async function(){
 };
 
 // ─── SEASON PICKER ────────────────────────────────────────────────
+// ACCESS APPROVAL
+function normalizedEmail(value){ return String(value||'').trim().toLowerCase(); }
+function primaryAdmin(){ return normalizedEmail(currentUser?.email)===CONFIG.PRIMARY_ADMIN_EMAIL; }
+function stopAccessListeners(){
+  if(unsubAccess){unsubAccess();unsubAccess=null;}
+  if(unsubUserList){unsubUserList();unsubUserList=null;}
+}
+async function createPendingAccessRequest(user,name){
+  const request={uid:user.uid,email:normalizedEmail(user.email),name:name||user.displayName||user.email,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  await setDoc(doc(db,'accessRequests',user.uid),request,{merge:false});
+  // Firebase Trigger Email extension delivers this message when it is installed.
+  try{await addDoc(collection(db,'mail'),{to:[CONFIG.PRIMARY_ADMIN_EMAIL],message:{subject:`Pokuty: nová žádost o přístup – ${request.name}`,text:`Nový uživatel čeká na schválení.\n\nJméno: ${request.name}\nE-mail: ${request.email}\n\nOtevři aplikaci a sekci Uživatelé.`},requestedBy:user.uid,createdAt:serverTimestamp()});}
+  catch(error){console.warn('Approval e-mail queue:',error);}
+}
+function startAccessListener(user){
+  stopAccessListeners(); appSessionActive=false;
+  const ref=doc(db,'accessRequests',user.uid);
+  unsubAccess=onSnapshot(ref,async snap=>{
+    if(!snap.exists()){
+      try{
+        if(primaryAdmin()) await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+        else await createPendingAccessRequest(user,user.displayName||user.email);
+      }catch(error){console.error('Access request:',error);showPending(user,null);}
+      return;
+    }
+    accessRequest=snap.data(); applyAccessState(user,accessRequest);
+  },error=>{console.error('Access state:',error);showPending(user,null);});
+}
+function applyAccessState(user,request){
+  if(!(primaryAdmin()||request?.status==='approved')){showPending(user,request);return;}
+  const role=primaryAdmin()?'admin':(request.role||'viewer');
+  isAdmin=role==='admin'; isManager=isAdmin||role==='cashier';
+  enterApp(user.displayName||request.name||user.email,{listen:true});
+  if(isAdmin) startUserListListener();
+}
+function showPending(user,request){
+  isManager=false;isAdmin=false;appSessionActive=false;stopFirestoreListener();showScreen('pending');
+  const email=document.getElementById('pending-email'),stateEl=document.getElementById('pending-state');
+  if(email) email.textContent=user.email||'';
+  if(stateEl) stateEl.textContent=request?.status==='rejected'?'Žádost nebyla schválena. Pokud je to omyl, obrať se na správce týmu.':'Správce týmu byl o žádosti informován. Po schválení stránku znovu otevři.';
+}
+function startUserListListener(){
+  if(unsubUserList) return;
+  unsubUserList=onSnapshot(collection(db,'accessRequests'),snap=>{
+    accessUsers=snap.docs.map(d=>d.data()).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+    if(document.querySelector('.tab.active')?.dataset.tab==='users') renderUsers();
+  },error=>console.error('User list:',error));
+}
+window.updateAccessUser=async function(uid){
+  if(!isAdmin) return;
+  const status=document.getElementById(`user-status-${uid}`)?.value,role=document.getElementById(`user-role-${uid}`)?.value;
+  if(!status||!role) return;
+  try{await setDoc(doc(db,'accessRequests',uid),{status,role,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
+  catch(error){console.error(error);showToast('⚠ Nepodařilo se uložit práva.');}
+};
+function renderUsers(){
+  const list=document.getElementById('user-list'),empty=document.getElementById('user-list-empty'); if(!list) return;
+  const users=accessUsers.slice().sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+  if(empty) empty.style.display=users.length?'none':'block';
+  list.innerHTML=users.map(user=>{
+    const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
+    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span><small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Náhled</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
+  }).join('');
+}
+
 function initSeasonPicker(){
   const current=seasonForDate();
   activeSeason=current;
@@ -306,7 +374,7 @@ window.resetSeasonToToday=function(){
 
 // ─── FIRESTORE ────────────────────────────────────────────────────
 function startFirestoreListener(){
-  stopFirestoreListener();
+  if(unsubFirestore) return;
   let firstLoad=true;
   unsubFirestore=onSnapshot(doc(db,CONFIG.FIRESTORE_DOC),snap=>{
     if(snap.exists()){state=snap.data();state.players=state.players||[];state.fines=state.fines||[];}
@@ -389,6 +457,8 @@ function updateLockUI(){
   const sc=document.getElementById('season-controls');
   const mw=document.getElementById('manager-wall'),mw2=document.getElementById('manager-wall2');
   const af=document.getElementById('add-form'),pf=document.getElementById('players-form');
+  const usersTab=document.querySelector('.tab[data-tab="users"]');
+  if(usersTab) usersTab.style.display=isAdmin?'':'none';
   if(isManager){
     if(sc) sc.style.display='flex';
     if(mw) mw.style.display='none'; if(mw2) mw2.style.display='none';
@@ -404,6 +474,7 @@ function updateLockUI(){
 
 // ─── TABS ─────────────────────────────────────────────────────────
 window.switchTab=function(t){
+  if(t==='users'&&!isAdmin){showToast('Tato sekce je jen pro administrátory.');return;}
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');
@@ -412,6 +483,7 @@ window.switchTab=function(t){
   if(t==='summary') renderSummary();
   if(t==='rates') renderRates();
   if(t==='players') renderPlayers();
+  if(t==='users') renderUsers();
 };
 
 // ─── PLAYER SELECTS ───────────────────────────────────────────────

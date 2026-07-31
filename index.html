@@ -110,6 +110,17 @@
 </div>
 
 <!-- ══ MAIN APP ════════════════════════════════════════════════════ -->
+<div id="pending-screen" class="auth-screen" style="display:none;">
+  <div class="auth-card pending-card" style="text-align:center;">
+    <div class="pending-icon"><i class="ti ti-clock-check"></i></div>
+    <div class="auth-title">Čekáš na schválení</div>
+    <p class="auth-sub">Účet <strong id="pending-email"></strong> byl založen, ale přístup musí nejprve schválit správce týmu.</p>
+    <p class="pending-state" id="pending-state"></p>
+    <button class="btn btn-primary btn-full" type="button" onclick="location.reload()"><i class="ti ti-refresh"></i> Obnovit stav</button>
+    <button class="btn-link" onclick="doLogout()">Odhlásit se</button>
+  </div>
+</div>
+
 <div id="app-screen" style="display:none;">
 <div class="app-shell">
 
@@ -146,6 +157,7 @@
     <button class="tab"        data-tab="summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
     <button class="tab"        data-tab="rates"   onclick="switchTab('rates')"><i class="ti ti-receipt-2"></i><span> Sazebník</span></button>
     <button class="tab"        data-tab="players" onclick="switchTab('players')"><i class="ti ti-users"></i><span> Hráči</span></button>
+    <button class="tab" data-tab="users" onclick="switchTab('users')" style="display:none;"><i class="ti ti-shield-lock"></i><span> Uživatelé</span></button>
   </nav>
 
   <main class="app-main">
@@ -354,6 +366,14 @@
       </div>
     </section>
 
+    <section id="panel-users" class="panel">
+      <div class="card">
+        <div class="card-label"><i class="ti ti-shield-lock"></i> &nbsp;Přístupy uživatelů</div>
+        <p class="helper-text">Nové účty se zobrazí jako čekající. Nastav jim práva: Náhled, Pokladník nebo Administrátor.</p>
+        <div id="user-list"></div>
+        <div id="user-list-empty" class="empty-state" style="display:none;"><i class="ti ti-users"></i><p>Zatím tu nejsou žádné žádosti o přístup.</p></div>
+      </div>
+    </section>
   </main>
 </div>
 </div>
