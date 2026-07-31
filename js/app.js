@@ -124,7 +124,7 @@ function checkEmailPlayerMatch(){
   if(phoneUser) return; // already in phone mode
   const userEmail=currentUser.email.toLowerCase();
   const match=(state.players||[]).find(p=>p.email&&p.email.toLowerCase()===userEmail);
-  if(match&&!isManager){
+  if(match&&phoneUser){
     // This user is a known player — show self-fine form, hide manager wall
     const sf=document.getElementById('self-fine-form');
     const mw=document.getElementById('manager-wall');
@@ -387,7 +387,7 @@ function startFirestoreListener(){
 }
 function stopFirestoreListener(){ if(unsubFirestore){unsubFirestore();unsubFirestore=null;} }
 async function saveState(){
-  if(!currentUser&&!phoneUser) return;
+  if((!isManager&&!phoneUser)||(!currentUser&&!phoneUser)) return;
   try{await setDoc(doc(db,CONFIG.FIRESTORE_DOC),state);}
   catch(e){console.error(e);showToast('⚠ Nepodařilo se uložit data.');}
 }
@@ -454,7 +454,9 @@ function updateLockUI(){
   const mw=document.getElementById('manager-wall'),mw2=document.getElementById('manager-wall2');
   const af=document.getElementById('add-form'),pf=document.getElementById('players-form');
   const usersTab=document.querySelector('.tab[data-tab="users"]');
+  const rateAdd=document.querySelector('.rate-add-row');
   if(usersTab) usersTab.style.display=isAdmin?'':'none';
+  if(rateAdd) rateAdd.style.display=isManager?'grid':'none';
   if(isManager){
     if(sc) sc.style.display='flex';
     if(mw) mw.style.display='none'; if(mw2) mw2.style.display='none';
@@ -580,6 +582,7 @@ function reasonPrice(label,season=activeSeason||seasonForDate(),atDate=null){
   return rateAtDate(label,date)?.price??null;
 }
 async function saveRatePeriod(label,price,from,to=''){
+  if(!isManager){showToast('Nemáš právo upravovat sazebník.');return false;}
   if(!state.rateHistory) state.rateHistory={};
   if(state.deletedRatePeriods?.[label]) state.deletedRatePeriods[label]=state.deletedRatePeriods[label].filter(date=>date!==from);
   if(!state.rateHistory[label]) state.rateHistory[label]=[];
@@ -588,7 +591,7 @@ async function saveRatePeriod(label,price,from,to=''){
   if(existing){ existing.price=Number(price); existing.from=from; existing.to=to||''; delete existing.season; }
   else items.push({from,to:to||'',price:Number(price)});
   items.sort((a,b)=>(a.from||legacyRateStart(a.season)).localeCompare(b.from||legacyRateStart(b.season)));
-  await saveState();
+  await saveState(); return true;
 }
 
 // ─── PARSE (flexible: dashes optional, reason optional, auto-price) ─
@@ -845,6 +848,7 @@ function rateColor(price,list){
 }
 function renderRates(){
   const label=document.getElementById('rate-season-label'); if(label) label.textContent=seasonLabel(activeSeason);
+  const rateAdd=document.querySelector('.rate-add-row'); if(rateAdd) rateAdd.style.display=isManager?'grid':'none';
   const list=getReasonList();
   const search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
   const sort=document.getElementById('rate-sort')?.value||'price';
@@ -882,6 +886,7 @@ function timelineForRate(label){ return (getRateHistory()[label]||[]).slice().so
 function todayLocalISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function renderRates(){
   const label=document.getElementById('rate-season-label'); if(label) label.textContent=seasonLabel(activeSeason);
+  const rateAdd=document.querySelector('.rate-add-row'); if(rateAdd) rateAdd.style.display=isManager?'grid':'none';
   const list=getReasonList(),search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
   const sort=document.getElementById('rate-sort')?.value||'price';
   const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs'));
@@ -900,6 +905,7 @@ window.addRate=async function(){
   const label=nameEl.value.trim(),price=Number(priceEl.value);
   err.style.display='none';
   if(!label||!Number.isFinite(price)||price<=0){err.textContent='Zadej název prohřešku a cenu vyšší než 0.';err.style.display='block';return;}
+  if(!isManager)return;
   await saveRatePeriod(label,price,seasonStartDate(activeSeason));
   nameEl.value='';priceEl.value='';renderRates();showToast(`Sazba „${label}“ platná od začátku ${seasonLabel(activeSeason)} uložena`);
 };
@@ -922,6 +928,7 @@ window.openRateHistory=function(label){
       button.insertAdjacentHTML('beforeend','<em>Aktuální</em>');
     }
   });
+  document.querySelector('#rate-history-modal .rate-period-editor').style.display=isManager?'grid':'none';
   document.getElementById('rate-period-date').value=todayLocalISO();
   document.getElementById('rate-period-end').value='';
   document.getElementById('rate-period-price').value='';
@@ -932,6 +939,7 @@ window.openRateHistory=function(label){
   document.getElementById('rate-history-modal').classList.add('open');
 };
 window.editRatePeriod=function(from,price,to=''){
+  if(!isManager)return;
   document.getElementById('rate-period-date').value=from;document.getElementById('rate-period-end').value=to;document.getElementById('rate-period-price').value=price;
   document.getElementById('rate-period-editor-title').textContent='Upravit vybrané období';
   document.getElementById('rate-period-delete').style.display='inline-flex';
@@ -939,6 +947,7 @@ window.editRatePeriod=function(from,price,to=''){
   document.getElementById('rate-period-price').focus();
 };
 window.saveRatePeriod=async function(){
+  if(!isManager)return;
   const modal=document.getElementById('rate-history-modal'),label=modal.dataset.label;
   const from=document.getElementById('rate-period-date').value,to=document.getElementById('rate-period-end').value,price=Number(document.getElementById('rate-period-price').value);
   if(!label||!from||from<CATALOG_MIN_DATE||!Number.isFinite(price)||price<=0||to&&to<from){showToast('Zadej datum od 1. 7. 2025, správné datum do a cenu vyšší než 0.');return;}
@@ -947,6 +956,7 @@ window.saveRatePeriod=async function(){
   await saveRatePeriod(label,price,from,to);renderRates();openRateHistory(label);showToast('Sazba pro zvolené období uložena');
 };
 window.deleteRatePeriod=async function(){
+  if(!isManager)return;
   const modal=document.getElementById('rate-history-modal'),label=modal.dataset.label,from=modal.dataset.editFrom;
   if(!label||!from){showToast('Nejdřív klepni na období, které chceš smazat.');return;}
   if(!confirm('Opravdu smazat celé vybrané období sazby?'))return;
