@@ -36,12 +36,5 @@ service cloud.firestore {
       allow read: if approved();
       allow write: if manager();
     }
-
-    // Used by Firebase's Trigger Email extension. Keep this narrow in production
-    // if the extension is installed; it accepts only pending-account mail here.
-    match /mail/{messageId} {
-      allow create: if signedIn() && request.resource.data.requestedBy == request.auth.uid;
-      allow read, update, delete: if admin();
-    }
   }
 }

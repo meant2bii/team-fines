@@ -131,7 +131,7 @@ In the **Hráči** tab, each player has a tag icon. Tap it to open the nickname 
 
 Do Firestore je přidaný soubor `firestore.rules`. Je nutné jeho obsah zkopírovat do **Firebase Console → Firestore Database → Rules → Publish**. Bez těchto pravidel by role v uživatelském rozhraní nebyly skutečnou bezpečnostní bariérou.
 
-Při registraci aplikace vytvoří ve Firestore dokument v kolekci `mail` adresovaný na `lyrixzz@gmail.com`. Aby se zpráva o žádosti opravdu doručila e-mailem, v Firebase Console nainstaluj rozšíření **Trigger Email from Firestore** a nastav mu kolekci `mail` a SMTP odesílatele. Samotné GitHub Pages nemůže bezpečně posílat e-maily bez takovéto serverové služby.
+Tato varianta neodesílá e-mail ani nepoužívá žádné placené rozšíření. Nová žádost se okamžitě zobrazí v sekci **Uživatelé** po přihlášení hlavního administrátora.
 
 ## License
 

@@ -12,7 +12,7 @@ import {
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { doc, setDoc, onSnapshot, collection, addDoc, serverTimestamp }
+import { doc, setDoc, onSnapshot, collection }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
   from './voice.js';
@@ -286,9 +286,6 @@ function stopAccessListeners(){
 async function createPendingAccessRequest(user,name){
   const request={uid:user.uid,email:normalizedEmail(user.email),name:name||user.displayName||user.email,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   await setDoc(doc(db,'accessRequests',user.uid),request,{merge:false});
-  // Firebase Trigger Email extension delivers this message when it is installed.
-  try{await addDoc(collection(db,'mail'),{to:[CONFIG.PRIMARY_ADMIN_EMAIL],message:{subject:`Pokuty: nová žádost o přístup – ${request.name}`,text:`Nový uživatel čeká na schválení.\n\nJméno: ${request.name}\nE-mail: ${request.email}\n\nOtevři aplikaci a sekci Uživatelé.`},requestedBy:user.uid,createdAt:serverTimestamp()});}
-  catch(error){console.warn('Approval e-mail queue:',error);}
 }
 function startAccessListener(user){
   stopAccessListeners(); appSessionActive=false;
