@@ -1609,6 +1609,7 @@ window.openEditPlayerModal=function(i){
   document.getElementById('ep-name').value=p.name||'';
   document.getElementById('ep-phone').value=p.phone||'';
   document.getElementById('ep-email').value=p.email||'';
+  document.getElementById('ep-telegram-id').value=p.telegramId||'';
   document.getElementById('ep-nicks').value=(p.nicknames||[]).join(', ');
   document.getElementById('ep-season-badge').textContent=seasonLabel(activeSeason);
   // roles
@@ -1673,6 +1674,7 @@ window.saveEditPlayer=async function(){
   p.name=newName;
   p.phone=document.getElementById('ep-phone').value.trim();
   p.email=document.getElementById('ep-email').value.trim();
+  p.telegramId=document.getElementById('ep-telegram-id').value.trim();
   p.nicknames=document.getElementById('ep-nicks').value.split(',').map(s=>s.trim()).filter(Boolean);
 
   // collect roles

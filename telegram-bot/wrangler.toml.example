@@ -1,0 +1,11 @@
+name = "team-fines-telegram"
+main = "worker.js"
+compatibility_date = "2026-07-31"
+
+# Secrets (never commit them):
+# wrangler secret put TELEGRAM_BOT_TOKEN
+# wrangler secret put TELEGRAM_WEBHOOK_SECRET
+# wrangler secret put FIREBASE_API_KEY
+# wrangler secret put FIREBASE_BOT_EMAIL
+# wrangler secret put FIREBASE_BOT_PASSWORD
+# wrangler secret put FIREBASE_PROJECT_ID
