@@ -166,8 +166,10 @@ window.doRegister=async function(){
     const {updateProfile}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
-    await createPendingAccessRequest(cred.user,name);
     await sendEmailVerification(cred.user);
+    // Ověřovací e-mail nesmí záviset na tom, zda už jsou nasazená pravidla Firestore.
+    try{await createPendingAccessRequest(cred.user,name);}
+    catch(requestError){console.warn('Access request will be created after verification:',requestError);}
   }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 
