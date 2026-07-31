@@ -8,7 +8,7 @@
 import { auth, db } from './firebase.js';
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  sendEmailVerification, sendPasswordResetEmail,
+  sendPasswordResetEmail,
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -95,7 +95,7 @@ function seasonFines(){
 onAuthStateChanged(auth,user=>{
   currentUser=user; resetAuthButtons();
   if(!user){ if(!phoneUser) showScreen('auth'); stopFirestoreListener(); stopAccessListeners(); appSessionActive=false; return; }
-  if(!user.emailVerified){
+  if(false && !user.emailVerified){
     showScreen('verify');
     const s=document.getElementById('verify-sub');
     if(s) s.textContent=`Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a vrať se sem.`;
@@ -120,7 +120,7 @@ function enterApp(name,{listen=true}={}){
 
 // Called after Firestore first load to check if current email user is a roster player
 function checkEmailPlayerMatch(){
-  if(!currentUser||!currentUser.emailVerified) return;
+  if(!currentUser) return;
   if(phoneUser) return; // already in phone mode
   const userEmail=currentUser.email.toLowerCase();
   const match=(state.players||[]).find(p=>p.email&&p.email.toLowerCase()===userEmail);
@@ -166,10 +166,7 @@ window.doRegister=async function(){
     const {updateProfile}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
-    await sendEmailVerification(cred.user);
-    // Ověřovací e-mail nesmí záviset na tom, zda už jsou nasazená pravidla Firestore.
-    try{await createPendingAccessRequest(cred.user,name);}
-    catch(requestError){console.warn('Access request will be created after verification:',requestError);}
+    await createPendingAccessRequest(cred.user,name);
   }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 

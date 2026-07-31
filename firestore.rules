@@ -3,8 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function primaryAdmin() {
-      return signedIn() && request.auth.token.email_verified == true
-        && request.auth.token.email == 'lyrixzz@gmail.com';
+      return signedIn() && request.auth.token.email == 'lyrixzz@gmail.com';
     }
     function myAccess() {
       return get(/databases/$(database)/documents/accessRequests/$(request.auth.uid));
