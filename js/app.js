@@ -20,6 +20,7 @@ import { seasonForDate, seasonKey as calendarSeasonKey } from './season.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────
 const CONFIG = { CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main', PRIMARY_ADMIN_EMAIL:'lyrixzz@gmail.com' };
+const UNKNOWN_REASON='Unknown reason';
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -708,7 +709,7 @@ window.submitQuick=function(){
   if(!amount&&parsed.reason){const p=reasonPrice(parsed.reason);if(p)amount=p;}
   if(!amount){alert('Nepodařilo se určit částku.');return;}
   const resolved=resolvePlayerName(parsed.rawName)||parsed.rawName;
-  ensurePlayer(resolved); addFine(resolved,parsed.reason||'',amount);
+  ensurePlayer(resolved); addFine(resolved,parsed.reason||UNKNOWN_REASON,amount);
   document.getElementById('quick-input').value='';
   document.getElementById('parse-preview').innerHTML=`Příklady: <strong>Erik 50</strong> &nbsp;·&nbsp; <strong>Michal Bago 30</strong>`;
 };
@@ -1013,11 +1014,11 @@ window.selectReasonAC=function(label,price){
 };
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
-  const reason=document.getElementById('f-reason').value.trim();
-  const amt=reasonPrice(reason);
+  const reason=document.getElementById('f-reason').value.trim()||UNKNOWN_REASON;
+  const amt=reasonPrice(reason)??Number(document.getElementById('f-amount').value);
   if(!player){alert('Vyber hráče.');return;}
   if(!reason||amt==null){alert('Vyber prohřešek z platného sazebníku.');return;}
-  addFine(player,reason,amt);
+  addFine(player,reason||UNKNOWN_REASON,amt);
   document.getElementById('f-player-text').value='';
   document.getElementById('f-player').value='';
   document.getElementById('f-reason').value='';
@@ -1163,7 +1164,7 @@ function buildReviewQueue(transcript){
   parseVoiceTranscript(transcript,state.players||[],getReasonList()).forEach(parsed=>{
     const resolved=parsed.resolution.player;
     reviewQueue.push({
-      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||'',amount:parsed.amount||0,
+      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,
       needsPlayer:!resolved,needsAmount:!parsed.amount,candidates:parsed.resolution.candidates||[],
       isAlias:parsed.resolution.status==='fuzzy',skip:false
     });
@@ -1313,7 +1314,8 @@ function updateBulkBar(){
 window.clearSelection=function(){selectedFineIndices.clear();renderLog();};
 window.deleteSelected=async function(){
   if(!selectedFineIndices.size) return;
-  if(!confirm(`Smazat ${selectedFineIndices.size} pokut?`)) return;
+  // The selected checkboxes are an explicit destructive action; native dialogs
+  // are unreliable on some mobile browsers and previously made this appear inert.
   const sorted=[...selectedFineIndices].sort((a,b)=>b-a);
   sorted.forEach(idx=>state.fines.splice(idx,1));
   selectedFineIndices.clear();
