@@ -117,7 +117,7 @@ let accessRequest=null, accessUsers=[], appSessionActive=false;
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
 let voiceMeterStream=null, voiceMeterContext=null, voiceMeterAnalyser=null, voiceMeterFrame=null;
-let reviewQueue=[];
+let reviewQueue=[], reviewTranscript='';
 let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
 let state={players:[],fines:[]};
@@ -1324,8 +1324,9 @@ function stopVoiceSession(){
 // ─── REVIEW ───────────────────────────────────────────────────────
 function buildReviewQueue(transcript){
   reviewImportMeta=null;
+  reviewTranscript=String(transcript||'').trim();
   reviewQueue=[];
-  parseVoiceTranscript(transcript,state.players||[],getReasonList()).forEach(parsed=>{
+  parseVoiceTranscript(reviewTranscript,state.players||[],getReasonList()).forEach(parsed=>{
     const resolved=parsed.resolution.player;
     reviewQueue.push({
       raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,
@@ -1334,6 +1335,7 @@ function buildReviewQueue(transcript){
     });
   });
   if(!reviewQueue.length){showToast('Nepodařilo se rozpoznat žádné pokuty.');return;}
+  renderReviewTranscriptEditor();
   renderReviewQueue();
   document.getElementById('voice-review').style.display='block';
   document.getElementById('voice-review').scrollIntoView({behavior:'smooth'});
@@ -1342,12 +1344,14 @@ function buildReviewQueue(transcript){
 }
 function buildOneTimeFineReview(importData,prepared){
   reviewImportMeta={key:'bozkov2026',id:importData.id,title:importData.title};
+  reviewTranscript='';
   reviewQueue=prepared.fines.map(fine=>({
     raw:`${fine.sourceName} – ${fine.amount} Kč`,rawName:fine.sourceName,resolvedPlayer:fine.player,
     reason:fine.reason,amount:fine.amount,needsPlayer:!fine.player,needsAmount:false,candidates:[],
     isAlias:!!fine.player&&normalizedPlayerName(fine.sourceName)!==normalizedPlayerName(fine.player),skip:false,
     source:fine.source,ts:fine.ts,season:fine.season,allowNegative:fine.allowNegative
   }));
+  renderReviewTranscriptEditor();
   renderReviewQueue();
   document.getElementById('voice-review').style.display='block';
   document.getElementById('voice-review').scrollIntoView({behavior:'smooth'});
@@ -1386,6 +1390,20 @@ function stopVoiceMeter(){
 function voiceDisplayName(name=''){
   return String(name).trim().split(/\s+/).filter(Boolean).map(part=>part.charAt(0).toUpperCase()+part.slice(1).toLowerCase()).join(' ');
 }
+function renderReviewTranscriptEditor(){
+  const editor=document.getElementById('review-transcript-editor');
+  const field=document.getElementById('review-transcript');
+  if(!editor||!field) return;
+  const visible=!reviewImportMeta&&!!reviewTranscript;
+  editor.style.display=visible?'block':'none';
+  if(visible) field.value=reviewTranscript;
+}
+window.reparseVoiceReview=function(){
+  const transcript=document.getElementById('review-transcript')?.value.trim()||'';
+  if(!transcript){showToast('Nejdřív zadej text k vyhodnocení.');return;}
+  buildReviewQueue(transcript);
+  showToast('Kontrolní řádky byly znovu vytvořeny z upraveného textu.');
+};
 function renderReviewQueue(){
   const n=reviewQueue.filter(r=>!r.skip).length;
   document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;
@@ -1450,7 +1468,7 @@ window.confirmReview=async function(){
   if(!saved){state.fines=previousFines;state.oneTimeImports=previousImports;return;}
   showToast(`✓ Uloženo ${toSave.length} pokut`);window.discardReview();populatePlayerSelects();
 };
-window.discardReview=function(){reviewQueue=[];reviewImportMeta=null;document.getElementById('voice-review').style.display='none';};
+window.discardReview=function(){reviewQueue=[];reviewTranscript='';reviewImportMeta=null;document.getElementById('voice-review').style.display='none';};
 
 // ─── FINE OPS ─────────────────────────────────────────────────────
 function ensurePlayer(name){

@@ -419,6 +419,11 @@ select { cursor:pointer; }
 /* ── REVIEW ── */
 .review-label { color:var(--navy) !important; }
 .review-item { border:1.5px solid var(--bdr); border-radius:var(--r-md); padding:10px 12px; margin-bottom:8px; background:var(--bg-s); }
+.review-transcript-editor { margin:10px 0 12px; padding:11px; border:1.5px solid var(--bdr); border-radius:var(--r-md); background:var(--bg-s); }
+.review-transcript-editor label { display:block; margin-bottom:6px; font-size:12px; font-weight:700; color:var(--navy); }
+.review-transcript-editor textarea { width:100%; min-height:76px; resize:vertical; line-height:1.45; }
+.review-transcript-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; font-size:12px; color:var(--tx-m); }
+.review-transcript-actions .btn { flex-shrink:0; }
 .review-item.skipped { opacity:.4; }
 .review-item-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .review-item-num { width:22px; height:22px; border-radius:50%; background:var(--navy); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -439,7 +444,7 @@ select { cursor:pointer; }
 .review-new-player input { min-width:0; flex:1; background:#fff; }
 .review-new-player .btn { min-height:42px; }
 .review-actions { display:flex; gap:8px; justify-content:flex-end; padding-top:12px; border-top:1.5px solid var(--bdr); margin-top:4px; }
-@media(max-width:520px){ .review-fields{grid-template-columns:1fr 1fr;} .review-field-reason{grid-column:1/-1;} }
+@media(max-width:520px){ .review-fields{grid-template-columns:1fr 1fr;} .review-field-reason{grid-column:1/-1;} .review-transcript-actions{align-items:stretch;flex-direction:column;} .review-transcript-actions .btn{width:100%;} }
 
 /* ══════════════════════════════════════════════════════════════
    LOG – checkbox multi-select (FIX #1)

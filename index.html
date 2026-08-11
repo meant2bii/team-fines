@@ -198,6 +198,11 @@
         <div id="voice-review" style="display:none;">
           <div class="card">
             <div class="card-label review-label"><i class="ti ti-list-check"></i> Zkontroluj pokuty před uložením</div>
+            <div id="review-transcript-editor" class="review-transcript-editor" style="display:none;">
+              <label for="review-transcript">Text použitý pro vyhodnocení</label>
+              <textarea id="review-transcript" rows="3" spellcheck="true"></textarea>
+              <div class="review-transcript-actions"><span>Oprav text a nechej znovu vytvořit kontrolní řádky.</span><button type="button" class="btn btn-secondary" onclick="reparseVoiceReview()"><i class="ti ti-refresh"></i> Přepočítat text</button></div>
+            </div>
             <div id="review-list"></div>
             <div class="review-actions">
               <button class="btn btn-secondary" onclick="discardReview()"><i class="ti ti-x"></i> Zahodit</button>
