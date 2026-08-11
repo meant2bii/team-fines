@@ -62,6 +62,12 @@ const RATE_CATALOG_2026_27={
 };
 const ONE_TIME_FINE_IMPORT_BOZKOV_2026={
   id:'soustredeni-bozkov-2026-v1', title:'Soustředění Bozkov 2026', date:'2026-07-15',
+  aliases:{
+    'Forejtar Václav':['Venca Forejtar','Venca'],
+    'Hoppan Jakub':['Kuba Hoppan'],
+    'Nushi Sámi':['Sami'],
+    'Vláčucha Adrian':['Adrian'],
+  },
   entries:[
     ['Botur Michael',[30]], ['Chroust Martin',[30,30]], ['Doležal Jakub',[100,50,50,30,30,90,30,30]],
     ['Forejtar Václav',[50,50,50,30,30,30]], ['Hlaváč Jan',[30,50]], ['Hoppan Jakub',[30,30]],
@@ -150,15 +156,17 @@ function importRateCatalog(catalog,{reset=false}={}){
 function normalizedPlayerName(value){
   return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
 }
-function resolveImportedPlayer(name){
-  const target=normalizedPlayerName(name);
-  const reversed=normalizedPlayerName(String(name).split(/\s+/).reverse().join(' '));
+function resolveImportedPlayer(name,aliases=[]){
+  const sourceNames=[name,...aliases];
+  const targets=new Set(sourceNames.flatMap(value=>[
+    normalizedPlayerName(value),normalizedPlayerName(String(value).split(/\s+/).reverse().join(' '))
+  ]));
   const matches=[];
   (state.players||[]).forEach(player=>{
     const names=[player.name,...(player.nicknames||[])];
     if(names.some(candidate=>{
       const value=normalizedPlayerName(candidate);
-      return value===target||value===reversed;
+      return targets.has(value);
     })) matches.push(player.name);
   });
   return matches.length===1?matches[0]:null;
@@ -167,7 +175,7 @@ function prepareOneTimeFineImport(importData){
   const unresolved=[];
   const fines=[];
   importData.entries.forEach(([sourceName,amounts])=>{
-    const player=resolveImportedPlayer(sourceName);
+    const player=resolveImportedPlayer(sourceName,importData.aliases?.[sourceName]||[]);
     if(!player){ unresolved.push(sourceName); return; }
     amounts.forEach((amount,index)=>fines.push({
       player,reason:UNKNOWN_REASON,amount,ts:new Date(`${importData.date}T12:00:00`).getTime()+index,
