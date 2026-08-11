@@ -101,6 +101,14 @@ function takeAmount(text) {
   return { amount: null, text: value };
 }
 
+function takeLeadingNumericAmount(text) {
+  const value=String(text).replace(/^\s+/, '');
+  const match=value.match(/^(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:kč|kc|korun|koruny|koruna|czk)?\s+(.+)$/iu);
+  if(!match) return null;
+  const amount=Number(match[1].replace(',', '.'));
+  return Number.isFinite(amount)&&amount>0?{amount,text:match[2].trim()}:null;
+}
+
 function findPlayerPrefix(text, players) {
   const normalised = normalise(text);
   let exact = null;
@@ -171,14 +179,16 @@ function splitVoiceTranscriptLegacy(transcript, players = []) {
 export function splitVoiceTranscript(transcript, players = []) {
   const text = String(transcript || '')
     .split(/\b(?:konec|stop)\b/iu)[0]
-    .replace(/\s+(?:st\u0159edn\u00edk|dal\u0161\u00ed|dalsi|d\u00e1le|dale|a\s+dal\u0161\u00ed|je\u0161t\u011b|jeste|plus|nav\u00edc|a\s+tak\u00e9|a\s+taky|taky|potom|n\u00e1sleduje|nasleduje)\s+/giu, ', ');
+    .replace(/\s+(?:st\u0159edn\u00edk|dal\u0161\u00ed|dalsi|d\u00e1le|dale|a\s+dal\u0161\u00ed|je\u0161t\u011b|jeste|plus|nav\u00edc|a\s+tak\u00e9|a\s+taky|taky|potom|n\u00e1sleduje|nasleduje)(?=\s|[,;:.]|$)\s*[,;:.]?\s*/giu, ', ');
   return text.split(/[,;\n]+/).map(part => part.trim()).filter(Boolean);
 }
 
 export function parseVoiceChunk(chunk, players = [], reasons = []) {
   const original = String(chunk || '').trim();
   if (!original) return null;
-  const { amount: spokenAmount, text: withoutAmount } = takeAmount(original);
+  const leadingAmount=takeLeadingNumericAmount(original);
+  const { amount: trailingAmount, text: withoutAmount } = takeAmount(leadingAmount?.text||original);
+  const spokenAmount=leadingAmount?.amount??trailingAmount;
   const cleanText = withoutAmount.replace(/[–—]/g, '-').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
   const playerPart = findPlayerPrefix(cleanText, players);
   // Keep the original spelling for a custom reason. The normalised variant is

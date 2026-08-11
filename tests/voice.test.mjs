@@ -95,3 +95,11 @@ test('supports the spoken separators used during a continuous entry', () => {
     assert.equal(fines.length, 2, separator);
   }
 });
+
+test('tolerates punctuation after a separator and a reversed numeric/player fragment', () => {
+  const fines = parseVoiceTranscript('Míša 20 dále, 30 Teichi', players, reasons);
+  assert.equal(fines.length, 2);
+  assert.deepEqual(fines.map(f => f.resolution.player), ['Michal Novák', 'Lukáš Teichmann']);
+  assert.deepEqual(fines.map(f => f.amount), [20, 30]);
+  assert.deepEqual(fines.map(f => f.reason), ['', '']);
+});
