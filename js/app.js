@@ -1129,6 +1129,10 @@ window.closeRateHistory=function(){document.getElementById('rate-history-modal')
 
 // ─── REASON AUTOCOMPLETE (Fix #3) ─────────────────────────────────
 let acReasonIndex=-1, acReasonFiltered=[];
+window.hideReasonAutocomplete=function(){
+  const list=document.getElementById('reason-ac-list');
+  if(list) list.style.display='none';
+};
 window.reasonAutocomplete=function(val){
   const list=document.getElementById('reason-ac-list');
   const norm=val.trim().toLowerCase();
