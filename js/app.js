@@ -122,7 +122,7 @@ let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
 let state={players:[],fines:[]};
 let catalogMigrationPending=false;
-let oneTimeImportPending=false;
+let oneTimeImportShown=false, reviewImportMeta=null;
 
 function dayBefore(date){ return new Date(new Date(`${date}T12:00:00`).getTime()-86400000).toISOString().slice(0,10); }
 function importRateCatalog(catalog,{reset=false}={}){
@@ -156,30 +156,41 @@ function importRateCatalog(catalog,{reset=false}={}){
 function normalizedPlayerName(value){
   return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
 }
+function playerNameWords(value){ return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().match(/[a-z0-9]+/g)||[]; }
 function resolveImportedPlayer(name,aliases=[]){
   const sourceNames=[name,...aliases];
   const targets=new Set(sourceNames.flatMap(value=>[
     normalizedPlayerName(value),normalizedPlayerName(String(value).split(/\s+/).reverse().join(' '))
   ]));
-  const matches=[];
+  const matches=new Set();
   (state.players||[]).forEach(player=>{
     const names=[player.name,...(player.nicknames||[])];
     if(names.some(candidate=>{
       const value=normalizedPlayerName(candidate);
       return targets.has(value);
-    })) matches.push(player.name);
+    })) matches.add(player.name);
   });
-  return matches.length===1?matches[0]:null;
+  if(matches.size===1) return [...matches][0];
+  // Handwritten tables use surnames first. A unique surname is still a safe
+  // match and keeps imports resilient to an abbreviated first name/profile.
+  const surname=playerNameWords(name)[0];
+  if(surname){
+    (state.players||[]).forEach(player=>{
+      const names=[player.name,...(player.nicknames||[])];
+      if(names.some(candidate=>playerNameWords(candidate).includes(surname))) matches.add(player.name);
+    });
+  }
+  return matches.size===1?[...matches][0]:null;
 }
 function prepareOneTimeFineImport(importData){
   const unresolved=[];
   const fines=[];
   importData.entries.forEach(([sourceName,amounts])=>{
     const player=resolveImportedPlayer(sourceName,importData.aliases?.[sourceName]||[]);
-    if(!player){ unresolved.push(sourceName); return; }
+    if(!player) unresolved.push(sourceName);
     amounts.forEach((amount,index)=>fines.push({
-      player,reason:UNKNOWN_REASON,amount,ts:new Date(`${importData.date}T12:00:00`).getTime()+index,
-      season:'2026/27',source:importData.title
+      sourceName,player:player||'',reason:UNKNOWN_REASON,amount,ts:new Date(`${importData.date}T12:00:00`).getTime()+index,
+      season:'2026/27',source:importData.title,allowNegative:amount<0
     }));
   });
   return {unresolved:[...new Set(unresolved)],fines};
@@ -505,20 +516,10 @@ function startFirestoreListener(){
         .finally(()=>{catalogMigrationPending=false;});
       return;
     }
-    if(primaryAdmin()&&state.oneTimeImports?.bozkov2026?.id!==ONE_TIME_FINE_IMPORT_BOZKOV_2026.id&&!oneTimeImportPending){
+    if(primaryAdmin()&&state.oneTimeImports?.bozkov2026?.id!==ONE_TIME_FINE_IMPORT_BOZKOV_2026.id&&!oneTimeImportShown){
+      oneTimeImportShown=true;
       const prepared=prepareOneTimeFineImport(ONE_TIME_FINE_IMPORT_BOZKOV_2026);
-      if(prepared.unresolved.length){
-        console.warn('Bozkov import – nenalezení hráči:',prepared.unresolved);
-        showToast('Bozkov: chybí hráč '+prepared.unresolved.join(', ')+'. Nic nebylo importováno.');
-      }else{
-        oneTimeImportPending=true;
-        state.fines=[...prepared.fines,...(state.fines||[])];
-        state.oneTimeImports=state.oneTimeImports||{};
-        state.oneTimeImports.bozkov2026={id:ONE_TIME_FINE_IMPORT_BOZKOV_2026.id,title:ONE_TIME_FINE_IMPORT_BOZKOV_2026.title,importedAt:new Date().toISOString(),count:prepared.fines.length};
-        saveState().then(saved=>{if(saved) showToast(`Bozkov: do logu přidáno ${prepared.fines.length} záznamů.`);})
-          .finally(()=>{oneTimeImportPending=false;});
-        return;
-      }
+      buildOneTimeFineReview(ONE_TIME_FINE_IMPORT_BOZKOV_2026,prepared);
     }
     const t=document.querySelector('.tab.active')?.dataset.tab;
     if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonOptions(); }
@@ -1306,6 +1307,7 @@ function stopVoiceSession(){
 
 // ─── REVIEW ───────────────────────────────────────────────────────
 function buildReviewQueue(transcript){
+  reviewImportMeta=null;
   reviewQueue=[];
   parseVoiceTranscript(transcript,state.players||[],getReasonList()).forEach(parsed=>{
     const resolved=parsed.resolution.player;
@@ -1321,6 +1323,20 @@ function buildReviewQueue(transcript){
   document.getElementById('voice-review').scrollIntoView({behavior:'smooth'});
   const unknown=[...new Set(reviewQueue.filter(r=>r.needsPlayer).map(r=>voiceDisplayName(r.rawName)))];
   if(unknown.length) setTimeout(()=>alert(`Hráč ${unknown.join(', ')} není v databázi. Nejdřív ho přidej v kontrole níže a zadej telefon ve formátu +420 nebo +421.`),0);
+}
+function buildOneTimeFineReview(importData,prepared){
+  reviewImportMeta={key:'bozkov2026',id:importData.id,title:importData.title};
+  reviewQueue=prepared.fines.map(fine=>({
+    raw:`${fine.sourceName} – ${fine.amount} Kč`,rawName:fine.sourceName,resolvedPlayer:fine.player,
+    reason:fine.reason,amount:fine.amount,needsPlayer:!fine.player,needsAmount:false,candidates:[],
+    isAlias:!!fine.player&&normalizedPlayerName(fine.sourceName)!==normalizedPlayerName(fine.player),skip:false,
+    source:fine.source,ts:fine.ts,season:fine.season,allowNegative:fine.allowNegative
+  }));
+  renderReviewQueue();
+  document.getElementById('voice-review').style.display='block';
+  document.getElementById('voice-review').scrollIntoView({behavior:'smooth'});
+  if(prepared.unresolved.length) showToast(`Bozkov: ručně vyber hráče u ${prepared.unresolved.join(', ')}.`);
+  else showToast(`Bozkov: zkontroluj ${reviewQueue.length} záznamů před uložením.`);
 }
 
 async function startVoiceMeter(){
@@ -1386,16 +1402,22 @@ window.addReviewPlayer=async function(index){
   review.resolvedPlayer=name;review.needsPlayer=false;review.isAlias=false;
   await saveState();renderReviewQueue();showToast(`Hráč ${name} přidán`);
 };
-window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].needsPlayer=!v;reviewQueue[i].isAlias=false;}if(k==='amount')reviewQueue[i].needsAmount=!(Number(v)>0);const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
+function validReviewAmount(review){ return Number.isFinite(Number(review.amount))&&(review.allowNegative?Number(review.amount)!==0:Number(review.amount)>0); }
+window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].needsPlayer=!v;reviewQueue[i].isAlias=false;}if(k==='amount')reviewQueue[i].needsAmount=!validReviewAmount(reviewQueue[i]);const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
 window.toggleSkip=function(i){reviewQueue[i].skip=!reviewQueue[i].skip;renderReviewQueue();};
 window.confirmReview=async function(){
   const toSave=reviewQueue.filter(r=>!r.skip);if(!toSave.length){window.discardReview();return;}
-  const invalid=toSave.find(r=>!r.resolvedPlayer||!state.players.some(p=>p.name===r.resolvedPlayer)||!(Number(r.amount)>0));
+  const invalid=toSave.find(r=>!r.resolvedPlayer||!state.players.some(p=>p.name===r.resolvedPlayer)||!validReviewAmount(r));
   if(invalid){showToast('Před uložením vyber hráče a částku u všech nezahozených pokut.');return;}
-  toSave.forEach(r=>{state.fines.unshift({player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),ts:Date.now(),season:seasonKey(activeSeason)});});
-  await saveState();showToast(`✓ Uloženo ${toSave.length} pokut`);window.discardReview();populatePlayerSelects();
+  toSave.forEach(r=>{state.fines.unshift({player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason),source:r.source});});
+  if(reviewImportMeta){
+    state.oneTimeImports=state.oneTimeImports||{};
+    state.oneTimeImports[reviewImportMeta.key]={id:reviewImportMeta.id,title:reviewImportMeta.title,importedAt:new Date().toISOString(),count:toSave.length};
+  }
+  const saved=await saveState();
+  if(saved){showToast(`✓ Uloženo ${toSave.length} pokut`);window.discardReview();populatePlayerSelects();}
 };
-window.discardReview=function(){reviewQueue=[];document.getElementById('voice-review').style.display='none';};
+window.discardReview=function(){reviewQueue=[];reviewImportMeta=null;document.getElementById('voice-review').style.display='none';};
 
 // ─── FINE OPS ─────────────────────────────────────────────────────
 function ensurePlayer(name){
