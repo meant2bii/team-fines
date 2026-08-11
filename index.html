@@ -230,13 +230,14 @@
           <!-- Recent players tiles -->
           <div id="recent-players-row" class="tile-row" style="margin-bottom:12px;"></div>
 
-          <!-- Reason field: the catalogue is the single source of truth -->
+          <!-- Reason autocomplete mirrors the player picker for touch and keyboard use. -->
           <div class="form-group" style="position:relative;">
             <label>Prohřešek ze sazebníku</label>
-            <input id="f-reason" type="text" list="reason-options" placeholder="Vyber nebo napiš prohřešek…"
-              onchange="autoFillPrice(this.value)" />
+            <input id="f-reason" type="text" placeholder="Začni psát prohřešek…" autocomplete="off"
+              onfocus="reasonAutocomplete(this.value)" oninput="reasonAutocomplete(this.value)" onkeydown="reasonAutocompleteKey(event)" />
+            <div id="reason-ac-list" class="ac-list" style="display:none;"></div>
             <datalist id="reason-options"></datalist>
-            <p class="label-hint">Cena se vždy převezme z platné sazby pro zvolenou sezónu.</p>
+            <p class="label-hint">Vyber položku z nabídky; cena se převezme z platné sazby pro zvolenou sezónu.</p>
           </div>
 
           <div class="form-group">

@@ -1123,10 +1123,9 @@ window.closeRateHistory=function(){document.getElementById('rate-history-modal')
 let acReasonIndex=-1, acReasonFiltered=[];
 window.reasonAutocomplete=function(val){
   const list=document.getElementById('reason-ac-list');
-  if(!val.trim()){if(list)list.style.display='none';acReasonFiltered=[];return;}
-  const norm=val.toLowerCase();
+  const norm=val.trim().toLowerCase();
   const all=getReasonList();
-  acReasonFiltered=all.filter(r=>r.label.toLowerCase().includes(norm));
+  acReasonFiltered=all.filter(r=>!norm||r.label.toLowerCase().includes(norm));
   if(!acReasonFiltered.length){if(list)list.style.display='none';return;}
   acReasonIndex=-1;
   if(list){
@@ -1155,9 +1154,8 @@ window.selectReasonAC=function(label,price){
   // Auto-fill price
   if(price!=null){
     const amtEl=document.getElementById('f-amount');
-    if(amtEl&&(!amtEl.value||parseFloat(amtEl.value)<=0)) amtEl.value=price;
+    if(amtEl) amtEl.value=price;
   }
-  renderReasonTiles();
 };
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
@@ -1182,6 +1180,12 @@ window.submitSelfFine=function(){
 };
 
 // ─── VOICE ────────────────────────────────────────────────────────
+function isBraveBrowser(){return !!navigator.brave||/Brave\//i.test(navigator.userAgent);}
+function voiceNetworkMessage(){
+  return isBraveBrowser()
+    ?'Brave neposkytuje spolehlivě službu rozpoznávání řeči, i když je mikrofon povolený. Pro hlasové zadávání na PC otevři aplikaci v aktuálním Chrome nebo Edge.'
+    :'Rozpoznávání řeči potřebuje internetové připojení. Zkontroluj síť a zkus to znovu.';
+}
 window.toggleVoiceSession=function(){voiceActive?stopVoiceSession():startVoiceSession();};
 function startVoiceSession(){
   if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){
@@ -1241,10 +1245,10 @@ function startVoiceSession(){
       console.warn('Speech error:',err.error);
       const fatal={
         'not-allowed':'Mikrofon není povolen. V adresním řádku klikni na ikonu zámku, povol mikrofon a spusť diktování znovu.',
-        'service-not-allowed':'Služba rozpoznávání řeči není v tomto prohlížeči povolena. Použij aktuální Chrome nebo Edge.',
+        'service-not-allowed':isBraveBrowser()?voiceNetworkMessage():'Služba rozpoznávání řeči není v tomto prohlížeči povolena. Použij aktuální Chrome nebo Edge.',
         'audio-capture':'Počítač nenalezl mikrofon. Zkontroluj připojení a výchozí mikrofon ve Windows.',
         'language-not-supported':'Čeština není v tomto prohlížeči pro diktování dostupná. Použij aktuální Chrome nebo Edge.',
-        'network':'Rozpoznávání řeči potřebuje internetové připojení. Zkontroluj síť a zkus to znovu.',
+        'network':voiceNetworkMessage(),
       };
       if(fatal[err.error]){
         voiceActive=false;voiceStopRequested=true;clearTimeout(voiceRestartTimer);clearTimeout(silenceTimer);
