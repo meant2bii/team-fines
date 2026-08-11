@@ -60,6 +60,17 @@ const RATE_CATALOG_2026_27={
     ['Video nebo rozhovor v televizi',300],
   ]
 };
+const ONE_TIME_FINE_IMPORT_BOZKOV_2026={
+  id:'soustredeni-bozkov-2026-v1', title:'Soustředění Bozkov 2026', date:'2026-07-15',
+  entries:[
+    ['Botur Michael',[30]], ['Chroust Martin',[30,30]], ['Doležal Jakub',[100,50,50,30,30,90,30,30]],
+    ['Forejtar Václav',[50,50,50,30,30,30]], ['Hlaváč Jan',[30,50]], ['Hoppan Jakub',[30,30]],
+    ['Horčička Jiří',[30,50,50,30,30,50,50,50,30,30]], ['Hubálek Adam',[30,100]], ['Klemš Erik',[30,50,300]],
+    ['Květ Jakub',[50]], ['Nevrála Michal',[300]], ['Ngo Liem',[30]], ['Nushi Sámi',[30]], ['Piaček Juraj',[30,-30,500]],
+    ['Sahula Roman',[60]], ['Soudil Jan',[50,30]], ['Svoboda Matěj',[50,100,30]], ['Teichmann Lukáš',[60,60,30,300,300]],
+    ['Tichý Jan',[50,30,30,30,60,30]], ['Urban Dan',[50,30,50]], ['Vízner Tomáš',[50,30]], ['Vláčucha Adrian',[30,30,90]],
+  ]
+};
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -105,6 +116,7 @@ let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
 let state={players:[],fines:[]};
 let catalogMigrationPending=false;
+let oneTimeImportPending=false;
 
 function dayBefore(date){ return new Date(new Date(`${date}T12:00:00`).getTime()-86400000).toISOString().slice(0,10); }
 function importRateCatalog(catalog,{reset=false}={}){
@@ -134,6 +146,35 @@ function importRateCatalog(catalog,{reset=false}={}){
   state.rateHistory=history;
   state.catalogImports=state.catalogImports||{};
   state.catalogImports[catalog.season]={id:catalog.id,source:catalog.source,effectiveFrom:catalog.effectiveFrom,updatedAt:new Date().toISOString()};
+}
+function normalizedPlayerName(value){
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+function resolveImportedPlayer(name){
+  const target=normalizedPlayerName(name);
+  const reversed=normalizedPlayerName(String(name).split(/\s+/).reverse().join(' '));
+  const matches=[];
+  (state.players||[]).forEach(player=>{
+    const names=[player.name,...(player.nicknames||[])];
+    if(names.some(candidate=>{
+      const value=normalizedPlayerName(candidate);
+      return value===target||value===reversed;
+    })) matches.push(player.name);
+  });
+  return matches.length===1?matches[0]:null;
+}
+function prepareOneTimeFineImport(importData){
+  const unresolved=[];
+  const fines=[];
+  importData.entries.forEach(([sourceName,amounts])=>{
+    const player=resolveImportedPlayer(sourceName);
+    if(!player){ unresolved.push(sourceName); return; }
+    amounts.forEach((amount,index)=>fines.push({
+      player,reason:UNKNOWN_REASON,amount,ts:new Date(`${importData.date}T12:00:00`).getTime()+index,
+      season:'2026/27',source:importData.title
+    }));
+  });
+  return {unresolved:[...new Set(unresolved)],fines};
 }
 
 // Role definitions
@@ -452,9 +493,24 @@ function startFirestoreListener(){
     if(primaryAdmin()&&state.catalogImports?.['2026/27']?.id!==RATE_CATALOG_2026_27.id&&!catalogMigrationPending){
       catalogMigrationPending=true;
       importRateCatalog(RATE_CATALOG_2026_27,{reset:true});
-      saveState().then(()=>showToast('Sazebník 2026/27 byl nahrán – začínáme s čistým štítem.'))
+      saveState().then(saved=>{if(saved) showToast('Sazebník 2026/27 byl nahrán – začínáme s čistým štítem.');})
         .finally(()=>{catalogMigrationPending=false;});
       return;
+    }
+    if(primaryAdmin()&&state.oneTimeImports?.bozkov2026?.id!==ONE_TIME_FINE_IMPORT_BOZKOV_2026.id&&!oneTimeImportPending){
+      const prepared=prepareOneTimeFineImport(ONE_TIME_FINE_IMPORT_BOZKOV_2026);
+      if(prepared.unresolved.length){
+        console.warn('Bozkov import – nenalezení hráči:',prepared.unresolved);
+        showToast('Bozkov: chybí hráč '+prepared.unresolved.join(', ')+'. Nic nebylo importováno.');
+      }else{
+        oneTimeImportPending=true;
+        state.fines=[...prepared.fines,...(state.fines||[])];
+        state.oneTimeImports=state.oneTimeImports||{};
+        state.oneTimeImports.bozkov2026={id:ONE_TIME_FINE_IMPORT_BOZKOV_2026.id,title:ONE_TIME_FINE_IMPORT_BOZKOV_2026.title,importedAt:new Date().toISOString(),count:prepared.fines.length};
+        saveState().then(saved=>{if(saved) showToast(`Bozkov: do logu přidáno ${prepared.fines.length} záznamů.`);})
+          .finally(()=>{oneTimeImportPending=false;});
+        return;
+      }
     }
     const t=document.querySelector('.tab.active')?.dataset.tab;
     if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonOptions(); }
@@ -468,9 +524,9 @@ function startFirestoreListener(){
 }
 function stopFirestoreListener(){ if(unsubFirestore){unsubFirestore();unsubFirestore=null;} }
 async function saveState(){
-  if((!isManager&&!phoneUser)||(!currentUser&&!phoneUser)) return;
-  try{await setDoc(doc(db,CONFIG.FIRESTORE_DOC),state);}
-  catch(e){console.error(e);showToast('⚠ Nepodařilo se uložit data.');}
+  if((!isManager&&!phoneUser)||(!currentUser&&!phoneUser)) return false;
+  try{await setDoc(doc(db,CONFIG.FIRESTORE_DOC),state);return true;}
+  catch(e){console.error(e);showToast('⚠ Nepodařilo se uložit data.');return false;}
 }
 
 // ─── CSV IMPORT (FIX #3) ──────────────────────────────────────────
