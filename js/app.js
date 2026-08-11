@@ -21,6 +21,45 @@ import { seasonForDate, seasonKey as calendarSeasonKey } from './season.js';
 // ─── CONFIG ───────────────────────────────────────────────────────
 const CONFIG = { CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main', PRIMARY_ADMIN_EMAIL:'lyrixzz@gmail.com' };
 const UNKNOWN_REASON='Unknown reason';
+// Each new season is imported as a dated catalogue.  Keep previous catalogues
+// in this format: changing a price appends a new period; an omitted item is
+// closed on the day before the new catalogue takes effect.
+const RATE_CATALOG_2026_27={
+  id:'2026-27-2026-07-15', season:'2026/27', effectiveFrom:'2026-07-15', source:'sazebnik_26_27.jpeg',
+  items:[
+    ['Bago – deset přihrávek nebo „housle“ (hráči v bagu)',30],
+    ['Bago – devátá pokažená přihrávka',30],
+    ['Přestřelení ochranné sítě',30],
+    ['Nedaná penalta při tréninku',30],
+    ['Dvě nedané penalty při tréninku',70],
+    ['Prohra ve fotbálku o více než 5 gólů',30],
+    ['Prohra ve fotbálku o více než 10 gólů',70],
+    ['Prohra v individuálních soutěžích (břevna, přímáky…)',30],
+    ['Pravidlo „pičovina“ (pět hlasujících)',30],
+    ['Pravidlo „giga-pičovina“ (pět hlasujících)',50],
+    ['Omluvená neúčast na tréninku při 5 a méně lidech',30],
+    ['Neomluvená neúčast na tréninku při 5 a méně lidech',50],
+    ['Nedisciplinovanost na tréninku nebo hrubé chování (max. 200 Kč)',200],
+    ['Zapomenuté věci na zápas – kopačky, chrániče nebo ručník',30],
+    ['Zapnuté zvonění v kabině',30],
+    ['Žlutá karta za kecy nebo nesportovní chování',100],
+    ['Červená karta',300],
+    ['Neproměněná penalta',300],
+    ['Hattrick',300],
+    ['Nedodržení životosprávy před zápasem',300],
+    ['Kapitánská páska při mistrovském utkání (jednou za sezónu)',300],
+    ['Pozdní příchod na zápas omluvený',30],
+    ['Pozdní příchod na zápas neomluvený',150],
+    ['Omluva ze zápasu v den zápasu',150],
+    ['Neomluvená neúčast na zápase',400],
+    ['Hrubé nebo nesportovní chování před, během nebo po zápase',300],
+    ['Dárek od pokladníka (max. 50 Kč)',50],
+    ['První mistrák za Chuchli',300],
+    ['První gól za Chuchli',300],
+    ['Fotka nebo rozhovor v novinách či na internetu',100],
+    ['Video nebo rozhovor v televizi',300],
+  ]
+};
 
 // ─── WA MEMBERS ───────────────────────────────────────────────────
 const WA_MEMBERS = [
@@ -65,6 +104,37 @@ let reviewQueue=[];
 let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
 let state={players:[],fines:[]};
+let catalogMigrationPending=false;
+
+function dayBefore(date){ return new Date(new Date(`${date}T12:00:00`).getTime()-86400000).toISOString().slice(0,10); }
+function importRateCatalog(catalog,{reset=false}={}){
+  if(reset){
+    state.fines=[];
+    state.rateHistory={};
+    state.reasonList=[];
+    state.reasonLists={};
+    state.deletedRatePeriods={};
+  }
+  const history=state.rateHistory||{};
+  const incoming=new Set(catalog.items.map(([label])=>label));
+  if(!reset){
+    Object.entries(history).forEach(([label,periods])=>{
+      if(incoming.has(label)) return;
+      const open=(periods||[]).filter(p=>p.from<catalog.effectiveFrom&&(!p.to||p.to>=catalog.effectiveFrom)).at(-1);
+      if(open) open.to=dayBefore(catalog.effectiveFrom);
+    });
+  }
+  catalog.items.forEach(([label,price])=>{
+    const periods=history[label]||[];
+    const existing=periods.find(p=>p.from===catalog.effectiveFrom);
+    if(existing){ existing.price=price; existing.to=''; }
+    else periods.push({from:catalog.effectiveFrom,to:'',price});
+    history[label]=periods.sort((a,b)=>a.from.localeCompare(b.from));
+  });
+  state.rateHistory=history;
+  state.catalogImports=state.catalogImports||{};
+  state.catalogImports[catalog.season]={id:catalog.id,source:catalog.source,effectiveFrom:catalog.effectiveFrom,updatedAt:new Date().toISOString()};
+}
 
 // Role definitions
 const ROLES=[
@@ -376,6 +446,16 @@ function startFirestoreListener(){
   unsubFirestore=onSnapshot(doc(db,CONFIG.FIRESTORE_DOC),snap=>{
     if(snap.exists()){state=snap.data();state.players=state.players||[];state.fines=state.fines||[];}
     else state={players:[],fines:[]};
+    // The 2026/27 upload deliberately starts with a clean fines ledger and
+    // catalogue. This runs once, only for the primary admin, and is recorded
+    // in Firestore so every other device simply receives the imported data.
+    if(primaryAdmin()&&state.catalogImports?.['2026/27']?.id!==RATE_CATALOG_2026_27.id&&!catalogMigrationPending){
+      catalogMigrationPending=true;
+      importRateCatalog(RATE_CATALOG_2026_27,{reset:true});
+      saveState().then(()=>showToast('Sazebník 2026/27 byl nahrán – začínáme s čistým štítem.'))
+        .finally(()=>{catalogMigrationPending=false;});
+      return;
+    }
     const t=document.querySelector('.tab.active')?.dataset.tab;
     if(t==='add'){ renderDashboard(); renderRecentPlayers(); renderReasonOptions(); }
     if(t==='log') renderLog();
@@ -543,7 +623,9 @@ function getRateHistory(){
     const entry=history[label].find(x=>x.from===key);
     if(entry){ entry.price=Number(price); entry.to=to||''; } else history[label].push({from:key,to:to||'',price:Number(price)});
   };
-  const base=(state.reasonList&&state.reasonList.length?state.reasonList:DEFAULT_REASON_LIST);
+  const base=Array.isArray(state.reasonList)
+    ?state.reasonList
+    :(state.catalogImports?[]:DEFAULT_REASON_LIST);
   base.forEach(r=>add(r.label,r.price,CATALOG_START));
   Object.entries(state.reasonLists||{}).forEach(([key,list])=>{
     (list||[]).forEach(r=>add(r.label,r.price,legacyRateStart(key)));
