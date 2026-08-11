@@ -535,7 +535,15 @@ function stopFirestoreListener(){ if(unsubFirestore){unsubFirestore();unsubFires
 async function saveState(){
   if((!isManager&&!phoneUser)||(!currentUser&&!phoneUser)) return false;
   try{await setDoc(doc(db,CONFIG.FIRESTORE_DOC),state);return true;}
-  catch(e){console.error(e);showToast('⚠ Nepodařilo se uložit data.');return false;}
+  catch(e){
+    console.error(e);
+    const message=e?.code==='permission-denied'
+      ?'Nemáš oprávnění data uložit. Zkontroluj prosím roli Pokladník nebo Admin.'
+      :e?.code==='invalid-argument'
+        ?'Záznam obsahuje neplatnou hodnotu. Obnov stránku a zkus uložení znovu.'
+        :'Nepodařilo se uložit data. Zkus to prosím znovu.';
+    showToast(`⚠ ${message}`);return false;
+  }
 }
 
 // ─── CSV IMPORT (FIX #3) ──────────────────────────────────────────
@@ -1413,13 +1421,20 @@ window.confirmReview=async function(){
   const toSave=reviewQueue.filter(r=>!r.skip);if(!toSave.length){window.discardReview();return;}
   const invalid=toSave.find(r=>!r.resolvedPlayer||!state.players.some(p=>p.name===r.resolvedPlayer)||!validReviewAmount(r));
   if(invalid){showToast('Před uložením vyber hráče a částku u všech nezahozených pokut.');return;}
-  toSave.forEach(r=>{state.fines.unshift({player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason),source:r.source});});
+  const previousFines=state.fines,previousImports=state.oneTimeImports;
+  state.fines=[...(state.fines||[])];
+  toSave.forEach(r=>{
+    const fine={player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason)};
+    if(r.source) fine.source=r.source;
+    state.fines.unshift(fine);
+  });
   if(reviewImportMeta){
     state.oneTimeImports=state.oneTimeImports||{};
     state.oneTimeImports[reviewImportMeta.key]={id:reviewImportMeta.id,title:reviewImportMeta.title,importedAt:new Date().toISOString(),count:toSave.length};
   }
   const saved=await saveState();
-  if(saved){showToast(`✓ Uloženo ${toSave.length} pokut`);window.discardReview();populatePlayerSelects();}
+  if(!saved){state.fines=previousFines;state.oneTimeImports=previousImports;return;}
+  showToast(`✓ Uloženo ${toSave.length} pokut`);window.discardReview();populatePlayerSelects();
 };
 window.discardReview=function(){reviewQueue=[];reviewImportMeta=null;document.getElementById('voice-review').style.display='none';};
 
