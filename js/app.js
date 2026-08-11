@@ -1131,7 +1131,7 @@ window.reasonAutocomplete=function(val){
   if(list){
     const catColor={yellow:'#b45309',orange:'#c2410c',red:'#b91c1c'};
     list.innerHTML=acReasonFiltered.map((r,i)=>`
-      <div class="ac-item" onmousedown="selectReasonAC('${esc(r.label)}',${r.price})" data-i="${i}">
+      <div class="ac-item" onclick="selectReasonAC('${esc(r.label)}',${r.price})" data-i="${i}">
         ${esc(r.label)}
         <span class="ac-sub" style="color:${catColor[r.cat]||'var(--tx-m)'};">${r.price} CZK</span>
       </div>`).join('');
