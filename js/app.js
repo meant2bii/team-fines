@@ -1562,13 +1562,53 @@ window.openEdit=function(idx){
   document.getElementById('edit-player').value=f.player;
   document.getElementById('edit-reason').value=f.reason;
   document.getElementById('edit-amount').value=f.amount;
+  document.getElementById('edit-reason-ac-list').style.display='none';
+  document.getElementById('edit-catalog-choice').style.display='none';
   document.getElementById('edit-modal').classList.add('open');
 };
-window.closeEditModal=function(){document.getElementById('edit-modal').classList.remove('open');};
-window.syncEditCatalogPrice=function(){
+window.closeEditModal=function(){
+  document.getElementById('edit-modal').classList.remove('open');
+  document.getElementById('edit-reason-ac-list').style.display='none';
+};
+let editReasonAcIndex=-1,editReasonAcFiltered=[];
+window.hideEditReasonAutocomplete=function(){
+  const list=document.getElementById('edit-reason-ac-list'); if(list) list.style.display='none';
+};
+window.editReasonAutocomplete=function(value){
   const f=state.fines[editIndex]; if(!f) return;
-  const price=reasonPrice(document.getElementById('edit-reason').value.trim(),fineSeason(f),new Date(f.ts));
-  if(price!=null) document.getElementById('edit-amount').value=price;
+  const list=document.getElementById('edit-reason-ac-list'),query=String(value||'').trim().toLowerCase();
+  editReasonAcFiltered=getReasonList(fineSeason(f)).filter(reason=>!query||reason.label.toLowerCase().includes(query));
+  if(!editReasonAcFiltered.length){window.hideEditReasonAutocomplete();return;}
+  editReasonAcIndex=-1;
+  list.innerHTML=editReasonAcFiltered.map((reason,index)=>{
+    const price=reasonPrice(reason.label,fineSeason(f),new Date(f.ts))??reason.price;
+    return `<div class="ac-item" onclick="selectEditReason(${JSON.stringify(reason.label).replace(/"/g,'&quot;')},${price})" data-i="${index}">${esc(reason.label)}<span class="ac-sub">${price} ${CONFIG.CURRENCY}</span></div>`;
+  }).join('');
+  list.style.display='block';
+};
+window.editReasonAutocompleteKey=function(event){
+  const list=document.getElementById('edit-reason-ac-list'),items=list?.querySelectorAll('.ac-item')||[];
+  if(event.key==='ArrowDown'){editReasonAcIndex=Math.min(editReasonAcIndex+1,items.length-1);items.forEach((item,index)=>item.classList.toggle('active',index===editReasonAcIndex));event.preventDefault();}
+  else if(event.key==='ArrowUp'){editReasonAcIndex=Math.max(editReasonAcIndex-1,0);items.forEach((item,index)=>item.classList.toggle('active',index===editReasonAcIndex));event.preventDefault();}
+  else if(event.key==='Enter'&&editReasonAcFiltered[editReasonAcIndex]){const reason=editReasonAcFiltered[editReasonAcIndex],f=state.fines[editIndex];window.selectEditReason(reason.label,reasonPrice(reason.label,fineSeason(f),new Date(f.ts))??reason.price);event.preventDefault();}
+  else if(event.key==='Escape') window.hideEditReasonAutocomplete();
+};
+window.selectEditReason=function(label,price){
+  document.getElementById('edit-reason').value=label;
+  window.hideEditReasonAutocomplete();
+  const choice=document.getElementById('edit-catalog-choice'),current=Number(document.getElementById('edit-amount').value);
+  if(Number(current)===Number(price)){
+    choice.style.display='block';choice.textContent=`Cena ${price} ${CONFIG.CURRENCY} odpovídá sazebníku.`;return;
+  }
+  choice.style.display='block';
+  choice.innerHTML=`<strong>Cena v sazebníku je ${price} ${CONFIG.CURRENCY}.</strong><span>Chceš přepsat současných ${current} ${CONFIG.CURRENCY}?</span><div><button type="button" class="btn btn-secondary" onclick="keepEditAmount()">Ponechat ${current} ${CONFIG.CURRENCY}</button><button type="button" class="btn btn-primary" onclick="applyEditCatalogPrice(${price})">Přepsat na ${price} ${CONFIG.CURRENCY}</button></div>`;
+};
+window.keepEditAmount=function(){document.getElementById('edit-catalog-choice').style.display='none';};
+window.applyEditCatalogPrice=function(price){document.getElementById('edit-amount').value=price;document.getElementById('edit-catalog-choice').style.display='none';};
+window.syncEditCatalogPrice=function(){
+  const f=state.fines[editIndex]; if(!f)return;
+  const label=document.getElementById('edit-reason').value.trim(),price=reasonPrice(label,fineSeason(f),new Date(f.ts));
+  if(price!=null) window.selectEditReason(label,price);
 };
 window.saveEdit=async function(){
   const f=state.fines[editIndex];
