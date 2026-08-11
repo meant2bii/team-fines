@@ -54,6 +54,14 @@ test('keeps an amount said with korun out of the reason', () => {
   assert.equal(fine.amount, 22);
 });
 
+test('keeps punctuated spoken amounts out of reasons in a multi-fine batch', () => {
+  const fines = parseVoiceTranscript('Míša 30 korun, Teichi 50 korun.', players, reasons);
+  assert.equal(fines.length, 2);
+  assert.deepEqual(fines.map(f => f.resolution.player), ['Michal Novák', 'Lukáš Teichmann']);
+  assert.deepEqual(fines.map(f => f.reason), ['', '']);
+  assert.deepEqual(fines.map(f => f.amount), [30, 50]);
+});
+
 test('další separates entries and konec ends the voice batch', () => {
   const fines = parseVoiceTranscript('Míša 22 korun další Teichi 30 konec Míša 99', players, reasons);
   assert.equal(fines.length, 2);
