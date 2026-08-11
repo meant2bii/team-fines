@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseVoiceChunk, parseVoiceTranscript, resolveVoicePlayer } from '../js/voice.js';
+import { parseVoiceChunk, parseVoiceTranscript, resolveVoicePlayer, suggestVoiceReasons } from '../js/voice.js';
 
 const players = [
   { name: 'Michal Novák', nicknames: ['Míša', 'Bago'] },
@@ -60,6 +60,18 @@ test('keeps punctuated spoken amounts out of reasons in a multi-fine batch', () 
   assert.deepEqual(fines.map(f => f.resolution.player), ['Michal Novák', 'Lukáš Teichmann']);
   assert.deepEqual(fines.map(f => f.reason), ['', '']);
   assert.deepEqual(fines.map(f => f.amount), [30, 50]);
+});
+
+test('suggests close catalogue reasons without silently replacing the spoken text', () => {
+  const catalog = [
+    { label: 'Bago – deset přihrávek', price: 30 },
+    { label: 'Bago – devátá pokažená přihrávka', price: 30 },
+  ];
+  const fine = parseVoiceChunk('Míša blogo 50', players, catalog);
+  assert.equal(fine.reason, 'blogo');
+  assert.deepEqual(fine.reasonCandidates.map(item => item.label), catalog.map(item => item.label));
+  assert.deepEqual(suggestVoiceReasons('blogo', catalog).map(item => item.price), [30, 30]);
+  assert.equal(fine.amount, 50);
 });
 
 test('další separates entries and konec ends the voice batch', () => {

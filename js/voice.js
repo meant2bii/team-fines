@@ -130,6 +130,23 @@ function matchReason(text, reasons) {
   return { reason: text.replace(/^-+|-+$/g, '').trim(), price: null };
 }
 
+// A transcriber often changes just one phoneme ("bago" → "blogo"). Keep
+// the original text for the reviewer, but offer only genuinely close catalogue
+// items. Comparing the first word also works for long catalogue labels.
+export function suggestVoiceReasons(text, reasons = [], limit = 3) {
+  const query = normalise(text).replace(/^-+|-+$/g, '').trim();
+  if (!query) return [];
+  const queryFirst = query.split(' ')[0];
+  const consonants=value=>value.replace(/[aeiouy]/g,'');
+  return reasons.map(reason => {
+    const label = normalise(reason.label);
+    const first = label.split(' ')[0];
+    return { label: reason.label, price: reason.price, score: Math.max(similarity(query, label), similarity(queryFirst, first), similarity(consonants(queryFirst), consonants(first))) };
+  }).filter(item => item.score >= .64)
+    .sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label), 'cs'))
+    .slice(0, limit);
+}
+
 function splitVoiceTranscriptLegacy(transcript, players = []) {
   let text = String(transcript || '')
     .replace(/\s+(?:další|dalsi|potom|následuje|nasleduje)\s+/gi, ', ')
@@ -157,11 +174,14 @@ export function parseVoiceChunk(chunk, players = [], reasons = []) {
   const originalWords = cleanText.split(/\s+/);
   const consumedWords = playerPart.rawName ? playerPart.rawName.split(/\s+/).length : 0;
   const reasonMatch = matchReason(originalWords.slice(consumedWords).join(' '), reasons);
+  const reasonCandidates=reasonMatch.price===null&&reasonMatch.reason
+    ?suggestVoiceReasons(reasonMatch.reason,reasons)
+    :[];
   const amount = spokenAmount ?? reasonMatch.price;
   const issues = [];
   if (!playerPart.resolution.player) issues.push('player');
   if (!amount || amount <= 0) issues.push('amount');
-  return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, amount: amount || 0, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
+  return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, reasonCandidates, amount: amount || 0, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
 }
 
 export function parseVoiceTranscript(transcript, players = [], reasons = []) {

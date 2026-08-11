@@ -1326,7 +1326,7 @@ function buildReviewQueue(transcript){
     reviewQueue.push({
       raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,
       needsPlayer:!resolved,needsAmount:!parsed.amount,candidates:parsed.resolution.candidates||[],
-      isAlias:parsed.resolution.status==='fuzzy',skip:false
+      reasonCandidates:parsed.reasonCandidates||[],isAlias:parsed.resolution.status==='fuzzy',skip:false
     });
   });
   if(!reviewQueue.length){showToast('Nepodařilo se rozpoznat žádné pokuty.');return;}
@@ -1389,6 +1389,11 @@ function renderReviewQueue(){
     const opts=(state.players||[]).map(p=>`<option value="${esc(p.name)}"${p.name===r.resolvedPlayer?' selected':''}>${esc(p.name)}</option>`).join('');
     const candidateHint=r.needsPlayer&&r.candidates.length?`<div class="review-warning">Nejbližší shoda: ${r.candidates.map(c=>`${esc(c.player)} (${Math.round(c.score*100)} % )`).join(', ')}</div>`:'';
     const unknownPlayer=r.needsPlayer?`<div class="review-warning review-new-player"><strong>Hráč „${esc(voiceDisplayName(r.rawName))}“ není v databázi.</strong><span>Pro přidání zadej číslo s +420 nebo +421.</span><div><input id="review-phone-${i}" type="tel" inputmode="tel" placeholder="+420 123 456 789" /><button type="button" class="btn btn-primary" onclick="addReviewPlayer(${i})"><i class="ti ti-user-plus"></i> Přidat hráče</button></div></div>`:'';
+    const reasonHint=r.reasonCandidates?.length?`<div class="review-warning review-reason-hint"><strong>Možná sazebníková položka:</strong>${r.reasonCandidates.map(c=>`<button type="button" class="review-suggestion" onclick="applyReviewReason(${i},${JSON.stringify(c.label).replace(/"/g,'&quot;')})">${esc(c.label)} · ${c.price} ${CONFIG.CURRENCY}</button>`).join('')}</div>`:'';
+    const reviewSeason=r.season?parseSeasonKey(r.season):seasonForDate(new Date(r.ts||Date.now()));
+    const catalogPrice=reasonPrice(r.reason,reviewSeason,r.ts?new Date(r.ts):null);
+    const priceHint=catalogPrice!=null&&Number(r.amount)!==Number(catalogPrice)
+      ?`<div class="review-warning review-price-hint">Sazebník pro tento důvod uvádí <strong>${catalogPrice} ${CONFIG.CURRENCY}</strong>, nadiktováno je <strong>${r.amount} ${CONFIG.CURRENCY}</strong>. Ověř, že chceš ponechat vlastní částku.</div>`:'';
     return`<div class="review-item${r.skip?' skipped':''}">
       <div class="review-item-header">
         <span class="review-item-num">${i+1}</span>
@@ -1398,7 +1403,7 @@ function renderReviewQueue(){
       <div class="review-fields"${r.skip?' style="opacity:.4;pointer-events:none;"':''}>
         <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)"><option value=""${r.resolvedPlayer?'':' selected'}>— vyber hráče —</option>${opts}</select>${candidateHint}</div>
         ${unknownPlayer}
-        <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/></div>
+        <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/>${reasonHint}${priceHint}</div>
         <div class="review-field review-field-amt"><label>Částka</label><input type="number" value="${r.amount}" oninput="updateReview(${i},'amount',parseFloat(this.value))"/></div>
       </div></div>`;
   }).join('');
@@ -1415,6 +1420,11 @@ window.addReviewPlayer=async function(index){
   await saveState();renderReviewQueue();showToast(`Hráč ${name} přidán`);
 };
 function validReviewAmount(review){ return Number.isFinite(Number(review.amount))&&(review.allowNegative?Number(review.amount)!==0:Number(review.amount)>0); }
+window.applyReviewReason=function(index,label){
+  const review=reviewQueue[index]; if(!review) return;
+  review.reason=label;review.reasonCandidates=[];
+  renderReviewQueue();
+};
 window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].needsPlayer=!v;reviewQueue[i].isAlias=false;}if(k==='amount')reviewQueue[i].needsAmount=!validReviewAmount(reviewQueue[i]);const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
 window.toggleSkip=function(i){reviewQueue[i].skip=!reviewQueue[i].skip;renderReviewQueue();};
 window.confirmReview=async function(){
