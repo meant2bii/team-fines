@@ -386,7 +386,7 @@
     <div class="modal-header"><h3>Upravit pokutu</h3><button class="btn-icon" onclick="closeEditModal()"><i class="ti ti-x"></i></button></div>
     <div class="form-group"><label>Hráč</label><select id="edit-player"></select></div>
     <div class="form-group"><label>Prohřešek ze sazebníku</label><input id="edit-reason" type="text" list="reason-options" oninput="syncEditCatalogPrice()" /></div>
-    <div class="form-group"><label>Částka podle sazebníku</label><input id="edit-amount" type="number" style="max-width:140px;" readonly /></div>
+    <div class="form-group"><label>Částka (CZK)</label><input id="edit-amount" type="number" inputmode="decimal" step="1" style="min-width:140px;" /></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeEditModal()">Zrušit</button>
       <button class="btn btn-primary"   onclick="saveEdit()">Uložit</button>

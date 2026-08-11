@@ -1510,24 +1510,25 @@ window.openEdit=function(idx){
   populatePlayerSelects();
   document.getElementById('edit-player').value=f.player;
   document.getElementById('edit-reason').value=f.reason;
-  const catalogPrice=reasonPrice(f.reason,fineSeason(f),new Date(f.ts));
-  document.getElementById('edit-amount').value=catalogPrice??f.amount;
+  document.getElementById('edit-amount').value=f.amount;
   document.getElementById('edit-modal').classList.add('open');
 };
 window.closeEditModal=function(){document.getElementById('edit-modal').classList.remove('open');};
 window.syncEditCatalogPrice=function(){
   const f=state.fines[editIndex]; if(!f) return;
   const price=reasonPrice(document.getElementById('edit-reason').value.trim(),fineSeason(f),new Date(f.ts));
-  document.getElementById('edit-amount').value=price??'';
+  if(price!=null) document.getElementById('edit-amount').value=price;
 };
 window.saveEdit=async function(){
   const f=state.fines[editIndex];
+  if(!f){showToast('Záznam už neexistuje. Obnovuji seznam.');window.closeEditModal();renderLog();return;}
   f.player=document.getElementById('edit-player').value;
   f.reason=document.getElementById('edit-reason').value.trim();
-  const catalogPrice=reasonPrice(f.reason,fineSeason(f),new Date(f.ts));
-  if(!f.player||!f.reason||catalogPrice==null){alert('Vyber prohřešek, který má v této sezóně platnou sazbu.');return;}
-  f.amount=catalogPrice;
-  await saveState();window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');
+  const amount=Number(document.getElementById('edit-amount').value);
+  if(!f.player||!f.reason||!Number.isFinite(amount)||amount===0){alert('Vyber hráče, zadej důvod a platnou nenulovou částku.');return;}
+  f.amount=amount;
+  const saved=await saveState();
+  if(saved){window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');}
 };
 
 // ─── DASHBOARD ───────────────────────────────────────────────────
