@@ -88,7 +88,9 @@ function takeAmount(text) {
   // "Erik 30 korun.". Remove that punctuation before looking for the amount;
   // otherwise the number would be incorrectly passed to the reason parser.
   let value = String(text)
-    .replace(/\b(kc|kč|korun|koruny|koruna|czk)\b/gi, '')
+    // Do not use \b here: JavaScript treats Czech "č" as a non-word
+    // character, so a trailing "Kč" would otherwise remain in the reason.
+    .replace(/(?:^|\s)(?:kc|kč|korun|koruny|koruna|czk)(?=\s|[.,;:!?]|$)/giu, ' ')
     .replace(/[.!?]+\s*$/g, '')
     .trim();
   const numeric = value.match(/(?:^|\s)(\d{1,5}(?:[.,]\d{1,2})?)\s*$/);

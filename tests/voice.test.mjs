@@ -62,6 +62,13 @@ test('keeps punctuated spoken amounts out of reasons in a multi-fine batch', () 
   assert.deepEqual(fines.map(f => f.amount), [30, 50]);
 });
 
+test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
+  const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
+  assert.equal(fines.length, 2);
+  assert.deepEqual(fines.map(f => f.reason), ['', '']);
+  assert.deepEqual(fines.map(f => f.amount), [30, 40]);
+});
+
 test('suggests close catalogue reasons without silently replacing the spoken text', () => {
   const catalog = [
     { label: 'Bago – deset přihrávek', price: 30 },
