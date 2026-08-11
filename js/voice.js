@@ -132,16 +132,28 @@ function matchReason(text, reasons) {
 
 // A transcriber often changes just one phoneme ("bago" → "blogo"). Keep
 // the original text for the reviewer, but offer only genuinely close catalogue
-// items. Comparing the first word also works for long catalogue labels.
+// items. The phonetic key deliberately models common Czech ASR/transliteration
+// variants (for example "pitchovina" → "picovina") without hard-coding fines.
+function czechPhonetic(value){
+  return normalise(value)
+    .replace(/t(?:sch|ch)/g,'c').replace(/sch|sh/g,'s').replace(/ch/g,'h')
+    .replace(/ph/g,'f').replace(/w/g,'v').replace(/y/g,'i')
+    .replace(/q/g,'k').replace(/x/g,'ks');
+}
 export function suggestVoiceReasons(text, reasons = [], limit = 3) {
   const query = normalise(text).replace(/^-+|-+$/g, '').trim();
   if (!query) return [];
   const queryFirst = query.split(' ')[0];
   const consonants=value=>value.replace(/[aeiouy]/g,'');
+  const phoneticQuery=czechPhonetic(queryFirst);
   return reasons.map(reason => {
     const label = normalise(reason.label);
-    const first = label.split(' ')[0];
-    return { label: reason.label, price: reason.price, score: Math.max(similarity(query, label), similarity(queryFirst, first), similarity(consonants(queryFirst), consonants(first))) };
+    const words=label.split(' ').filter(Boolean);
+    const wordScore=Math.max(...words.map(word=>Math.max(
+      similarity(queryFirst,word),similarity(phoneticQuery,czechPhonetic(word)),
+      similarity(consonants(phoneticQuery),consonants(czechPhonetic(word)))
+    )),0);
+    return { label: reason.label, price: reason.price, score: Math.max(similarity(query, label),wordScore) };
   }).filter(item => item.score >= .64)
     .sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label), 'cs'))
     .slice(0, limit);

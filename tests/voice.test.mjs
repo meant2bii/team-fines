@@ -74,6 +74,14 @@ test('suggests close catalogue reasons without silently replacing the spoken tex
   assert.equal(fine.amount, 50);
 });
 
+test('suggests a Czech phonetic/transliteration variant inside a long catalogue label', () => {
+  const catalog = [{ label: 'Pravidlo pičovina (pět hlasujících)', price: 30 }];
+  const fine = parseVoiceChunk('Míša pitchovina 50', players, catalog);
+  assert.equal(fine.reason, 'pitchovina');
+  assert.deepEqual(fine.reasonCandidates.map(item => item.label), ['Pravidlo pičovina (pět hlasujících)']);
+  assert.equal(fine.amount, 50);
+});
+
 test('další separates entries and konec ends the voice batch', () => {
   const fines = parseVoiceTranscript('Míša 22 korun další Teichi 30 konec Míša 99', players, reasons);
   assert.equal(fines.length, 2);
