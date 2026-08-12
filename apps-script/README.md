@@ -17,3 +17,9 @@ Tento Apps Script pošle na `lyrixzz@gmail.com` e-mail, když nový Firebase už
 Po otevření adresy `/exec` v prohlížeči se musí zobrazit text `Team Fines registration notifier is running.`. Tím ověříš, že nasazení funguje; e-mail se při tomto testu neposílá.
 
 Skript ověřuje Firebase ID token na straně Googlu, takže e-mail neposílá anonymnímu požadavku. Jednomu Firebase účtu odešle maximálně jednu notifikaci za 24 hodin. Google Apps Script má u běžného Google účtu kvótu 100 e-mailových příjemců denně.
+
+## Příjemci podle rolí
+
+Notifikaci dostanou vždy všichni schválení uživatelé s rolí **Administrátor** nebo **Pokladník**. Seznam se čte přímo z kolekce `accessRequests` ve Firestore, takže ho není nutné spravovat dvakrát.
+
+Před dalším nasazením v Apps Scriptu otevři **Project Settings** a zapni zobrazení souboru `appsscript.json` v editoru. Jeho obsah nahraď souborem `apps-script/appsscript.json` z tohoto repozitáře. Při nové autorizaci pak potvrď i oprávnění k Cloud Firestore. Účet `lyrixzz@gmail.com` musí mít v projektu `team-fines` oprávnění alespoň **Cloud Datastore User**; jako vlastník Firebase projektu ho obvykle již má.
