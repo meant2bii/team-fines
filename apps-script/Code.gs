@@ -185,7 +185,9 @@ function deleteRegistrationByUid_(targetUid, targetFields) {
   const removed = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL + '/' + encodeURIComponent(targetUid), {
     method: 'delete', headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}, muteHttpExceptions: true
   });
-  if (removed.getResponseCode() !== 200) {
+  // Deletion is idempotent: if a previous retry already removed the document,
+  // Firestore returns 404 and the desired final state is already achieved.
+  if (removed.getResponseCode() !== 200 && removed.getResponseCode() !== 404) {
     throw new Error('Authentication account was deleted, but Firestore delete failed: HTTP ' + removed.getResponseCode() + ' — ' + removed.getContentText());
   }
   try {
@@ -218,6 +220,11 @@ function deleteFirebaseAuthUser_(targetUid) {
     headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
     payload: JSON.stringify({localId: targetUid, targetProjectId: FIREBASE_PROJECT_ID}), muteHttpExceptions: true
   });
+  if (deleted.getResponseCode() === 200) return {ok: true};
+  // A retry after Authentication was already deleted must continue with the
+  // Firestore cleanup instead of leaving a stale access row forever.
+  const body=String(deleted.getContentText()||'');
+  if (/USER_NOT_FOUND|EMAIL_NOT_FOUND|user does not exist|not found/i.test(body)) return {ok: true, alreadyMissing: true};
   if (deleted.getResponseCode() !== 200) {
     return {ok: false, message: 'Firebase Authentication delete failed: HTTP ' + deleted.getResponseCode() + ' — ' + deleted.getContentText()};
   }
