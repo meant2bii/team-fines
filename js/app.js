@@ -13,7 +13,7 @@ import {
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { doc, setDoc, onSnapshot, collection }
+import { doc, setDoc, getDoc, deleteDoc, onSnapshot, collection }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
   from './voice.js';
@@ -305,8 +305,9 @@ window.doRegister=async function(){
   const firstName=document.getElementById('reg-first-name').value.trim();
   const lastName=document.getElementById('reg-last-name').value.trim();
   const name=`${firstName} ${lastName}`.trim();
-  const email=document.getElementById('reg-email').value.trim();
-  const phone=registrationPhone();
+  const email=normalizedEmail(document.getElementById('reg-email').value);
+  const phoneValidation=validateRegistrationPhone();
+  const phone=phoneValidation.phone;
   const pass=document.getElementById('reg-password').value;
   const pass2=document.getElementById('reg-password2').value;
   const err=document.getElementById('reg-err'),btn=document.getElementById('reg-btn');
@@ -314,7 +315,7 @@ window.doRegister=async function(){
   if(!firstName){showErr(err,'Zadej jméno.');return;}
   if(!lastName){showErr(err,'Zadej příjmení.');return;}
   if(!email){showErr(err,'Zadej e-mail.');return;}
-  if(!phone){showErr(err,'Zadej platné devítimístné telefonní číslo.');return;}
+  if(!phone){showErr(err,phoneValidation.error);return;}
   if(pass.length<6){showErr(err,'Heslo musí mít alespoň 6 znaků.');return;}
   if(pass!==pass2){showErr(err,'Hesla se neshodují.');return;}
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2 spin"></i> Vytváříme…';
@@ -327,6 +328,7 @@ window.doRegister=async function(){
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
     stageRegistrationProfile(cred.user.uid,registrationIntent);
+    await setDoc(doc(db,'registrationProfiles',cred.user.uid),{...registrationIntent,uid:cred.user.uid,createdAt:new Date().toISOString()});
     await sendVerificationLink(cred.user);
     showVerification(cred.user);
     registrationIntent=null;
@@ -486,21 +488,38 @@ function registrationPhone(){
   const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
   return /^\d{9}$/.test(national)?`${prefix}${national}`:'';
 }
+function validateRegistrationPhone(){
+  const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
+  const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
+  if(!/^\d{9}$/.test(national)) return {phone:'',error:'Zadej přesně devět číslic telefonního čísla.'};
+  if(prefix==='+420'&&!/^[67]/.test(national)) return {phone:'',error:'České mobilní číslo musí začínat 6 nebo 7.'};
+  if(prefix==='+421'&&!/^9/.test(national)) return {phone:'',error:'Slovenské mobilní číslo musí začínat 9.'};
+  if(/^(\d)\1{8}$/.test(national)||national==='123456789'||national==='987654321'||/^(012|123|234|345|456|567|678|789)/.test(national)) return {phone:'',error:'Zadej skutečné mobilní číslo, ne opakovanou ani zjevně zkušební kombinaci.'};
+  return {phone:`${prefix}${national}`,error:''};
+}
 function stagedRegistrationProfileKey(uid){return `team-fines:registration:${uid}`;}
 function stageRegistrationProfile(uid,profile){
   try{localStorage.setItem(stagedRegistrationProfileKey(uid),JSON.stringify(profile));}
   catch(error){console.warn('Registration profile storage:',error);}
 }
-function stagedRegistrationProfile(user){
+async function stagedRegistrationProfile(user){
   const fallback=splitProfileName(user?.displayName||'');
   try{
     const stored=JSON.parse(localStorage.getItem(stagedRegistrationProfileKey(user.uid))||'null');
     if(stored&&normalizedEmail(stored.email)===normalizedEmail(user.email)) return stored;
   }catch(error){console.warn('Registration profile read:',error);}
+  try{
+    const remote=await getDoc(doc(db,'registrationProfiles',user.uid));
+    if(remote.exists()){
+      const profile=remote.data();
+      if(normalizedEmail(profile.email)===normalizedEmail(user.email)) return profile;
+    }
+  }catch(error){console.warn('Registration profile server read:',error);}
   return {firstName:fallback.firstName,lastName:fallback.lastName,phone:'',email:normalizedEmail(user?.email)};
 }
-function clearStagedRegistrationProfile(uid){
+async function clearStagedRegistrationProfile(uid){
   try{localStorage.removeItem(stagedRegistrationProfileKey(uid));}catch(error){console.warn('Registration profile cleanup:',error);}
+  try{await deleteDoc(doc(db,'registrationProfiles',uid));}catch(error){console.warn('Registration profile server cleanup:',error);}
 }
 function verificationCooldownKey(uid){return `team-fines:verification-sent:${uid}`;}
 function verificationRemainingSeconds(uid){
@@ -616,9 +635,9 @@ function startAccessListener(user){
           // This listener only starts once Firebase has confirmed the e-mail.
           // Therefore no unverified address can enter the approval queue.
           const intended=registrationIntent&&normalizedEmail(user.email)===registrationIntent.email
-            ?registrationIntent:stagedRegistrationProfile(user);
+            ?registrationIntent:await stagedRegistrationProfile(user);
           await createPendingAccessRequest(user,intended);
-          clearStagedRegistrationProfile(user.uid);
+          await clearStagedRegistrationProfile(user.uid);
           notifyAdminOfRegistration(user,intended).catch(error=>console.warn('Registration notification:',error));
         }
       }catch(error){console.error('Access request:',error);showPending(user,null);}
@@ -682,7 +701,10 @@ window.updateAccessUser=async function(uid){
   const linkedPlayerName=document.getElementById(`user-player-${uid}`)?.value||'';
   if(!status||!role) return;
   if(status==='approved'&&role==='viewer'&&!linkedPlayerName){showToast('⚠ Pro roli Hráč nejdřív přiřaď hráče ze soupisky.');return;}
-  try{await setDoc(doc(db,'accessRequests',uid),{status,role,linkedPlayerName,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
+  const existing=accessUsers.find(user=>user.uid===uid);
+  const player=(state.players||[]).find(item=>item.name===linkedPlayerName);
+  const phone=String(existing?.phone||'').trim()||(player?.phone?normalizedPhone(player.phone):'');
+  try{await setDoc(doc(db,'accessRequests',uid),{status,role,linkedPlayerName,phone,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
   catch(error){console.error(error);showToast('⚠ Nepodařilo se uložit práva.');}
 };
 window.updateAccessSelectStyle=function(select){

@@ -31,6 +31,16 @@ service cloud.firestore {
       allow update, delete: if admin();
     }
 
+    // Private data stored only between registration and e-mail verification.
+    // It never grants access to the team data and is removed after approval
+    // request creation.
+    match /registrationProfiles/{uid} {
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+    }
+
     // Existing shared application data can be read only after approval.
     match /teamdata/{document=**} {
       allow read: if approved();
