@@ -413,6 +413,10 @@ window.resendVerification=async function(){
 // ─── SEASON PICKER ────────────────────────────────────────────────
 // ACCESS APPROVAL
 function normalizedEmail(value){ return String(value||'').trim().toLowerCase(); }
+function normalizedPhone(value){
+  const digits=String(value||'').replace(/\D/g,'');
+  return digits?`+${digits}`:'';
+}
 function registrationPhone(){
   const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
   const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
@@ -508,8 +512,10 @@ function startUserListListener(){
 window.updateAccessUser=async function(uid){
   if(!isAdmin) return;
   const status=document.getElementById(`user-status-${uid}`)?.value,role=document.getElementById(`user-role-${uid}`)?.value;
+  const linkedPlayerName=document.getElementById(`user-player-${uid}`)?.value||'';
   if(!status||!role) return;
-  try{await setDoc(doc(db,'accessRequests',uid),{status,role,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
+  if(status==='approved'&&role==='viewer'&&!linkedPlayerName){showToast('⚠ Pro roli Hráč nejdřív přiřaď hráče ze soupisky.');return;}
+  try{await setDoc(doc(db,'accessRequests',uid),{status,role,linkedPlayerName,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
   catch(error){console.error(error);showToast('⚠ Nepodařilo se uložit práva.');}
 };
 function renderUsers(){
@@ -518,7 +524,11 @@ function renderUsers(){
   if(empty) empty.style.display=users.length?'none':'block';
   list.innerHTML=users.map(user=>{
     const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
-    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span><small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
+    const suggested=(state.players||[]).find(player=>normalizedPhone(player.phone)&&normalizedPhone(player.phone)===normalizedPhone(user.phone));
+    const linkedPlayerName=user.linkedPlayerName||suggested?.name||'';
+    const playerOptions=(state.players||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'cs')).map(player=>`<option value="${esc(player.name)}" ${player.name===linkedPlayerName?'selected':''}>${esc(player.name)}</option>`).join('');
+    const phoneLine=user.phone?`<small>Telefon: ${esc(user.phone)}${suggested&&!user.linkedPlayerName?' · nalezena shoda, potvrď uložením':''}</small>`:'';
+    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span>${phoneLine}<small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
   }).join('');
 }
 

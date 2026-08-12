@@ -156,6 +156,8 @@ select { cursor:pointer; }
 .pending-card { padding-top:2.4rem; }
 .pending-icon { width:76px; height:76px; margin:0 auto 16px; display:grid; place-items:center; border-radius:24px; background:#dbeafe; color:#1455bd; font-size:38px; }
 .pending-state { margin:0 0 1.2rem; padding:12px; border-radius:12px; background:#f1f5f9; color:#475569; font-size:13px; line-height:1.45; }
+.pending-data-notice { display:flex; align-items:flex-start; gap:7px; margin:0 0 1rem; padding:11px 12px; text-align:left; border:1px solid #bfdbfe; border-radius:12px; background:#eff6ff; color:#1e3a8a; font-size:12px; font-weight:600; line-height:1.45; }
+.pending-data-notice .ti { margin-top:2px; flex:0 0 auto; font-size:15px; }
 
 .user-row { padding:16px 0; border-bottom:1px solid var(--bdr); }
 .user-row:last-child { border-bottom:0; }
@@ -167,7 +169,7 @@ select { cursor:pointer; }
 .user-row span { font-size:13px; }.user-row small { font-size:11px; }
 .user-status { margin-left:auto; padding:5px 8px; border-radius:99px; font-size:10px; line-height:1; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
 .user-status.pending { background:#fef3c7; color:#92400e; }.user-status.approved { background:#dcfce7; color:#166534; }.user-status.rejected { background:#fee2e2; color:#b91c1c; }
-.user-controls { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; margin:13px 0 0 52px; align-items:end; }
+.user-controls { display:grid; grid-template-columns:1.4fr 1fr 1fr auto; gap:8px; margin:13px 0 0 52px; align-items:end; }
 .user-controls label { display:grid; gap:4px; color:var(--tx-m); font-size:11px; font-weight:700; }
 .user-controls select { min-height:40px; padding:7px 9px; font-size:13px; }
 .user-controls .btn { min-height:40px; white-space:nowrap; }
@@ -990,7 +992,8 @@ input:focus,select:focus,textarea:focus { border-color:#2563eb; box-shadow:0 0 0
   .voice-record-btn { width:156px; height:156px; min-height:156px; }
   .voice-hero-title { font-size:21px; }
   .user-controls { grid-template-columns:1fr 1fr; margin-left:0; }
-  .user-controls .btn { grid-column:span 2; width:100%; }
+  .user-controls label:first-child,.user-controls .btn { grid-column:span 2; }
+  .user-controls .btn { width:100%; }
 }
 
 /* Final interaction pass: explicit selected states and modal containment. */

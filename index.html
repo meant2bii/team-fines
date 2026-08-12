@@ -131,8 +131,9 @@
   <div class="auth-card pending-card" style="text-align:center;">
     <div class="pending-icon"><i class="ti ti-clock-check"></i></div>
     <div class="auth-title">Čekáš na schválení</div>
-    <p class="auth-sub">Účet <strong id="pending-email"></strong> byl založen, ale přístup musí nejprve schválit správce týmu.</p>
+    <p class="auth-sub">Účet <strong id="pending-email"></strong> byl založen. Přístup musí nejprve schválit správce týmu a potvrdit, že patříš do týmu.</p>
     <p class="pending-state" id="pending-state"></p>
+    <p class="pending-data-notice"><i class="ti ti-lock"></i> Dokud nebude žádost schválena, nemáš přístup k pokutám, sazbám ani soupisce hráčů.</p>
     <button class="btn btn-primary btn-full" type="button" onclick="location.reload()"><i class="ti ti-refresh"></i> Obnovit stav</button>
     <button class="btn-link" onclick="doLogout()">Odhlásit se</button>
   </div>
@@ -394,7 +395,7 @@
     <section id="panel-users" class="panel">
       <div class="card">
         <div class="card-label"><i class="ti ti-shield-lock"></i> &nbsp;Přístupy uživatelů</div>
-        <p class="helper-text">Nové účty se zobrazí jako čekající. Nastav jim práva: Hráč, Pokladník nebo Administrátor.</p>
+        <p class="helper-text">Nové účty začínají jako Hráč. Podle telefonu ručně potvrď vazbu na hráče, nastav práva a žádost schval.</p>
         <div id="user-list"></div>
         <div id="user-list-empty" class="empty-state" style="display:none;"><i class="ti ti-users"></i><p>Zatím tu nejsou žádné žádosti o přístup.</p></div>
       </div>
