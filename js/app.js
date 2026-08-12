@@ -119,6 +119,7 @@ const WA_MEMBERS = [
 let isManager=false, isAdmin=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
 let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, activeSeason=null;
 let accessRequest=null, accessUsers=[], appSessionActive=false;
+let registrationIntent=null;
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
 let voiceMeterStream=null, voiceMeterContext=null, voiceMeterAnalyser=null, voiceMeterFrame=null;
@@ -305,11 +306,16 @@ window.doRegister=async function(){
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2 spin"></i> Vytváříme…';
   try{
     const {updateProfile}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    // Firebase emits the auth-state event immediately after account creation.
+    // Keep the completed form available so that listener cannot create a
+    // placeholder request from the e-mail before updateProfile finishes.
+    registrationIntent={firstName,lastName,phone,email:normalizedEmail(email)};
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
     await createPendingAccessRequest(cred.user,{firstName,lastName,phone});
     notifyAdminOfRegistration(cred.user,{firstName,lastName,phone}).catch(error=>console.warn('Registration notification:',error));
-  }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
+    setTimeout(()=>{registrationIntent=null;},15000);
+  }catch(e){registrationIntent=null;showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 
 window.doLogin=async function(){
@@ -508,8 +514,13 @@ async function createPendingAccessRequest(user,profile={}){
   const lastName=String(profile?.lastName||fallback.lastName||'').trim();
   const phone=String(profile?.phone||'').trim();
   const name=`${firstName} ${lastName}`.trim()||user.displayName||user.email;
-  const request={uid:user.uid,email:normalizedEmail(user.email),name,firstName,lastName,phone,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  await setDoc(doc(db,'accessRequests',user.uid),request,{merge:false});
+  const request={uid:user.uid,email:normalizedEmail(user.email),name,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  // A fallback listener must never erase fields already supplied by the
+  // registration form while Firebase Auth is still settling the new account.
+  if(firstName) request.firstName=firstName;
+  if(lastName) request.lastName=lastName;
+  if(phone) request.phone=phone;
+  await setDoc(doc(db,'accessRequests',user.uid),request,{merge:true});
 }
 function startAccessListener(user){
   stopAccessListeners(); appSessionActive=false;
@@ -521,7 +532,10 @@ function startAccessListener(user){
           const parts=profileParts(user,null);
           await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,firstName:parts.firstName,lastName:parts.lastName,phone:'',status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
         }
-        else await createPendingAccessRequest(user,user.displayName||user.email);
+        else {
+          const intended=registrationIntent&&normalizedEmail(user.email)===registrationIntent.email?registrationIntent:null;
+          await createPendingAccessRequest(user,intended||user.displayName||user.email);
+        }
       }catch(error){console.error('Access request:',error);showPending(user,null);}
       return;
     }
@@ -569,7 +583,15 @@ window.deleteAccessUser=async function(uid){
   try{
     const idToken=await currentUser.getIdToken();
     await fetch(CONFIG.APPS_SCRIPT_NOTIFICATION_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({action:'deleteRegistration',idToken,targetUid:uid})});
-    showToast('Požadavek na smazání byl odeslán. Seznam se za okamžik obnoví.');
+    const deadline=Date.now()+12000;
+    const watcher=setInterval(()=>{
+      if(!accessUsers.some(item=>item.uid===uid)){
+        clearInterval(watcher);showToast('Účet byl trvale odstraněn z Firebase i Firestore.');
+      }else if(Date.now()>=deadline){
+        clearInterval(watcher);showToast('⚠ Smazání backend nepotvrdil. Aktualizuj Apps Script na poslední verzi a zkontroluj Spuštění → doPost.');
+      }
+    },700);
+    showToast('Ověřuji trvalé smazání účtu…');
   }catch(error){console.error(error);showToast('⚠ Požadavek na smazání se nepodařilo odeslat.');}
 };
 function renderUsers(){
