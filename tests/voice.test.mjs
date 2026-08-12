@@ -87,6 +87,14 @@ test('attaches multipliers before or after the reason and across punctuation', (
   assert.equal(reversed[0].amount, 60);
 });
 
+test('treats a spoken correction as a correction, not as a new fine', () => {
+  const fines = parseVoiceTranscript('Erik vago dvakrát, Dále Michal vagó třikrát, Oprav vago na bago.', [...players, { name: 'Erik Klemš', nicknames: [] }], [{ label: 'Bago', price: 30 }]);
+  assert.equal(fines.length, 2);
+  assert.deepEqual(fines.map(f => [f.resolution.player, f.reason, f.multiplier, f.amount]), [
+    ['Erik Klemš', 'Bago', 2, 60], ['Michal Novák', 'Bago', 3, 90]
+  ]);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);

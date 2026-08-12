@@ -240,8 +240,34 @@ export function parseVoiceChunk(chunk, players = [], reasons = []) {
   return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, reasonCandidates, amount: amount || 0, rate: rate || 0, multiplier, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
 }
 
+function applySpokenCorrections(transcript) {
+  let text=String(transcript||'');
+  const corrections=[];
+  // Treat a spoken correction as an instruction, not as another fine. It is
+  // intentionally limited to a single phrase on each side so normal reasons
+  // and player names remain untouched.
+  const command=/((?:^|[,;\n])\s*oprav(?:it)?\s+)([^,;\n]+?)\s+na\s+([^,;\n]+?)(?=\s*[,;\n]|\s*$)/giu;
+  text=text.replace(command,(_,prefix,wrong,right)=>{
+    const cleanWrong=wrong.replace(/[.!?]+$/g,'').trim();
+    const cleanRight=right.replace(/[.!?]+$/g,'').trim();
+    if(cleanWrong&&cleanRight) corrections.push({wrong:cleanWrong,right:cleanRight});
+    return '';
+  });
+  for(const {wrong,right} of corrections){
+    if(!/\s/.test(wrong)){
+      const wanted=normalise(wrong);
+      text=text.replace(/[\p{L}\d]+/gu,token=>normalise(token)===wanted?right:token);
+    }else{
+      const escaped=wrong.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      text=text.replace(new RegExp(`\\b${escaped}\\b`,'giu'),right);
+    }
+  }
+  return text;
+}
+
 export function parseVoiceTranscript(transcript, players = [], reasons = []) {
-  return splitVoiceTranscript(transcript, players).map(chunk => parseVoiceChunk(chunk, players, reasons)).filter(Boolean);
+  const corrected=applySpokenCorrections(transcript);
+  return splitVoiceTranscript(corrected, players).map(chunk => parseVoiceChunk(chunk, players, reasons)).filter(Boolean);
 }
 
 export function scoreVoiceAlternative(text, players = [], reasons = []) {
