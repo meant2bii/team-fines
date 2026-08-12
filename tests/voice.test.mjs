@@ -89,6 +89,13 @@ test('suggests a Czech phonetic/transliteration variant inside a long catalogue 
   assert.equal(fine.amount, 50);
 });
 
+test('maps a unique catalogue tag to its canonical reason', () => {
+  const catalog = [{ label: 'Pravidlo giga-pičovina (pět hlasujících)', tags: ['giga pičovina', 'giga picovina'], price: 50 }];
+  const fine = parseVoiceChunk('Míša giga picovina 30', players, catalog);
+  assert.equal(fine.reason, 'Pravidlo giga-pičovina (pět hlasujících)');
+  assert.equal(fine.amount, 30);
+});
+
 test('další separates entries and konec ends the voice batch', () => {
   const fines = parseVoiceTranscript('Míša 22 korun další Teichi 30 konec Míša 99', players, reasons);
   assert.equal(fines.length, 2);

@@ -134,9 +134,10 @@ function findPlayerPrefix(text, players) {
 function matchReason(text, reasons) {
   const cleaned = normalise(text).replace(/^-+|-+$/g, '').trim();
   if (!cleaned) return { reason: '', price: null };
-  const matches = reasons.map(reason => ({ reason, score: similarity(cleaned, reason.label) })).sort((a, b) => b.score - a.score);
+  const matches = reasons.flatMap(reason => [reason.label,...(reason.tags||[])].map(variant=>({reason,variant,score:similarity(cleaned,variant)}))).sort((a, b) => b.score - a.score);
   const best = matches[0];
-  if (best && best.score >= .88 && (!matches[1] || best.score - matches[1].score >= .08)) return { reason: best.reason.label, price: best.reason.price };
+  const nextDifferent=matches.find(item=>item.reason.label!==best?.reason.label);
+  if (best && best.score >= .88 && (!nextDifferent || best.score - nextDifferent.score >= .08)) return { reason: best.reason.label, price: best.reason.price };
   return { reason: text.replace(/^-+|-+$/g, '').trim(), price: null };
 }
 
@@ -157,13 +158,16 @@ export function suggestVoiceReasons(text, reasons = [], limit = 3) {
   const consonants=value=>value.replace(/[aeiouy]/g,'');
   const phoneticQuery=czechPhonetic(queryFirst);
   return reasons.map(reason => {
-    const label = normalise(reason.label);
-    const words=label.split(' ').filter(Boolean);
-    const wordScore=Math.max(...words.map(word=>Math.max(
-      similarity(queryFirst,word),similarity(phoneticQuery,czechPhonetic(word)),
-      similarity(consonants(phoneticQuery),consonants(czechPhonetic(word)))
-    )),0);
-    return { label: reason.label, price: reason.price, score: Math.max(similarity(query, label),wordScore) };
+    const variants=[reason.label,...(reason.tags||[])];
+    const score=Math.max(...variants.map(variant=>{
+      const label=normalise(variant),words=label.split(' ').filter(Boolean);
+      const wordScore=Math.max(...words.map(word=>Math.max(
+        similarity(queryFirst,word),similarity(phoneticQuery,czechPhonetic(word)),
+        similarity(consonants(phoneticQuery),consonants(czechPhonetic(word)))
+      )),0);
+      return Math.max(similarity(query,label),wordScore);
+    }));
+    return { label: reason.label, price: reason.price, score };
   }).filter(item => item.score >= .64)
     .sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label), 'cs'))
     .slice(0, limit);

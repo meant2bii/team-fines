@@ -722,6 +722,8 @@ function rateAtDate(label,date=seasonReferenceDate(activeSeason||seasonForDate()
   const items=getRateHistory()[label]||[];
   return items.filter((item,index)=>item.from<=target&&(!calculatedRateEnd(items,index)||calculatedRateEnd(items,index)>=target)).at(-1)||null;
 }
+function normaliseReasonTag(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
+function tagsForReason(label){return (state.reasonTags?.[label]||[]).filter(Boolean);}
 function getReasonList(season=activeSeason||seasonForDate()){
   return Object.entries(getRateHistory()).map(([label,items])=>{
     const start=seasonStartDate(season),end=seasonEndDate(season);
@@ -729,7 +731,7 @@ function getReasonList(season=activeSeason||seasonForDate()){
     const rate=rateAtDate(label,seasonReferenceDate(season));
     if(!rate&&!overlapping.length) return null;
     const prices=overlapping.map(item=>item.price);
-    return {label,price:rate?.price??overlapping.at(-1).price,minPrice:Math.min(...prices),maxPrice:Math.max(...prices)};
+    return {label,tags:tagsForReason(label),price:rate?.price??overlapping.at(-1).price,minPrice:Math.min(...prices),maxPrice:Math.max(...prices)};
   }).filter(Boolean);
 }
 function getReasons(){ return getReasonList().map(r=>r.label); }
@@ -1085,14 +1087,53 @@ window.openRateHistory=function(label){
     }
   });
   document.querySelector('#rate-history-modal .rate-period-editor').style.display=isManager?'grid':'none';
+  const tagsEditor=document.getElementById('rate-tags-editor');
+  if(tagsEditor) tagsEditor.style.display=isManager?'block':'none';
   document.getElementById('rate-period-date').value=todayLocalISO();
   document.getElementById('rate-period-end').value='';
   document.getElementById('rate-period-price').value='';
   document.getElementById('rate-period-editor-title').textContent='Přidat sazbu v období';
   document.getElementById('rate-period-delete').style.display='none';
   document.getElementById('rate-history-modal').dataset.label=label;
+  renderRateTags(label);
   delete document.getElementById('rate-history-modal').dataset.editFrom;
   document.getElementById('rate-history-modal').classList.add('open');
+};
+function renderRateTags(label){
+  const chips=document.getElementById('rate-tag-chips'),input=document.getElementById('rate-tag-input'),error=document.getElementById('rate-tag-error');
+  if(!chips) return;
+  const tags=tagsForReason(label);
+  chips.innerHTML=tags.length?tags.map(tag=>`<span class="rate-tag-chip">${esc(tag)}<button type="button" aria-label="Odstranit tag ${esc(tag)}" onclick="removeRateTag(${JSON.stringify(tag).replace(/"/g,'&quot;')})"><i class="ti ti-x"></i></button></span>`).join(''):'<span class="label-hint">Zatím bez tagů.</span>';
+  if(input) input.value='';
+  if(error) error.style.display='none';
+}
+function rateTagConflict(tag,label){
+  const key=normaliseReasonTag(tag);
+  if(!key) return 'Zadej tag.';
+  const labels=Object.keys(getRateHistory());
+  for(const otherLabel of labels){
+    if(normaliseReasonTag(otherLabel)===key) return 'Tag se shoduje s názvem položky sazebníku.';
+    for(const otherTag of tagsForReason(otherLabel)){
+      if(normaliseReasonTag(otherTag)===key) return otherLabel===label?'Tento tag už tato položka má.':'Tento tag už používá jiná položka sazebníku.';
+    }
+  }
+  return '';
+}
+window.addRateTag=async function(){
+  if(!isManager) return;
+  const modal=document.getElementById('rate-history-modal'),label=modal.dataset.label,input=document.getElementById('rate-tag-input'),error=document.getElementById('rate-tag-error');
+  const tag=input?.value.trim()||'',problem=rateTagConflict(tag,label);
+  if(problem){error.textContent=problem;error.style.display='block';return;}
+  state.reasonTags=state.reasonTags||{};
+  state.reasonTags[label]=[...tagsForReason(label),tag];
+  const saved=await saveState();if(saved){renderRateTags(label);showToast(`Tag „${tag}“ přidán`);}
+};
+window.removeRateTag=async function(tag){
+  if(!isManager) return;
+  const label=document.getElementById('rate-history-modal').dataset.label;
+  state.reasonTags[label]=tagsForReason(label).filter(item=>item!==tag);
+  if(!state.reasonTags[label].length) delete state.reasonTags[label];
+  const saved=await saveState();if(saved){renderRateTags(label);showToast('Tag odebrán');}
 };
 window.editRatePeriod=function(from,price,to=''){
   if(!isManager)return;
@@ -1137,7 +1178,7 @@ window.reasonAutocomplete=function(val){
   const list=document.getElementById('reason-ac-list');
   const norm=val.trim().toLowerCase();
   const all=getReasonList();
-  acReasonFiltered=all.filter(r=>!norm||r.label.toLowerCase().includes(norm));
+  acReasonFiltered=all.filter(r=>!norm||r.label.toLowerCase().includes(norm)||(r.tags||[]).some(tag=>tag.toLowerCase().includes(norm)));
   if(!acReasonFiltered.length){if(list)list.style.display='none';return;}
   acReasonIndex=-1;
   if(list){
@@ -1577,7 +1618,7 @@ window.hideEditReasonAutocomplete=function(){
 window.editReasonAutocomplete=function(value){
   const f=state.fines[editIndex]; if(!f) return;
   const list=document.getElementById('edit-reason-ac-list'),query=String(value||'').trim().toLowerCase();
-  editReasonAcFiltered=getReasonList(fineSeason(f)).filter(reason=>!query||reason.label.toLowerCase().includes(query));
+  editReasonAcFiltered=getReasonList(fineSeason(f)).filter(reason=>!query||reason.label.toLowerCase().includes(query)||(reason.tags||[]).some(tag=>tag.toLowerCase().includes(query)));
   if(!editReasonAcFiltered.length){window.hideEditReasonAutocomplete();return;}
   editReasonAcIndex=-1;
   list.innerHTML=editReasonAcFiltered.map((reason,index)=>{

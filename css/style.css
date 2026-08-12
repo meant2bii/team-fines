@@ -386,6 +386,14 @@ select { cursor:pointer; }
 .rate-chart-bar { display:block; width:30px; min-height:12px; background:linear-gradient(180deg,var(--red),#f87171); border-radius:6px 6px 0 0; }
 .rate-chart-label { font-size:11px; color:var(--tx-m); text-align:center; line-height:1.15; }
 .rate-history-list { display:flex; flex-direction:column; gap:8px; }
+.rate-tags-editor { margin:10px 0 14px; padding:12px; border:1.5px solid var(--bdr); border-radius:var(--r-sm); background:var(--bg-s); }
+.rate-tags-editor .section-label { margin-bottom:2px; }
+.rate-tag-chips { display:flex; flex-wrap:wrap; gap:6px; margin:9px 0; min-height:24px; }
+.rate-tag-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 7px 4px 9px; border-radius:99px; background:#dbeafe; color:#0f3d91; font-size:12px; font-weight:700; }
+.rate-tag-chip button { display:inline-grid; place-items:center; width:18px; height:18px; border:0; border-radius:50%; background:transparent; color:#0f3d91; cursor:pointer; padding:0; }
+.rate-tag-chip button:hover { background:#bfdbfe; }
+.rate-tag-add { display:flex; gap:8px; }
+.rate-tag-add input { flex:1; min-width:0; }
 .rate-history-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; background:var(--bg-s); border-radius:var(--r-sm); }
 .rate-history-item strong { display:block; color:var(--navy); }
 .rate-history-item span:not(.badge) { display:block; color:var(--tx-s); font-size:12px; margin-top:2px; }
@@ -445,6 +453,7 @@ select { cursor:pointer; }
 .review-new-player .btn { min-height:42px; }
 .review-actions { display:flex; gap:8px; justify-content:flex-end; padding-top:12px; border-top:1.5px solid var(--bdr); margin-top:4px; }
 @media(max-width:520px){ .review-fields{grid-template-columns:1fr 1fr;} .review-field-reason{grid-column:1/-1;} .review-transcript-actions{align-items:stretch;flex-direction:column;} .review-transcript-actions .btn{width:100%;} .edit-catalog-choice div{flex-direction:column;} .edit-catalog-choice .btn{width:100%;} }
+@media(max-width:520px){ .rate-tag-add{flex-direction:column;} .rate-tag-add .btn{width:100%;} }
 
 /* ══════════════════════════════════════════════════════════════
    LOG – checkbox multi-select (FIX #1)

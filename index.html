@@ -406,6 +406,13 @@
   <div class="modal modal-wide">
     <div class="modal-header"><h3 id="rate-history-title">Vývoj sazby</h3><button class="btn-icon" onclick="closeRateHistory()"><i class="ti ti-x"></i></button></div>
     <p class="modal-sub">Sazby navazují na půlsezóny. Cena se u pokut vždy určí podle sezóny, do které je záznam zařazen.</p>
+    <div id="rate-tags-editor" class="rate-tags-editor">
+      <div class="section-label">Tagy pro hlasové zadávání</div>
+      <p class="label-hint">Jednoslovné i víceslovné aliasy. Každý tag musí být v celém sazebníku jedinečný.</p>
+      <div id="rate-tag-chips" class="rate-tag-chips"></div>
+      <div class="rate-tag-add"><input id="rate-tag-input" type="text" placeholder="Např. giga pičovina" onkeydown="if(event.key==='Enter')addRateTag()" /><button type="button" class="btn btn-primary" onclick="addRateTag()"><i class="ti ti-plus"></i> Přidat tag</button></div>
+      <div id="rate-tag-error" class="error-msg" style="display:none;"></div>
+    </div>
     <div id="rate-history-chart" class="rate-history-chart"></div>
     <div class="rate-period-editor">
       <div class="section-label" id="rate-period-editor-title">Přidat sazbu v období</div>
