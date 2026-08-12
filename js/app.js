@@ -953,13 +953,16 @@ window.switchTab=function(t){
 };
 
 // ─── PLAYER SELECTS ───────────────────────────────────────────────
+function sortedRosterPlayers(){
+  return (state.players||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'cs-CZ',{sensitivity:'base'}));
+}
 function populatePlayerSelects(){
   // log filter and edit-player are real selects; f-player is now hidden
   ['log-player-filter','edit-player'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
     const prev=el.value;
     el.innerHTML=id==='log-player-filter'?'<option value="">Všichni hráči</option>':'<option value="">— vyber hráče —</option>';
-    (state.players||[]).forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;el.appendChild(o);});
+    sortedRosterPlayers().forEach(p=>{const o=document.createElement('option');o.value=p.name;o.textContent=p.name;el.appendChild(o);});
     if(prev) el.value=prev;
   });
   if(phoneUser){
@@ -1217,7 +1220,7 @@ window.playerAutocomplete=function(val){
   const list=document.getElementById('player-ac-list');
   if(!list) return;
   const norm=val.toLowerCase();
-  acFiltered=(state.players||[]).filter(p=>
+  acFiltered=sortedRosterPlayers().filter(p=>
     p.name.toLowerCase().includes(norm)||
     (p.nicknames||[]).some(n=>n.toLowerCase().includes(norm))
   );
@@ -1793,7 +1796,7 @@ function renderReviewQueue(){
   const n=reviewQueue.filter(r=>!r.skip).length;
   document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;
   document.getElementById('review-list').innerHTML=reviewQueue.map((r,i)=>{
-    const opts=(state.players||[]).map(p=>`<option value="${esc(p.name)}"${p.name===r.resolvedPlayer?' selected':''}>${esc(p.name)}</option>`).join('');
+    const opts=sortedRosterPlayers().map(p=>`<option value="${esc(p.name)}"${p.name===r.resolvedPlayer?' selected':''}>${esc(p.name)}</option>`).join('');
     const candidateHint=r.needsPlayer&&r.candidates.length
       ?`<div class="review-warning review-player-hint"><strong>Nejbližší shoda:</strong>${r.candidates.map(c=>`<button type="button" class="review-suggestion review-player-suggestion" onclick="updateReview(${i},'resolvedPlayer',${JSON.stringify(c.player).replace(/"/g,'&quot;')})">${esc(c.player)} · ${Math.round(c.score*100)} %</button>`).join('')}</div>`:'';
     const unknownPlayer=r.needsPlayer?`<div class="review-warning review-new-player"><strong>Hráč „${esc(voiceDisplayName(r.rawName))}“ není v databázi.</strong><span>Pro přidání zadej číslo s +420 nebo +421.</span><div><input id="review-phone-${i}" type="tel" inputmode="tel" placeholder="+420 123 456 789" /><button type="button" class="btn btn-primary" onclick="addReviewPlayer(${i})"><i class="ti ti-user-plus"></i> Přidat hráče</button></div></div>`:'';
