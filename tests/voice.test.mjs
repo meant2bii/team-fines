@@ -62,6 +62,13 @@ test('keeps punctuated spoken amounts out of reasons in a multi-fine batch', () 
   assert.deepEqual(fines.map(f => f.amount), [30, 50]);
 });
 
+test('does not split a punctuated name and amount into two fines', () => {
+  const fines = parseVoiceTranscript('Michal., 30 korun.', players, reasons);
+  assert.equal(fines.length, 1);
+  assert.equal(fines[0].resolution.player, 'Michal Novák');
+  assert.equal(fines[0].amount, 30);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);

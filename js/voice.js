@@ -179,14 +179,17 @@ function splitVoiceTranscriptLegacy(transcript, players = []) {
     .replace(/\s+a\s+(?:pak|ještě|jeste|taky|také)\s+/gi, ', ');
   // A spoken "další" is the reliable separator. Punctuation is retained as
   // a convenience for recognizers that insert it after a pause.
-  return text.split(/[,;\n]+/).map(part => part.trim()).filter(Boolean);
+  // A recognizer may insert a comma/period between the spoken name and
+  // amount ("Michal., 30 korun"). Do not split before a numeric token; a
+  // comma followed by a name still separates two fines.
+  return text.split(/(?:(?<=\s),(?=\s*\d+\s)|,(?!\s*\d)|;|\n)+/).map(part => part.trim()).filter(Boolean);
 }
 
 export function splitVoiceTranscript(transcript, players = []) {
   const text = String(transcript || '')
     .split(/\b(?:konec|stop)\b/iu)[0]
-    .replace(/\s+(?:st\u0159edn\u00edk|dal\u0161\u00ed|dalsi|d\u00e1le|dale|a\s+dal\u0161\u00ed|je\u0161t\u011b|jeste|plus|nav\u00edc|a\s+tak\u00e9|a\s+taky|taky|potom|n\u00e1sleduje|nasleduje)(?=\s|[,;:.]|$)\s*[,;:.]?\s*/giu, ', ');
-  return text.split(/[,;\n]+/).map(part => part.trim()).filter(Boolean);
+    .replace(/\s+(?:st\u0159edn\u00edk|dal\u0161\u00ed|dalsi|d\u00e1le|dale|a\s+dal\u0161\u00ed|je\u0161t\u011b|jeste|plus|nav\u00edc|a\s+tak\u00e9|a\s+taky|taky|potom|n\u00e1sleduje|nasleduje)(?=\s|[,;:.]|$)\s*[,;:.]?\s*/giu, '; ');
+  return text.split(/(?:(?<=\s),(?=\s*\d+\s)|,(?!\s*\d)|;|\n)+/).map(part => part.trim()).filter(Boolean);
 }
 
 export function parseVoiceChunk(chunk, players = [], reasons = []) {
