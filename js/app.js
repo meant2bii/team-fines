@@ -123,6 +123,7 @@ const WA_MEMBERS = [
 let isManager=false, isAdmin=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
 let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, activeSeason=null;
 let accessRequest=null, accessUsers=[], appSessionActive=false, verificationCooldownTimer=null;
+let deletionPending=new Map();
 let registrationIntent=null;
 let emailVerificationRedirect=new URLSearchParams(window.location.search).get('emailVerified')==='1';
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
@@ -651,8 +652,27 @@ function startUserListListener(){
   if(unsubUserList) return;
   unsubUserList=onSnapshot(collection(db,'accessRequests'),snap=>{
     accessUsers=snap.docs.map(d=>d.data()).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+    // Apps Script deletes Firebase Authentication first and this document
+    // second. Its disappearance is therefore the reliable completion signal.
+    const completed=[...deletionPending.keys()].filter(uid=>!accessUsers.some(user=>user.uid===uid));
+    completed.forEach(uid=>finishDeletionProgress(uid,true));
     if(document.querySelector('.tab.active')?.dataset.tab==='users') renderUsers();
   },error=>console.error('User list:',error));
+}
+function finishDeletionProgress(uid,completed=false){
+  const pending=deletionPending.get(uid); if(!pending) return;
+  clearTimeout(pending.timeout);
+  deletionPending.delete(uid);
+  if(completed) showToast(`Účet ${pending.email} byl odstraněn z Firebase i Firestore.`);
+}
+function beginDeletionProgress(uid,email){
+  const timeout=setTimeout(()=>{
+    if(!deletionPending.has(uid)) return;
+    finishDeletionProgress(uid);
+    renderUsers();
+    showToast('⚠ Mazání se zatím nepotvrdilo. Zkontroluj e-mail správce s přesnou chybou z Firebase.');
+  },45000);
+  deletionPending.set(uid,{email,timeout});
 }
 window.updateAccessUser=async function(uid){
   if(!isAdmin) return;
@@ -677,13 +697,17 @@ window.deleteAccessUser=async function(uid){
   if(!confirm(`Opravdu chceš trvale odstranit účet uživatele ${user.email}?\n\nZáznam zmizí z Uživatelů, Firestore i Firebase Authentication.`)) return;
   if(!confirm(`Poslední potvrzení: smazat ${user.email} včetně možnosti přihlásit se?`)) return;
   try{
+    beginDeletionProgress(uid,user.email);
+    renderUsers();
     await requestAuthenticationAccountDeletion(uid);
     // GitHub Pages cannot read an Apps Script response cross-origin. Do not
     // remove this row optimistically: the script deletes Firebase Auth and
     // accessRequests as one operation, and the Firestore listener removes the
     // card only once that operation has really succeeded.
-    showToast('Požadavek na smazání byl odeslán. Řádek zmizí po potvrzeném odstranění účtu.');
+    showToast('Mazání probíhá na pozadí…');
   }catch(error){
+    finishDeletionProgress(uid);
+    renderUsers();
     console.error(error);
     const detail=error?.code==='permission-denied'
       ?'Firestore smazání nepovolil. Přihlas se znovu jako administrátor.'
@@ -717,12 +741,15 @@ function renderUsers(){
   }
   list.innerHTML=users.map(user=>{
     const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
+    const deleting=deletionPending.has(user.uid);
     const suggestion=!user.linkedPlayerName?suggestedRosterPlayer(user):null;
     const linkedPlayerName=user.linkedPlayerName||suggestion?.player.name||'';
     const playerOptions=(state.players||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'cs')).map(player=>`<option value="${esc(player.name)}" ${player.name===linkedPlayerName?'selected':''}>${esc(player.name)}</option>`).join('');
     const suggestionHint=suggestion?`<small class="user-match-hint"><i class="ti ti-sparkles"></i> Doporučeno podle ${suggestion.kind==='phone'?'telefonu':'jména'} — potvrď uložením.</small>`:'';
     const created=user.createdAt?new Date(user.createdAt).toLocaleDateString('cs-CZ'):'—';
-    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div class="user-registration"><div class="user-name-line"><i class="access-status-dot ${status}" title="${label}" aria-label="Stav: ${label}"></i><strong>${esc(user.name||'Bez jména')}</strong></div><div class="user-registration-details"><small><b>Jméno:</b> ${esc(user.firstName||splitProfileName(user.name).firstName||'—')}</small><small><b>Příjmení:</b> ${esc(user.lastName||splitProfileName(user.name).lastName||'—')}</small><small><b>E-mail:</b> ${esc(user.email||'—')}</small><small><b>Telefon:</b> ${esc(user.phone||'—')}</small><small><b>Žádost:</b> ${esc(created)}</small></div>${suggestionHint}</div></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}" class="access-status-${status}" onchange="updateAccessSelectStyle(this)"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}" class="access-role-${role}" onchange="updateAccessSelectStyle(this)"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button><button class="btn-icon danger user-delete" type="button" onclick="deleteAccessUser('${uid}')" title="Trvale odstranit uživatele" aria-label="Trvale odstranit uživatele"><i class="ti ti-trash"></i></button></div></article>`;
+    const deletingUi=deleting?`<div class="user-delete-progress" role="status"><span><i class="ti ti-loader-2"></i> Mažu účet z Firebase a Firestore…</span><div class="user-delete-progress-track"><i></i></div></div>`:'';
+    const disabled=deleting?'disabled aria-disabled="true"':'';
+    return `<article class="user-row${deleting?' is-deleting':''}"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div class="user-registration"><div class="user-name-line"><i class="access-status-dot ${status}" title="${label}" aria-label="Stav: ${label}"></i><strong>${esc(user.name||'Bez jména')}</strong></div><div class="user-registration-details"><small><b>Jméno:</b> ${esc(user.firstName||splitProfileName(user.name).firstName||'—')}</small><small><b>Příjmení:</b> ${esc(user.lastName||splitProfileName(user.name).lastName||'—')}</small><small><b>E-mail:</b> ${esc(user.email||'—')}</small><small><b>Telefon:</b> ${esc(user.phone||'—')}</small><small><b>Žádost:</b> ${esc(created)}</small></div>${suggestionHint}</div></div>${deletingUi}<div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}" ${disabled}><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}" class="access-status-${status}" onchange="updateAccessSelectStyle(this)" ${disabled}><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}" class="access-role-${role}" onchange="updateAccessSelectStyle(this)" ${disabled}><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')" ${disabled}><i class="ti ti-device-floppy"></i> Uložit</button><button class="btn-icon danger user-delete" type="button" onclick="deleteAccessUser('${uid}')" title="Trvale odstranit uživatele" aria-label="Trvale odstranit uživatele" ${disabled}><i class="ti ti-trash"></i></button></div></article>`;
   }).join('');
 }
 window.refreshUsersList=function(){renderUsers();};

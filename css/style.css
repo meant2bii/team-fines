@@ -198,6 +198,14 @@ select { cursor:pointer; }
 .user-controls .btn { min-height:40px; white-space:nowrap; }
 .user-delete { width:40px; min-height:40px; color:var(--red); border-color:#fecaca; }
 .user-delete:hover { background:var(--red-light); color:var(--red-dark); }
+.user-row.is-deleting { opacity:.72; }
+.user-delete-progress { margin:11px 0 0 52px; display:grid; gap:7px; color:#1455bd; font-size:12px; font-weight:700; }
+.user-delete-progress span { display:flex; align-items:center; gap:6px; color:inherit; white-space:normal; }
+.user-delete-progress .ti { animation:user-delete-spin 1s linear infinite; }
+.user-delete-progress-track { height:5px; overflow:hidden; border-radius:99px; background:#dbeafe; }
+.user-delete-progress-track i { display:block; width:42%; height:100%; border-radius:inherit; background:linear-gradient(90deg,#2563eb,#60a5fa); animation:user-delete-progress 1.1s ease-in-out infinite; }
+@keyframes user-delete-spin { to { transform:rotate(360deg); } }
+@keyframes user-delete-progress { 0% { transform:translateX(-125%); } 100% { transform:translateX(340%); } }
 
 /* ══════════════════════════════════════════════════════════════
    APP SHELL
