@@ -12,7 +12,7 @@ import {
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { doc, setDoc, onSnapshot, collection }
+import { doc, setDoc, onSnapshot, collection, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
   from './voice.js';
@@ -587,20 +587,11 @@ window.deleteAccessUser=async function(uid){
   if(!user) return;
   if(normalizedEmail(user.email)===CONFIG.PRIMARY_ADMIN_EMAIL){showToast('⚠ Hlavní administrátorský účet nelze odstranit z aplikace.');return;}
   if(uid===currentUser.uid){showToast('⚠ Nemůžeš odstranit právě přihlášený účet.');return;}
-  if(!confirm(`Opravdu chceš odstranit registraci uživatele ${user.email}?\n\nÚčet, e-mail i žádost budou trvale odstraněny.`)) return;
-  if(!confirm(`Poslední potvrzení: smazat účet ${user.email} z Firebase Authentication i Firestore?`)) return;
+  if(!confirm(`Opravdu chceš odstranit registraci uživatele ${user.email}?\n\nZáznam zmizí ze sekce Uživatelé i z Firestore.`)) return;
+  if(!confirm(`Poslední potvrzení: trvale smazat registrační údaje ${user.email} z Firestore?`)) return;
   try{
-    const idToken=await currentUser.getIdToken();
-    await fetch(CONFIG.APPS_SCRIPT_NOTIFICATION_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({action:'deleteRegistration',idToken,targetUid:uid})});
-    const deadline=Date.now()+12000;
-    const watcher=setInterval(()=>{
-      if(!accessUsers.some(item=>item.uid===uid)){
-        clearInterval(watcher);showToast('Účet byl trvale odstraněn z Firebase i Firestore.');
-      }else if(Date.now()>=deadline){
-        clearInterval(watcher);showToast('⚠ Smazání backend nepotvrdil. Aktualizuj Apps Script na poslední verzi a zkontroluj Spuštění → doPost.');
-      }
-    },700);
-    showToast('Ověřuji trvalé smazání účtu…');
+    await deleteDoc(doc(db,'accessRequests',uid));
+    showToast('Registrace byla odstraněna z Firestore.');
   }catch(error){console.error(error);showToast('⚠ Požadavek na smazání se nepodařilo odeslat.');}
 };
 function renderUsers(){

@@ -26,6 +26,6 @@ Před dalším nasazením v Apps Scriptu otevři **Project Settings** a zapni zo
 
 Pokud se přístup k Firestore nepodaří nastavit, e-mail nadále vždy přijde hlavnímu administrátorovi `lyrixzz@gmail.com`; pouze další Pokladníci a Administrátoři se v takovém případě vynechají. Konkrétní důvod je v Apps Script → **Spuštění** u funkce `doPost`.
 
-## Úplné smazání registrace
+## Mazání registrace
 
-Tlačítko koše v aplikaci odstraní cílový účet z Firebase Authentication **i** jeho dokument z `accessRequests` ve Firestore. Před nasazením této verze vlož novou verzi `Code.gs` a `appsscript.json` do Apps Scriptu a znovu proveď autorizaci. Účet, pod kterým Apps Script běží, musí mít IAM oprávnění `firebaseauth.users.delete` (role **Firebase Authentication Admin** nebo **Owner**) a přístup k Firestore. Hlavní administrátor ani právě přihlášený účet nelze tímto tlačítkem odstranit.
+Tlačítko koše v aplikaci odstraní registrační dokument z `accessRequests` ve Firestore, a tedy i celý řádek ze sekce Uživatelé. Oprávnění mají výhradně schválení Administrátoři, což vynucují i pravidla Firestore. Pokud je nutné odstranit také samotný přihlašovací účet Firebase Authentication, udělej to v Firebase Console → Authentication → Users; Firebase pro programové mazání cizích účtů vyžaduje privilegovaný serverový Admin SDK.
