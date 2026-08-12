@@ -1000,6 +1000,9 @@ input:focus,select:focus,textarea:focus { border-color:#2563eb; box-shadow:0 0 0
   .header-inner { min-height:116px; height:116px; padding:12px 0 52px; align-items:center; }
   .header-brand { position:absolute; left:50%; transform:translateX(-50%); gap:8px; }
   .header-right { width:100%; justify-content:flex-end; }
+  /* Keep the two independent header actions in their own hit areas. The
+     logout button is absolute, so the profile button must be positioned too. */
+  .header-profile { position:absolute; right:52px; top:10px; width:42px; height:42px; z-index:2; }
   .header-logout { position:absolute; right:0; top:10px; width:42px; height:42px; z-index:2; }
   .season-controls { left:0; right:0; bottom:8px; padding:4px; border-radius:10px; }
   .season-caption { display:none; }
