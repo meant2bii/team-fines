@@ -173,6 +173,9 @@ select { cursor:pointer; }
 .user-controls { display:grid; grid-template-columns:1.4fr 1fr 1fr auto; gap:8px; margin:13px 0 0 52px; align-items:end; }
 .user-controls label { display:grid; gap:4px; color:var(--tx-m); font-size:11px; font-weight:700; }
 .user-controls select { min-height:40px; padding:7px 9px; font-size:13px; }
+.user-controls select.suggested-player { color:#92400e; background:#fff7e5; border-color:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.14); font-weight:700; }
+.user-match-hint { display:flex; align-items:center; gap:4px; color:#b45309 !important; font-weight:700; }
+.user-match-hint .ti { font-size:12px; }
 .user-controls .btn { min-height:40px; white-space:nowrap; }
 
 /* ══════════════════════════════════════════════════════════════

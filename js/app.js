@@ -423,6 +423,32 @@ function normalizedPhone(value){
   const digits=String(value||'').replace(/\D/g,'');
   return digits?`+${digits}`:'';
 }
+function phoneNumbersMatch(a,b){
+  const left=normalizedPhone(a),right=normalizedPhone(b);
+  if(!left||!right) return false;
+  if(left===right) return true;
+  // Older roster imports sometimes contain the same nine-digit number without
+  // the country prefix. Only use that fallback when one side has a prefix.
+  const leftDigits=left.slice(1),rightDigits=right.slice(1);
+  return leftDigits.length===9&&rightDigits.length>9&&rightDigits.endsWith(leftDigits)
+    || rightDigits.length===9&&leftDigits.length>9&&leftDigits.endsWith(rightDigits);
+}
+function normalizedPersonName(value){
+  return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLocaleLowerCase('cs-CZ').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function suggestedRosterPlayer(user){
+  const players=state.players||[];
+  if(user.phone){
+    const phoneMatch=players.find(player=>phoneNumbersMatch(player.phone,user.phone));
+    if(phoneMatch) return {player:phoneMatch,kind:'phone'};
+    return null; // A supplied phone is authoritative; do not guess by name.
+  }
+  const registeredName=normalizedPersonName(`${user.firstName||''} ${user.lastName||''}`.trim()||user.name);
+  if(!registeredName) return null;
+  const nameMatch=players.find(player=>normalizedPersonName(player.name)===registeredName);
+  return nameMatch?{player:nameMatch,kind:'name'}:null;
+}
 function registrationPhone(){
   const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
   const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
@@ -538,11 +564,12 @@ function renderUsers(){
   if(empty) empty.style.display=users.length?'none':'block';
   list.innerHTML=users.map(user=>{
     const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
-    const suggested=(state.players||[]).find(player=>normalizedPhone(player.phone)&&normalizedPhone(player.phone)===normalizedPhone(user.phone));
-    const linkedPlayerName=user.linkedPlayerName||suggested?.name||'';
+    const suggestion=!user.linkedPlayerName?suggestedRosterPlayer(user):null;
+    const linkedPlayerName=user.linkedPlayerName||suggestion?.player.name||'';
     const playerOptions=(state.players||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'cs')).map(player=>`<option value="${esc(player.name)}" ${player.name===linkedPlayerName?'selected':''}>${esc(player.name)}</option>`).join('');
-    const phoneLine=user.phone?`<small>Telefon: ${esc(user.phone)}${suggested&&!user.linkedPlayerName?' · nalezena shoda, potvrď uložením':''}</small>`:'';
-    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span>${phoneLine}<small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
+    const phoneLine=user.phone?`<small>Telefon: ${esc(user.phone)}</small>`:'';
+    const suggestionHint=suggestion?`<small class="user-match-hint"><i class="ti ti-sparkles"></i> Doporučeno podle ${suggestion.kind==='phone'?'telefonu':'jména'} — potvrď uložením.</small>`:'';
+    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span>${phoneLine}${suggestionHint}<small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
   }).join('');
 }
 
