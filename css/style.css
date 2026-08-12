@@ -151,8 +151,9 @@ select { cursor:pointer; }
 
 .auth-panel { display:none; } .auth-panel.active { display:block; }
 .register-name-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.phone-register-row { display:grid; grid-template-columns:106px 1fr; gap:8px; }
-.phone-register-row select { padding-left:9px; padding-right:6px; }
+.phone-register-row { display:grid; grid-template-columns:106px minmax(0,1fr); gap:8px; }
+.phone-register-row select,.phone-register-row input { font:inherit; }
+.phone-register-row select { padding-left:11px; padding-right:8px; }
 .pending-card { padding-top:2.4rem; }
 .pending-icon { width:76px; height:76px; margin:0 auto 16px; display:grid; place-items:center; border-radius:24px; background:#dbeafe; color:#1455bd; font-size:38px; }
 .pending-state { margin:0 0 1.2rem; padding:12px; border-radius:12px; background:#f1f5f9; color:#475569; font-size:13px; line-height:1.45; }
@@ -808,7 +809,8 @@ select { cursor:pointer; }
   .brand-season { display:none; }
   .header-user { display:none; }
   .header-profile { width:40px; height:40px; justify-content:center; padding:0; }
-  .register-name-grid,.phone-register-row { grid-template-columns:1fr; gap:0; }
+  .register-name-grid { grid-template-columns:1fr; gap:0; }
+  .phone-register-row { grid-template-columns:106px minmax(0,1fr); gap:8px; }
   .register-name-grid .form-group { margin-bottom:10px; }
   .header-right { gap:5px; margin-left:auto; }
   .season-controls { position:absolute; left:0; right:0; bottom:8px; justify-content:center; gap:5px; padding:3px 5px; }
