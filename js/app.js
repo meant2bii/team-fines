@@ -122,6 +122,7 @@ let isManager=false, isAdmin=false, editIndex=-1, nickPlayerIdx=-1, editPlayerId
 let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, activeSeason=null;
 let accessRequest=null, accessUsers=[], appSessionActive=false, verificationCooldownTimer=null;
 let registrationIntent=null;
+let emailVerificationRedirect=new URLSearchParams(window.location.search).get('emailVerified')==='1';
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
 let voiceMeterStream=null, voiceMeterContext=null, voiceMeterAnalyser=null, voiceMeterFrame=null;
@@ -231,9 +232,20 @@ function seasonFines(){
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────
-onAuthStateChanged(auth,user=>{
+onAuthStateChanged(auth,async user=>{
   currentUser=user; resetAuthButtons();
-  if(!user){ if(!phoneUser) showScreen('auth'); stopFirestoreListener(); stopAccessListeners(); appSessionActive=false; return; }
+  if(!user){
+    if(!phoneUser) showScreen('auth'); stopFirestoreListener(); stopAccessListeners(); appSessionActive=false;
+    if(emailVerificationRedirect){emailVerificationRedirect=false;history.replaceState({},'',window.location.pathname);showToast('E-mail je ověřený. Přihlas se prosím.');}
+    return;
+  }
+  // A verification link may open in the same browser where the user is already
+  // signed in. Reload the account state, then intentionally return them to the
+  // login screen as part of the completed verification journey.
+  if(emailVerificationRedirect){
+    try{await user.reload();user=auth.currentUser;currentUser=user;}catch(error){console.warn('Verification redirect reload:',error);}
+    if(user?.emailVerified){await signOut(auth);return;}
+  }
   // The primary administrator must never be locked out by a historic account
   // that was created before e-mail verification was introduced.
   if(!primaryAdmin()&&!user.emailVerified){showVerification(user);stopFirestoreListener();stopAccessListeners();appSessionActive=false;return;}
@@ -501,9 +513,11 @@ function renderVerificationCooldown(user=currentUser){
   if(seconds>0) verificationCooldownTimer=setTimeout(()=>renderVerificationCooldown(user),1000);
 }
 async function sendVerificationLink(user){
-  // Use Firebase's built-in authorised action domain. The user returns to the
-  // app manually, so delivery does not depend on a GitHub Pages redirect.
-  await sendEmailVerification(user);
+  // Firebase's hosted handler confirms the e-mail and then returns the user
+  // straight to the application login page. The GitHub Pages domain is listed
+  // in Firebase Authentication → Authorised domains.
+  const loginUrl=`${window.location.origin}${window.location.pathname}?emailVerified=1`;
+  await sendEmailVerification(user,{url:loginUrl,handleCodeInApp:false});
   try{localStorage.setItem(verificationCooldownKey(user.uid),String(Date.now()));}catch(error){console.warn('Verification cooldown storage:',error);}
   renderVerificationCooldown(user);
 }
