@@ -1717,7 +1717,7 @@ function buildReviewQueue(transcript){
   parseVoiceTranscript(reviewTranscript,state.players||[],getReasonList()).forEach(parsed=>{
     const resolved=parsed.resolution.player;
     reviewQueue.push({
-      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,
+      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,rate:parsed.rate||parsed.amount||0,multiplier:parsed.multiplier||1,
       needsPlayer:!resolved,needsAmount:!parsed.amount,candidates:parsed.resolution.candidates||[],
       reasonCandidates:parsed.reasonCandidates||[],isAlias:parsed.resolution.status==='fuzzy',skip:false
     });
@@ -1735,7 +1735,7 @@ function buildOneTimeFineReview(importData,prepared){
   reviewTranscript='';
   reviewQueue=prepared.fines.map(fine=>({
     raw:`${fine.sourceName} – ${fine.amount} Kč`,rawName:fine.sourceName,resolvedPlayer:fine.player,
-    reason:fine.reason,amount:fine.amount,needsPlayer:!fine.player,needsAmount:false,candidates:[],
+    reason:fine.reason,amount:fine.amount,rate:fine.amount,multiplier:1,needsPlayer:!fine.player,needsAmount:false,candidates:[],
     isAlias:!!fine.player&&normalizedPlayerName(fine.sourceName)!==normalizedPlayerName(fine.player),skip:false,
     source:fine.source,ts:fine.ts,season:fine.season,allowNegative:fine.allowNegative
   }));
@@ -1804,8 +1804,8 @@ function renderReviewQueue(){
     const reasonHint=r.reasonCandidates?.length?`<div class="review-warning review-reason-hint"><strong>Možná sazebníková položka:</strong>${r.reasonCandidates.map(c=>`<button type="button" class="review-suggestion" onclick="applyReviewReason(${i},${JSON.stringify(c.label).replace(/"/g,'&quot;')})">${esc(c.label)} · ${c.price} ${CONFIG.CURRENCY}</button>`).join('')}</div>`:'';
     const reviewSeason=r.season?parseSeasonKey(r.season):seasonForDate(new Date(r.ts||Date.now()));
     const catalogPrice=reasonPrice(r.reason,reviewSeason,r.ts?new Date(r.ts):null);
-    const priceHint=catalogPrice!=null&&Number(r.amount)!==Number(catalogPrice)
-      ?`<div class="review-warning review-price-hint">Sazebník pro tento důvod uvádí <strong>${catalogPrice} ${CONFIG.CURRENCY}</strong>, nadiktováno je <strong>${r.amount} ${CONFIG.CURRENCY}</strong>. Ověř, že chceš ponechat vlastní částku.</div>`:'';
+    const priceHint=catalogPrice!=null&&Number(r.rate)!==Number(catalogPrice)
+      ?`<div class="review-warning review-price-hint">Sazebník pro tento důvod uvádí <strong>${catalogPrice} ${CONFIG.CURRENCY}</strong> za 1×, nadiktováno je <strong>${r.rate} ${CONFIG.CURRENCY}</strong>. Ověř, že chceš ponechat vlastní sazbu.</div>`:'';
     return`<div class="review-item${r.skip?' skipped':''}">
       <div class="review-item-header">
         <span class="review-item-num">${i+1}</span>
@@ -1816,7 +1816,9 @@ function renderReviewQueue(){
         <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)"><option value=""${r.resolvedPlayer?'':' selected'}>— vyber hráče —</option>${opts}</select>${candidateHint}</div>
         ${unknownPlayer}
         <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/>${reasonHint}${priceHint}</div>
-        <div class="review-field review-field-amt"><label>Částka</label><input type="number" value="${r.amount}" oninput="updateReview(${i},'amount',parseFloat(this.value))"/></div>
+        <div class="review-field review-field-rate"><label>Sazba za 1×</label><input type="number" value="${r.rate||r.amount}" oninput="updateReview(${i},'rate',parseFloat(this.value))"/></div>
+        <div class="review-field review-field-count"><label>Počet</label><input type="number" min="1" max="99" step="1" value="${r.multiplier||1}" oninput="updateReview(${i},'multiplier',parseInt(this.value,10))"/></div>
+        <div class="review-field review-field-amt"><label>Částka celkem</label><input type="number" value="${r.amount}" readonly/></div>
       </div></div>`;
   }).join('');
 }
@@ -1837,7 +1839,7 @@ window.applyReviewReason=function(index,label){
   review.reason=label;review.reasonCandidates=[];
   renderReviewQueue();
 };
-window.updateReview=function(i,k,v){reviewQueue[i][k]=v;if(k==='resolvedPlayer'){reviewQueue[i].needsPlayer=!v;reviewQueue[i].isAlias=false;}if(k==='amount')reviewQueue[i].needsAmount=!validReviewAmount(reviewQueue[i]);const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
+window.updateReview=function(i,k,v){const row=reviewQueue[i];row[k]=v;if(k==='rate'||k==='multiplier'){row.rate=Number.isFinite(Number(row.rate))?Number(row.rate):0;row.multiplier=Math.max(1,Number.isFinite(Number(row.multiplier))?Number(row.multiplier):1);row.amount=row.rate*row.multiplier;renderReviewQueue();return;}if(k==='resolvedPlayer'){row.needsPlayer=!v;row.isAlias=false;}if(k==='amount'){row.needsAmount=!validReviewAmount(row);row.rate=Number(row.amount)/(row.multiplier||1);}const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
 window.toggleSkip=function(i){reviewQueue[i].skip=!reviewQueue[i].skip;renderReviewQueue();};
 window.confirmReview=async function(){
   const toSave=reviewQueue.filter(r=>!r.skip);if(!toSave.length){window.discardReview();return;}
@@ -1846,7 +1848,7 @@ window.confirmReview=async function(){
   const previousFines=state.fines,previousImports=state.oneTimeImports;
   state.fines=[...(state.fines||[])];
   toSave.forEach(r=>{
-    const fine={player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason)};
+    const fine={player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),rate:Number(r.rate)||Number(r.amount),multiplier:Number(r.multiplier)||1,ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason)};
     if(r.source) fine.source=r.source;
     state.fines.unshift(fine);
   });

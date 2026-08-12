@@ -111,6 +111,20 @@ function takeLeadingNumericAmount(text) {
   return Number.isFinite(amount)&&amount>0?{amount,text:match[2].trim()}:null;
 }
 
+const MULTIPLIERS = new Map([
+  ['dvakrat', 2], ['třikrát', 3], ['trikrat', 3], ['čtyřikrát', 4], ['ctyrikrat', 4],
+  ['pěkrát', 5], ['pe krat', 5], ['peťkrát', 5], ['petkrat', 5], ['šestkrát', 6], ['sestkrat', 6],
+  ['sedmkrát', 7], ['sedmkrat', 7], ['osmkrát', 8], ['osmkrat', 8], ['devěťkrát', 9], ['devetkrat', 9],
+  ['desetkrát', 10], ['desetkrat', 10]
+]);
+function takeMultiplier(text) {
+  const value=String(text).replace(/[.!?,;:]+\s*$/g,'').trim();
+  const match=value.match(/(?:^|\s)(\d{1,2})\s*x$|(?:^|\s)(dvakrát|třikrát|trikrat|čtyřikrát|ctyrikrat|pěkrát|petkrat|pěťkrát|šestkrát|sestkrat|sedmkrát|sedmkrat|osmkrát|osmkrat|devěťkrát|devetkrat|desetkrát|desetkrat)$/iu);
+  if(!match) return {multiplier:1,text:value};
+  const multiplier=match[1]?Number(match[1]):MULTIPLIERS.get(normalise(match[2]))||1;
+  return {multiplier:Math.max(1,Math.min(99,multiplier)),text:value.slice(0,match.index).trim()};
+}
+
 function findPlayerPrefix(text, players) {
   const normalised = normalise(text);
   let exact = null;
@@ -195,8 +209,9 @@ export function splitVoiceTranscript(transcript, players = []) {
 export function parseVoiceChunk(chunk, players = [], reasons = []) {
   const original = String(chunk || '').trim();
   if (!original) return null;
-  const leadingAmount=takeLeadingNumericAmount(original);
-  const { amount: trailingAmount, text: withoutAmount } = takeAmount(leadingAmount?.text||original);
+  const {multiplier,text:withoutMultiplier}=takeMultiplier(original);
+  const leadingAmount=takeLeadingNumericAmount(withoutMultiplier);
+  const { amount: trailingAmount, text: withoutAmount } = takeAmount(leadingAmount?.text||withoutMultiplier);
   const spokenAmount=leadingAmount?.amount??trailingAmount;
   const cleanText = withoutAmount.replace(/[–—]/g, '-').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
   const playerPart = findPlayerPrefix(cleanText, players);
@@ -208,11 +223,12 @@ export function parseVoiceChunk(chunk, players = [], reasons = []) {
   const reasonCandidates=reasonMatch.price===null&&reasonMatch.reason
     ?suggestVoiceReasons(reasonMatch.reason,reasons)
     :[];
-  const amount = spokenAmount ?? reasonMatch.price;
+  const rate = spokenAmount ?? reasonMatch.price;
+  const amount = rate==null?null:rate*multiplier;
   const issues = [];
   if (!playerPart.resolution.player) issues.push('player');
-  if (!amount || amount <= 0) issues.push('amount');
-  return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, reasonCandidates, amount: amount || 0, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
+  if (!rate || rate <= 0) issues.push('amount');
+  return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, reasonCandidates, amount: amount || 0, rate: rate || 0, multiplier, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
 }
 
 export function parseVoiceTranscript(transcript, players = [], reasons = []) {

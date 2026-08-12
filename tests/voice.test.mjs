@@ -69,6 +69,13 @@ test('does not split a punctuated name and amount into two fines', () => {
   assert.equal(fines[0].amount, 30);
 });
 
+test('parses a spoken multiplier and returns total plus base rate', () => {
+  const fine = parseVoiceChunk('Michal Bago dvakrát', players, reasons);
+  assert.equal(fine.amount, 200);
+  assert.equal(fine.rate, 100);
+  assert.equal(fine.multiplier, 2);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);
