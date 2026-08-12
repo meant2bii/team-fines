@@ -25,6 +25,7 @@ const CONFIG = {
   // Empty means registration remains fully functional, without e-mail notification.
   APPS_SCRIPT_NOTIFICATION_URL:'https://script.google.com/macros/s/AKfycbwxHIR8tCvHo8k-_UpQEzaR-DmPX53g7pZs_imAE0vd7Nbs36Hmmwke2HEPAXvIAqJIaA/exec'
 };
+const PRIMARY_ADMIN_PROFILE={firstName:'Michal',lastName:'Nevřala',phone:'+420605086775',name:'Michal Nevřala'};
 const UNKNOWN_REASON='Unknown reason';
 // Each new season is imported as a dated catalogue.  Keep previous catalogues
 // in this format: changing a price appends a new period; an omitted item is
@@ -529,8 +530,7 @@ function startAccessListener(user){
     if(!snap.exists()){
       try{
         if(primaryAdmin()){
-          const parts=profileParts(user,null);
-          await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,firstName:parts.firstName,lastName:parts.lastName,phone:'',status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+          await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),...PRIMARY_ADMIN_PROFILE,status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
         }
         else {
           const intended=registrationIntent&&normalizedEmail(user.email)===registrationIntent.email?registrationIntent:null;
@@ -539,7 +539,16 @@ function startAccessListener(user){
       }catch(error){console.error('Access request:',error);showPending(user,null);}
       return;
     }
-    accessRequest=snap.data(); applyAccessState(user,accessRequest);
+    const request=snap.data();
+    if(primaryAdmin()&&(
+      request.firstName!==PRIMARY_ADMIN_PROFILE.firstName||request.lastName!==PRIMARY_ADMIN_PROFILE.lastName||
+      request.phone!==PRIMARY_ADMIN_PROFILE.phone||request.name!==PRIMARY_ADMIN_PROFILE.name
+    )){
+      try{await setDoc(ref,{...PRIMARY_ADMIN_PROFILE,updatedAt:new Date().toISOString()},{merge:true});}
+      catch(error){console.error('Primary admin profile:',error);}
+      return;
+    }
+    accessRequest=request; applyAccessState(user,accessRequest);
   },error=>{console.error('Access state:',error);showPending(user,null);});
 }
 function applyAccessState(user,request){
