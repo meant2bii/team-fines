@@ -9,6 +9,7 @@ import { auth, db } from './firebase.js';
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -233,12 +234,9 @@ function seasonFines(){
 onAuthStateChanged(auth,user=>{
   currentUser=user; resetAuthButtons();
   if(!user){ if(!phoneUser) showScreen('auth'); stopFirestoreListener(); stopAccessListeners(); appSessionActive=false; return; }
-  if(false && !user.emailVerified){
-    showScreen('verify');
-    const s=document.getElementById('verify-sub');
-    if(s) s.textContent=`Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a vrať se sem.`;
-    stopFirestoreListener(); return;
-  }
+  // The primary administrator must never be locked out by a historic account
+  // that was created before e-mail verification was introduced.
+  if(!primaryAdmin()&&!user.emailVerified){showVerification(user);stopFirestoreListener();stopAccessListeners();appSessionActive=false;return;}
   startAccessListener(user);
 });
 
@@ -313,9 +311,10 @@ window.doRegister=async function(){
     registrationIntent={firstName,lastName,phone,email:normalizedEmail(email)};
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
-    await createPendingAccessRequest(cred.user,{firstName,lastName,phone});
-    notifyAdminOfRegistration(cred.user,{firstName,lastName,phone}).catch(error=>console.warn('Registration notification:',error));
-    setTimeout(()=>{registrationIntent=null;},15000);
+    stageRegistrationProfile(cred.user.uid,registrationIntent);
+    await sendVerificationLink(cred.user);
+    showVerification(cred.user);
+    registrationIntent=null;
   }catch(e){registrationIntent=null;showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 
@@ -412,15 +411,18 @@ function updatePhoneUserUI(){
 
 window.checkVerification=async function(){
   if(!currentUser) return;
-  await currentUser.reload();
-  if(currentUser.emailVerified) startAccessListener(currentUser);
-  if(currentUser.emailVerified) showToast('E-mail ověřen ✓');
-  else showErr(document.getElementById('verify-msg'),'E-mail ještě není ověřen. Zkontroluj doručenou poštu (i spam).');
+  const msg=document.getElementById('verify-msg'); if(msg) msg.style.display='none';
+  try{
+    await currentUser.reload();
+    currentUser=auth.currentUser;
+    if(currentUser?.emailVerified){startAccessListener(currentUser);showToast('E-mail ověřen ✓ Žádost byla předána správci.');}
+    else showErr(msg,'E-mail ještě není ověřen. Otevři odkaz z doručené pošty (zkontroluj i spam).');
+  }catch(error){console.error('Verification check:',error);showErr(msg,'⚠ Ověření se nepodařilo načíst. Zkus to znovu.');}
 };
 window.resendVerification=async function(){
   if(!currentUser) return;
-  try{await sendEmailVerification(currentUser);showToast('Ověřovací e-mail odeslán ✓');}
-  catch(e){showErr(document.getElementById('verify-msg'),'Chyba: '+e.message);}
+  try{await sendVerificationLink(currentUser);showToast('Ověřovací e-mail odeslán ✓');}
+  catch(e){showErr(document.getElementById('verify-msg'),friendlyAuthError(e.code));}
 };
 
 // ─── SEASON PICKER ────────────────────────────────────────────────
@@ -460,6 +462,33 @@ function registrationPhone(){
   const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
   const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
   return /^\d{9}$/.test(national)?`${prefix}${national}`:'';
+}
+function stagedRegistrationProfileKey(uid){return `team-fines:registration:${uid}`;}
+function stageRegistrationProfile(uid,profile){
+  try{localStorage.setItem(stagedRegistrationProfileKey(uid),JSON.stringify(profile));}
+  catch(error){console.warn('Registration profile storage:',error);}
+}
+function stagedRegistrationProfile(user){
+  const fallback=splitProfileName(user?.displayName||'');
+  try{
+    const stored=JSON.parse(localStorage.getItem(stagedRegistrationProfileKey(user.uid))||'null');
+    if(stored&&normalizedEmail(stored.email)===normalizedEmail(user.email)) return stored;
+  }catch(error){console.warn('Registration profile read:',error);}
+  return {firstName:fallback.firstName,lastName:fallback.lastName,phone:'',email:normalizedEmail(user?.email)};
+}
+function clearStagedRegistrationProfile(uid){
+  try{localStorage.removeItem(stagedRegistrationProfileKey(uid));}catch(error){console.warn('Registration profile cleanup:',error);}
+}
+function emailVerificationSettings(){
+  return {url:`${window.location.origin}${window.location.pathname}`,handleCodeInApp:false};
+}
+async function sendVerificationLink(user){
+  await sendEmailVerification(user,emailVerificationSettings());
+}
+function showVerification(user){
+  isManager=false;isAdmin=false;appSessionActive=false;showScreen('verify');
+  const s=document.getElementById('verify-sub');
+  if(s) s.textContent=`Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a potom se vrať sem.`;
 }
 async function notifyAdminOfRegistration(user,profile){
   const url=CONFIG.APPS_SCRIPT_NOTIFICATION_URL;
@@ -533,8 +562,13 @@ function startAccessListener(user){
           await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),...PRIMARY_ADMIN_PROFILE,status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
         }
         else {
-          const intended=registrationIntent&&normalizedEmail(user.email)===registrationIntent.email?registrationIntent:null;
-          await createPendingAccessRequest(user,intended||user.displayName||user.email);
+          // This listener only starts once Firebase has confirmed the e-mail.
+          // Therefore no unverified address can enter the approval queue.
+          const intended=registrationIntent&&normalizedEmail(user.email)===registrationIntent.email
+            ?registrationIntent:stagedRegistrationProfile(user);
+          await createPendingAccessRequest(user,intended);
+          clearStagedRegistrationProfile(user.uid);
+          notifyAdminOfRegistration(user,intended).catch(error=>console.warn('Registration notification:',error));
         }
       }catch(error){console.error('Access request:',error);showPending(user,null);}
       return;
@@ -2181,7 +2215,7 @@ let toastTimer=null;
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
 function showErr(el,msg){el.textContent=msg;el.style.display='block';}
 function friendlyAuthError(code){
-  const map={'auth/email-already-in-use':'Tento e-mail je již zaregistrován.','auth/invalid-email':'Neplatný e-mail.','auth/weak-password':'Heslo je příliš slabé (min. 6 znaků).','auth/user-not-found':'Účet s tímto e-mailem neexistuje.','auth/wrong-password':'Nesprávné heslo.','auth/invalid-credential':'Nesprávný e-mail nebo heslo.','auth/too-many-requests':'Příliš mnoho pokusů. Zkus to za chvíli.','auth/network-request-failed':'Chyba sítě. Zkontroluj připojení.'};
+  const map={'auth/email-already-in-use':'Tento e-mail je již zaregistrován.','auth/invalid-email':'Neplatný e-mail.','auth/weak-password':'Heslo je příliš slabé (min. 6 znaků).','auth/user-not-found':'Účet s tímto e-mailem neexistuje.','auth/wrong-password':'Nesprávné heslo.','auth/invalid-credential':'Nesprávný e-mail nebo heslo.','auth/too-many-requests':'Příliš mnoho pokusů. Zkus to za chvíli.','auth/network-request-failed':'Chyba sítě. Zkontroluj připojení.','auth/unauthorized-continue-uri':'Ověřovací odkaz zatím není povolen pro adresu aplikace. Kontaktuj správce.'};
   return map[code]||`Chyba: ${code}`;
 }
 
