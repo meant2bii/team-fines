@@ -680,8 +680,26 @@ window.deleteAccessUser=async function(uid){
 };
 function renderUsers(){
   const list=document.getElementById('user-list'),empty=document.getElementById('user-list-empty'); if(!list) return;
-  const users=accessUsers.slice().sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
-  if(empty) empty.style.display=users.length?'none':'block';
+  const query=normalizedPersonName(document.getElementById('user-search')?.value||'');
+  const sort=document.getElementById('user-sort')?.value||'created-desc';
+  const profileName=user=>{
+    const parts=splitProfileName(`${user.firstName||''} ${user.lastName||''}`.trim()||user.name);
+    return {firstName:normalizedPersonName(user.firstName||parts.firstName),lastName:normalizedPersonName(user.lastName||parts.lastName)};
+  };
+  const users=accessUsers.filter(user=>{
+    if(!query) return true;
+    return normalizedPersonName(`${user.name||''} ${user.firstName||''} ${user.lastName||''} ${user.email||''} ${user.phone||''}`).includes(query)
+      || String(user.phone||'').replace(/\D/g,'').includes(String(query).replace(/\D/g,''));
+  }).sort((a,b)=>{
+    if(sort==='first-name') return profileName(a).firstName.localeCompare(profileName(b).firstName,'cs');
+    if(sort==='last-name') return profileName(a).lastName.localeCompare(profileName(b).lastName,'cs');
+    const compare=String(a.createdAt||'').localeCompare(String(b.createdAt||''));
+    return sort==='created-asc'?compare:-compare;
+  });
+  if(empty){
+    empty.style.display=users.length?'none':'block';
+    empty.querySelector('p').textContent=accessUsers.length&&query?'Žádný uživatel neodpovídá hledání.':'Zatím tu nejsou žádné žádosti o přístup.';
+  }
   list.innerHTML=users.map(user=>{
     const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
     const suggestion=!user.linkedPlayerName?suggestedRosterPlayer(user):null;
@@ -692,6 +710,7 @@ function renderUsers(){
     return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div class="user-registration"><div class="user-name-line"><i class="access-status-dot ${status}" title="${label}" aria-label="Stav: ${label}"></i><strong>${esc(user.name||'Bez jména')}</strong></div><div class="user-registration-details"><small><b>Jméno:</b> ${esc(user.firstName||splitProfileName(user.name).firstName||'—')}</small><small><b>Příjmení:</b> ${esc(user.lastName||splitProfileName(user.name).lastName||'—')}</small><small><b>E-mail:</b> ${esc(user.email||'—')}</small><small><b>Telefon:</b> ${esc(user.phone||'—')}</small><small><b>Žádost:</b> ${esc(created)}</small></div>${suggestionHint}</div></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}" class="access-status-${status}" onchange="updateAccessSelectStyle(this)"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}" class="access-role-${role}" onchange="updateAccessSelectStyle(this)"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button><button class="btn-icon danger user-delete" type="button" onclick="deleteAccessUser('${uid}')" title="Trvale odstranit uživatele" aria-label="Trvale odstranit uživatele"><i class="ti ti-trash"></i></button></div></article>`;
   }).join('');
 }
+window.refreshUsersList=function(){renderUsers();};
 
 function initSeasonPicker(){
   const current=seasonForDate();

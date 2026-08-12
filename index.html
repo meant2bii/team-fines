@@ -394,7 +394,10 @@
     <section id="panel-users" class="panel">
       <div class="card">
         <div class="card-label"><i class="ti ti-shield-lock"></i> &nbsp;Přístupy uživatelů</div>
-        <p class="helper-text">Nové účty začínají jako Hráč. Podle telefonu ručně potvrď vazbu na hráče, nastav práva a žádost schval.</p>
+        <div class="user-list-toolbar">
+          <label class="user-search"><i class="ti ti-search"></i><input id="user-search" type="search" placeholder="Hledat jméno, e-mail nebo telefon…" oninput="refreshUsersList()" autocomplete="off" /></label>
+          <label class="user-sort"><span>Řazení</span><select id="user-sort" onchange="refreshUsersList()"><option value="created-desc">Nejnovější žádost</option><option value="created-asc">Nejstarší žádost</option><option value="first-name">Jméno A–Z</option><option value="last-name">Příjmení A–Z</option></select></label>
+        </div>
         <div id="user-list"></div>
         <div id="user-list-empty" class="empty-state" style="display:none;"><i class="ti ti-users"></i><p>Zatím tu nejsou žádné žádosti o přístup.</p></div>
       </div>
