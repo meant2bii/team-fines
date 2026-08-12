@@ -473,15 +473,13 @@ function normalizedPersonName(value){
 }
 function suggestedRosterPlayer(user){
   const players=state.players||[];
-  if(user.phone){
-    const phoneMatch=players.find(player=>phoneNumbersMatch(player.phone,user.phone));
-    if(phoneMatch) return {player:phoneMatch,kind:'phone'};
-    return null; // A supplied phone is authoritative; do not guess by name.
-  }
-  const registeredName=normalizedPersonName(`${user.firstName||''} ${user.lastName||''}`.trim()||user.name);
-  if(!registeredName) return null;
-  const nameMatch=players.find(player=>normalizedPersonName(player.name)===registeredName);
-  return nameMatch?{player:nameMatch,kind:'name'}:null;
+  // Pairing is intentionally phone-only. Names are display information and
+  // must never be used as an automatic fallback because two people can share
+  // a name (or a registration can contain a typo). The admin can still leave
+  // the account unpaired until the registered number is present in the roster.
+  if(!user.phone) return null;
+  const phoneMatch=players.find(player=>phoneNumbersMatch(player.phone,user.phone));
+  return phoneMatch?{player:phoneMatch,kind:'phone'}:null;
 }
 function registrationPhone(){
   const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
@@ -703,7 +701,8 @@ window.updateAccessUser=async function(uid){
   if(status==='approved'&&role==='viewer'&&!linkedPlayerName){showToast('⚠ Pro roli Hráč nejdřív přiřaď hráče ze soupisky.');return;}
   const existing=accessUsers.find(user=>user.uid===uid);
   const player=(state.players||[]).find(item=>item.name===linkedPlayerName);
-  const phone=String(existing?.phone||'').trim()||(player?.phone?normalizedPhone(player.phone):'');
+  const phone=String(existing?.phone||'').trim();
+  if(linkedPlayerName&&(!phone||!player||!phoneNumbersMatch(player.phone,phone))){showToast('Přiřazení hráče vyžaduje shodu telefonního čísla z registrace a soupisky.');return;}
   try{await setDoc(doc(db,'accessRequests',uid),{status,role,linkedPlayerName,phone,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
   catch(error){console.error(error);showToast('⚠ Nepodařilo se uložit práva.');}
 };
@@ -762,14 +761,15 @@ function renderUsers(){
   list.innerHTML=users.map(user=>{
     const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
     const deleting=(deletionPending.has(user.uid)||!!user.deleteRequestedAt)&&!user.deleteError;
-    const suggestion=!user.linkedPlayerName?suggestedRosterPlayer(user):null;
-    const linkedPlayerName=user.linkedPlayerName||suggestion?.player.name||'';
-    const playerOptions=(state.players||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'cs')).map(player=>`<option value="${esc(player.name)}" ${player.name===linkedPlayerName?'selected':''}>${esc(player.name)}</option>`).join('');
-    const suggestionHint=suggestion?`<small class="user-match-hint"><i class="ti ti-sparkles"></i> Doporučeno podle ${suggestion.kind==='phone'?'telefonu':'jména'} — potvrď uložením.</small>`:'';
+    const registeredPhone=String(user.phone||'').trim();
+    const matchedPlayers=registeredPhone?(state.players||[]).filter(player=>phoneNumbersMatch(player.phone,registeredPhone)).sort((a,b)=>a.name.localeCompare(b.name,'cs')):[];
+    const linkedPlayerName=matchedPlayers.some(player=>player.name===user.linkedPlayerName)?user.linkedPlayerName:(matchedPlayers[0]?.name||'');
+    const playerOptions=matchedPlayers.map(player=>`<option value="${esc(player.name)}" ${player.name===linkedPlayerName?'selected':''}>${esc(player.name)}</option>`).join('');
+    const matchHint=registeredPhone&&matchedPlayers.length?`<small class="user-match-hint"><i class="ti ti-circle-check"></i> Shoda telefonu: ${esc(registeredPhone)}</small>`:registeredPhone?`<small class="user-match-required"><i class="ti ti-phone-off"></i> V soupisce není hráč s telefonem ${esc(registeredPhone)}.</small>`:`<small class="user-match-required"><i class="ti ti-alert-triangle"></i> Chybí telefon z registrace — hráče nelze přiřadit.</small>`;
     const created=user.createdAt?new Date(user.createdAt).toLocaleDateString('cs-CZ'):'—';
     const deletingUi=deleting?`<div class="user-delete-progress" role="status"><span><i class="ti ti-loader-2"></i> Mažu účet z Firebase a Firestore…</span><div class="user-delete-progress-track"><i></i></div></div>`:user.deleteError?`<div class="user-delete-error" role="status"><i class="ti ti-alert-triangle"></i> Mazání selhalo. Zkus jej znovu — požadavek se odešle znovu.</div>`:'';
     const disabled=deleting?'disabled aria-disabled="true"':'';
-    return `<article class="user-row${deleting?' is-deleting':''}"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div class="user-registration"><div class="user-name-line"><i class="access-status-dot ${status}" title="${label}" aria-label="Stav: ${label}"></i><strong>${esc(user.name||'Bez jména')}</strong></div><div class="user-registration-details"><small><b>Jméno:</b> ${esc(user.firstName||splitProfileName(user.name).firstName||'—')}</small><small><b>Příjmení:</b> ${esc(user.lastName||splitProfileName(user.name).lastName||'—')}</small><small><b>E-mail:</b> ${esc(user.email||'—')}</small><small><b>Telefon:</b> ${esc(user.phone||'—')}</small><small><b>Žádost:</b> ${esc(created)}</small></div>${suggestionHint}</div></div>${deletingUi}<div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}" ${disabled}><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}" class="access-status-${status}" onchange="updateAccessSelectStyle(this)" ${disabled}><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}" class="access-role-${role}" onchange="updateAccessSelectStyle(this)" ${disabled}><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')" ${disabled}><i class="ti ti-device-floppy"></i> Uložit</button><button class="btn-icon danger user-delete" type="button" onclick="deleteAccessUser('${uid}')" title="Trvale odstranit uživatele" aria-label="Trvale odstranit uživatele" ${disabled}><i class="ti ti-trash"></i></button></div></article>`;
+    return `<article class="user-row${deleting?' is-deleting':''}"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div class="user-registration"><div class="user-name-line"><i class="access-status-dot ${status}" title="${label}" aria-label="Stav: ${label}"></i><strong>${esc(user.name||'Bez jména')}</strong></div><div class="user-registration-details"><small><b>Jméno:</b> ${esc(user.firstName||splitProfileName(user.name).firstName||'—')}</small><small><b>Příjmení:</b> ${esc(user.lastName||splitProfileName(user.name).lastName||'—')}</small><small><b>E-mail:</b> ${esc(user.email||'—')}</small><small><b>Telefon:</b> ${esc(user.phone||'—')}</small><small><b>Žádost:</b> ${esc(created)}</small></div>${matchHint}</div></div>${deletingUi}<div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${matchedPlayers.length?'suggested-player':''}" ${disabled}><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}" class="access-status-${status}" onchange="updateAccessSelectStyle(this)" ${disabled}><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}" class="access-role-${role}" onchange="updateAccessSelectStyle(this)" ${disabled}><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')" ${disabled}><i class="ti ti-device-floppy"></i> Uložit</button><button class="btn-icon danger user-delete" type="button" onclick="deleteAccessUser('${uid}')" title="Trvale odstranit uživatele" aria-label="Trvale odstranit uživatele" ${disabled}><i class="ti ti-trash"></i></button></div></article>`;
   }).join('');
 }
 window.refreshUsersList=function(){renderUsers();};
