@@ -17,7 +17,10 @@ const ADMIN_EMAIL = 'lyrixzz@gmail.com';
 const FIREBASE_PROJECT_ID = 'team-fines';
 const FIREBASE_LOOKUP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=';
 const FIRESTORE_ACCESS_URL = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/databases/(default)/documents/accessRequests';
-const FIREBASE_DELETE_ACCOUNT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/accounts:delete';
+// Administrative deletion is the v1 accounts:delete endpoint. With the Apps
+// Script OAuth token it accepts localId + targetProjectId; the project-scoped
+// URL used previously is not the Firebase Auth delete-user endpoint.
+const FIREBASE_DELETE_ACCOUNT_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:delete';
 
 // Opening the web-app URL in a browser sends GET. Keep this endpoint deliberately
 // informational: notifications are accepted only through doPost with a Firebase ID token.
@@ -93,16 +96,16 @@ function deleteRegistration_(data) {
   const deleted = UrlFetchApp.fetch(FIREBASE_DELETE_ACCOUNT_URL, {
     method: 'post', contentType: 'application/json',
     headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
-    payload: JSON.stringify({localId: targetUid}), muteHttpExceptions: true
+    payload: JSON.stringify({localId: targetUid, targetProjectId: FIREBASE_PROJECT_ID}), muteHttpExceptions: true
   });
   if (deleted.getResponseCode() !== 200) {
-    throw new Error('Firebase Authentication delete failed: HTTP ' + deleted.getResponseCode());
+    throw new Error('Firebase Authentication delete failed: HTTP ' + deleted.getResponseCode() + ' — ' + deleted.getContentText());
   }
   const removed = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL + '/' + encodeURIComponent(targetUid), {
     method: 'delete', headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}, muteHttpExceptions: true
   });
   if (removed.getResponseCode() !== 200) {
-    throw new Error('Authentication account was deleted, but Firestore delete failed: HTTP ' + removed.getResponseCode());
+    throw new Error('Authentication account was deleted, but Firestore delete failed: HTTP ' + removed.getResponseCode() + ' — ' + removed.getContentText());
   }
   try {
     MailApp.sendEmail({

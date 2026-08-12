@@ -31,3 +31,5 @@ Pokud se přístup k Firestore nepodaří nastavit, e-mail nadále vždy přijde
 Tlačítko koše posílá požadavek Apps Scriptu. **Apps Script pak jako jediný krok odstraní Firebase Authentication i dokument `accessRequests` ve Firestore.** Aplikace řádek nemaže předem: zmizí až po potvrzené změně z Firestore. Po úspěchu i při chybě přijde potvrzovací e-mail na `lyrixzz@gmail.com`.
 
 Po každé změně `Code.gs` je nutné v Apps Scriptu použít **Deploy → Manage deployments → Edit → New version → Deploy**. Webová aplikace musí běžet jako **Me** a účet, pod kterým je nasazena, musí mít v projektu Firebase oprávnění k mazání uživatelů (u vlastníka projektu to bývá automatické). Pokud mazání selže, e-mail obsahuje přesný HTTP důvod z Firebase.
+
+Vyžadované oprávnění Google Cloud je `firebaseauth.users.delete`; pro účet nasazující skript ho poskytuje role **Firebase Authentication Admin** nebo **Owner** v projektu `team-fines`.
