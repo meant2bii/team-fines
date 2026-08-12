@@ -30,7 +30,7 @@ Pokud se přístup k Firestore nepodaří nastavit, e-mail nadále vždy přijde
 
 Tlačítko koše bezpečně zapíše žádost o mazání do Firestore. Minutový Apps Script spouštěč ji pak pod účtem vlastníka skriptu zpracuje: **odstraní Firebase Authentication i dokument `accessRequests` ve Firestore.** Aplikace řádek nemaže předem: zmizí až po potvrzené změně z Firestore. Po úspěchu i při chybě přijde potvrzovací e-mail na `lyrixzz@gmail.com`.
 
-Po prvním nasazení nové verze spusť v Apps Scriptu jednou funkci `installDeletionWorker` a potvrď oprávnění. Tím se vytvoří bezpečný minutový spouštěč; veřejná `/exec` URL už pro mazání účtů není potřeba.
+Po prvním nasazení nové verze zapni v Apps Scriptu zobrazení souboru `appsscript.json` (Project Settings → Show `appsscript.json` manifest file) a nahraď jej verzí z tohoto repozitáře. Po uložení spusť jednou funkci `installDeletionWorker` a potvrď nové oprávnění ke správě spouštěčů. Tím se vytvoří bezpečný minutový spouštěč; veřejná `/exec` URL už pro mazání účtů není potřeba.
 
 Po každé změně `Code.gs` je nutné v Apps Scriptu použít **Deploy → Manage deployments → Edit → New version → Deploy**. Webová aplikace musí běžet jako **Me** a účet, pod kterým je nasazena, musí mít v projektu Firebase oprávnění k mazání uživatelů (u vlastníka projektu to bývá automatické). Pokud mazání selže, e-mail obsahuje přesný HTTP důvod z Firebase.
 
