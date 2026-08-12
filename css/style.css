@@ -561,17 +561,22 @@ select { cursor:pointer; }
 .add-player-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
 @media(max-width:480px){ .add-player-grid{grid-template-columns:1fr;} }
 
-.player-row { display:flex; align-items:flex-start; gap:10px; padding:10px 6px; border-bottom:1.5px solid var(--bdr); cursor:pointer; border-radius:var(--r-sm); transition:background .12s; }
+.player-row { display:flex; align-items:flex-start; gap:10px; padding:13px 6px; border-bottom:1.5px solid var(--bdr); cursor:pointer; border-radius:var(--r-sm); transition:background .12s; }
 .player-row:last-child { border-bottom:none; }
 .player-row:hover { background:var(--bg-s); }
-
-.player-row-name { font-weight:700; font-size:14px; margin-bottom:2px; }
-.player-row-meta { display:flex; gap:5px; flex-wrap:wrap; align-items:center; margin-bottom:4px; }
-.meta-chip { display:inline-flex; align-items:center; gap:3px; font-size:11px; color:var(--tx-m); }
-.meta-chip .ti { font-size:11px; }
-
-.player-row-nicks { display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-top:2px; }
-.no-nick { font-size:11px; color:var(--tx-m); font-style:italic; }
+.player-avatar { width:38px; height:38px; display:grid; place-items:center; flex:0 0 auto; border-radius:50%; color:#fff; background:#12459a; font-size:12px; font-weight:800; }
+.player-row-content { flex:1; min-width:0; }
+.player-row-name { font-weight:750; font-size:15px; margin:0 0 4px; color:var(--tx); }
+.player-row-details { display:grid; gap:2px; }
+.player-detail { display:flex; align-items:center; gap:5px; min-width:0; color:var(--tx-m); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.player-detail .ti { color:#6687b8; font-size:12px; flex:0 0 auto; }
+.player-row-summary { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:7px; }
+.player-debt { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:8px; background:#f5e7dc; color:#7c3510; font-size:12px; font-weight:800; }
+.player-debt .ti { font-size:13px; }
+.player-fine-count { color:#8a5b42; font-size:11px; font-weight:700; }
+.player-row-nicks { display:flex; gap:5px; flex-wrap:wrap; align-items:center; margin-top:7px; }
+.player-nick-tag { display:inline-flex; align-items:center; gap:3px; padding:3px 7px; border:1px solid #c7daf8; border-radius:99px; background:#eef5ff; color:#245598; font-size:11px; font-weight:700; }
+.player-nick-tag .ti { color:#5582c2; font-size:11px; }
 
 .player-row-roles { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
 

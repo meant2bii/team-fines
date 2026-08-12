@@ -2090,19 +2090,24 @@ window.copyReport=function(){navigator.clipboard.writeText(document.getElementBy
 
 // ─── PLAYERS (FIX #2: edit modal + stats) ─────────────────────────
 window.addPlayer=async function(){
-  const name=document.getElementById('new-player-name').value.trim();
+  const firstName=document.getElementById('new-player-first-name').value.trim();
+  const lastName=document.getElementById('new-player-last-name').value.trim();
+  const name=`${firstName} ${lastName}`.trim();
   const email=document.getElementById('new-player-email').value.trim();
   const nick=document.getElementById('new-player-nick').value.trim();
-  const phone=document.getElementById('new-player-phone').value.trim();
+  const phone=document.getElementById('new-player-phone').value.trim().replace(/[\s()-]/g,'');
   const err=document.getElementById('add-player-err');
-  if(!name){showErr(err,'Jméno je povinné.');return;}
+  if(!firstName){showErr(err,'Jméno je povinné.');return;}
+  if(!lastName){showErr(err,'Příjmení je povinné.');return;}
+  if(!/^\+(420|421)\d{9}$/.test(phone)){showErr(err,'Telefon zadej ve formátu +420123456789 nebo +421123456789.');return;}
   if(state.players.find(p=>p.name.toLowerCase()===name.toLowerCase())){showErr(err,'Hráč s tímto jménem již existuje.');return;}
+  if(state.players.find(p=>normalizedPhone(p.phone)===phone)){showErr(err,'Hráč s tímto telefonem již existuje.');return;}
   if(email&&!email.includes('@')){showErr(err,'Neplatný e-mail.');return;}
   const nicknames=nick?nick.split(',').map(s=>s.trim()).filter(Boolean):[];
   const sk=seasonKey(activeSeason);
-  state.players.push({name,email,phone:phone||'',nicknames,seasons:[sk],roles:{}});
+  state.players.push({name,email,phone,nicknames,seasons:[sk],roles:{}});
   await saveState();err.style.display='none';
-  ['new-player-name','new-player-email','new-player-nick','new-player-phone'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['new-player-first-name','new-player-last-name','new-player-email','new-player-nick','new-player-phone'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   renderPlayers();populatePlayerSelects();showToast(`Hráč ${name} přidán ✓`);
 };
 
@@ -2116,20 +2121,20 @@ function renderPlayers(){
     const fineCount=(state.fines||[]).filter(f=>f.player===p.name).length;
     const fineTotal=(state.fines||[]).filter(f=>f.player===p.name).reduce((a,f)=>a+f.amount,0);
     const nicks=(p.nicknames||[]);
-    const nickHtml=nicks.length?nicks.map(n=>`<span class="badge badge-alias">${esc(n)}</span>`).join(' '):`<span class="no-nick">bez přezdívky</span>`;
+    const nickHtml=nicks.length?nicks.map(n=>`<span class="player-nick-tag"><i class="ti ti-at"></i>${esc(n)}</span>`).join(''):'';
     // Roles for current season
     const roles=(p.roles&&p.roles[sk])||[];
     const roleBadges=roles.map(r=>`<span class="badge ${roleClass(r)}">${esc(r)}</span>`).join(' ');
     return`<div class="player-row" onclick="openEditPlayerModal(${i})">
-      <div class="avatar" style="width:36px;height:36px;font-size:12px;flex-shrink:0;">${initials}</div>
-      <div style="flex:1;min-width:0;">
+      <div class="player-avatar">${initials}</div>
+      <div class="player-row-content">
         <div class="player-row-name">${esc(p.name)}</div>
-        <div class="player-row-meta">
-          ${p.phone?`<span class="meta-chip"><i class="ti ti-phone"></i> ${esc(p.phone)}</span>`:''}
-          ${p.email?`<span class="meta-chip"><i class="ti ti-mail"></i> ${esc(p.email)}</span>`:''}
-          <span class="badge badge-fine-count">${fineCount}× &middot; ${fineTotal} ${CONFIG.CURRENCY}</span>
+        <div class="player-row-details">
+          ${p.phone?`<span class="player-detail"><i class="ti ti-phone"></i>${esc(p.phone)}</span>`:''}
+          ${p.email?`<span class="player-detail"><i class="ti ti-mail"></i>${esc(p.email)}</span>`:''}
         </div>
-        <div class="player-row-nicks">${nickHtml}</div>
+        <div class="player-row-summary"><span class="player-debt"><i class="ti ti-wallet"></i>${fineTotal} ${CONFIG.CURRENCY}</span><span class="player-fine-count">${fineCount}× pokuta</span></div>
+        ${nickHtml?`<div class="player-row-nicks">${nickHtml}</div>`:''}
         ${roleBadges?`<div class="player-row-roles">${roleBadges}</div>`:''}
       </div>
       <div class="player-row-actions">

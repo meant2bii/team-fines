@@ -333,45 +333,29 @@
     <!-- ── PLAYERS ── -->
     <section id="panel-players" class="panel">
       <div id="players-form" style="display:none;">
-        <!-- FIX #3: CSV import as upload button -->
-        <div class="card import-card">
-          <div class="card-label"><i class="ti ti-brand-whatsapp"></i> &nbsp;Import hráčů ze skupiny</div>
-          <p class="helper-text">Nahraj CSV soubor ve stejném formátu jako WhatsApp export kontaktů. Hráči se importují do aktuálně vybrané sezóny, duplicity dle tel. čísla se přeskočí.</p>
-          <div class="import-row">
-            <label class="btn btn-wa btn-upload-label" for="csv-upload">
-              <i class="ti ti-upload"></i> Nahrát CSV
-            </label>
-            <input id="csv-upload" type="file" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)" />
-            <span id="csv-filename" class="csv-filename">Soubor nevybrán</span>
-          </div>
-          <div id="csv-preview" class="csv-preview" style="display:none;">
-            <div id="csv-preview-text"></div>
-            <div class="import-actions">
-              <button class="btn btn-secondary" onclick="cancelCSVImport()"><i class="ti ti-x"></i> Zrušit</button>
-              <button class="btn btn-wa" id="csv-confirm-btn" onclick="confirmCSVImport()"><i class="ti ti-check"></i> Potvrdit import</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Add player -->
         <div class="card">
           <div class="card-label">Přidat hráče ručně</div>
           <div class="add-player-grid">
             <div class="form-group">
               <label>Jméno <span class="required">*</span></label>
-              <input id="new-player-name" type="text" placeholder="Celé jméno" onkeydown="if(event.key==='Enter')addPlayer()" />
+              <input id="new-player-first-name" type="text" placeholder="Např. Michal" autocomplete="given-name" />
             </div>
             <div class="form-group">
-              <label>Telefon</label>
-              <input id="new-player-phone" type="tel" placeholder="+420 xxx xxx xxx" />
+              <label>Příjmení <span class="required">*</span></label>
+              <input id="new-player-last-name" type="text" placeholder="Např. Nevřala" autocomplete="family-name" onkeydown="if(event.key==='Enter')addPlayer()" />
             </div>
             <div class="form-group">
-              <label>E-mail</label>
+              <label>Telefon <span class="required">*</span></label>
+              <input id="new-player-phone" type="tel" inputmode="tel" placeholder="+420123456789" autocomplete="tel" />
+            </div>
+            <div class="form-group">
+              <label>E-mail <span class="label-hint">(volitelné)</span></label>
               <input id="new-player-email" type="email" placeholder="volitelné" />
             </div>
             <div class="form-group">
               <label>Přezdívky <span class="label-hint">(odděl čárkou)</span></label>
-              <input id="new-player-nick" type="text" placeholder="Bago, Teichi…" onkeydown="if(event.key==='Enter')addPlayer()" />
+              <input id="new-player-nick" type="text" placeholder="Lahváč, Pankáč…" onkeydown="if(event.key==='Enter')addPlayer()" />
             </div>
           </div>
           <div id="add-player-err" class="error-msg" style="display:none;"></div>
@@ -386,6 +370,26 @@
           <div id="player-list"></div>
           <div id="player-list-empty" class="empty-state" style="display:none;">
             <i class="ti ti-users"></i><p>Zatím žádní hráči.</p>
+          </div>
+        </div>
+
+        <!-- CSV import intentionally remains last: it is an occasional bulk action. -->
+        <div class="card import-card">
+          <div class="card-label"><i class="ti ti-brand-whatsapp"></i> &nbsp;Import hráčů ze skupiny</div>
+          <p class="helper-text">Formát souboru: <code>Name,Phone</code><br>Příklad řádku: <code>Jan Novák,+420123456789</code></p>
+          <div class="import-row">
+            <label class="btn btn-wa btn-upload-label" for="csv-upload">
+              <i class="ti ti-upload"></i> Nahrát CSV
+            </label>
+            <input id="csv-upload" type="file" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)" />
+            <span id="csv-filename" class="csv-filename">Soubor nevybrán</span>
+          </div>
+          <div id="csv-preview" class="csv-preview" style="display:none;">
+            <div id="csv-preview-text"></div>
+            <div class="import-actions">
+              <button class="btn btn-secondary" onclick="cancelCSVImport()"><i class="ti ti-x"></i> Zrušit</button>
+              <button class="btn btn-wa" id="csv-confirm-btn" onclick="confirmCSVImport()"><i class="ti ti-check"></i> Potvrdit import</button>
+            </div>
           </div>
         </div>
       </div>
