@@ -1794,7 +1794,8 @@ function renderReviewQueue(){
   document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;
   document.getElementById('review-list').innerHTML=reviewQueue.map((r,i)=>{
     const opts=(state.players||[]).map(p=>`<option value="${esc(p.name)}"${p.name===r.resolvedPlayer?' selected':''}>${esc(p.name)}</option>`).join('');
-    const candidateHint=r.needsPlayer&&r.candidates.length?`<div class="review-warning">Nejbližší shoda: ${r.candidates.map(c=>`${esc(c.player)} (${Math.round(c.score*100)} % )`).join(', ')}</div>`:'';
+    const candidateHint=r.needsPlayer&&r.candidates.length
+      ?`<div class="review-warning review-player-hint"><strong>Nejbližší shoda:</strong>${r.candidates.map(c=>`<button type="button" class="review-suggestion review-player-suggestion" onclick="updateReview(${i},'resolvedPlayer',${JSON.stringify(c.player).replace(/"/g,'&quot;')})">${esc(c.player)} · ${Math.round(c.score*100)} %</button>`).join('')}</div>`:'';
     const unknownPlayer=r.needsPlayer?`<div class="review-warning review-new-player"><strong>Hráč „${esc(voiceDisplayName(r.rawName))}“ není v databázi.</strong><span>Pro přidání zadej číslo s +420 nebo +421.</span><div><input id="review-phone-${i}" type="tel" inputmode="tel" placeholder="+420 123 456 789" /><button type="button" class="btn btn-primary" onclick="addReviewPlayer(${i})"><i class="ti ti-user-plus"></i> Přidat hráče</button></div></div>`:'';
     const reasonHint=r.reasonCandidates?.length?`<div class="review-warning review-reason-hint"><strong>Možná sazebníková položka:</strong>${r.reasonCandidates.map(c=>`<button type="button" class="review-suggestion" onclick="applyReviewReason(${i},${JSON.stringify(c.label).replace(/"/g,'&quot;')})">${esc(c.label)} · ${c.price} ${CONFIG.CURRENCY}</button>`).join('')}</div>`:'';
     const reviewSeason=r.season?parseSeasonKey(r.season):seasonForDate(new Date(r.ts||Date.now()));
