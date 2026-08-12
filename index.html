@@ -184,9 +184,6 @@
     <!-- ── ADD FINE ── -->
     <section id="panel-add" class="panel active">
 
-      <!-- Dashboard visible to all logged-in users -->
-      <div id="main-dashboard" class="dashboard-outer"></div>
-
       <div id="self-fine-form" style="display:none;">
         <div class="card self-fine-card">
           <div class="card-label"><i class="ti ti-user"></i> &nbsp;Přidej pokutu sobě</div>
@@ -214,6 +211,9 @@
           <div id="voice-live" class="voice-live" style="display:none;"></div>
         </div>
 
+        <!-- The voice action is primary; season overview deliberately follows it. -->
+        <div id="main-dashboard" class="dashboard-outer"></div>
+
         <div id="voice-review" style="display:none;">
           <div class="card">
             <div class="card-label review-label"><i class="ti ti-list-check"></i> Zkontroluj pokuty před uložením</div>
@@ -233,11 +233,11 @@
         <div class="card">
           <div class="card-label">Rychlý textový vstup</div>
           <div class="quick-row">
-            <input id="quick-input" type="text" placeholder="Erik – Červená  nebo  Michal Bago 30" autocomplete="off"
+            <input id="quick-input" type="text" placeholder="Erik 50 · Michal – Bago · 30" autocomplete="off"
               oninput="parseQuick(this.value)" onkeydown="if(event.key==='Enter')submitQuick()" />
             <button class="btn btn-primary" onclick="submitQuick()">Přidat</button>
           </div>
-          <div class="parse-preview" id="parse-preview">Formát: <strong>Hráč – Prohřešek</strong> (cena ze sazebníku) nebo <strong>Hráč – Prohřešek – Částka</strong></div>
+          <div class="parse-preview" id="parse-preview"><strong>Hráč – Částka</strong> · <strong>Hráč – Prohřešek</strong> (cena ze sazebníku) · <strong>Hráč – Prohřešek – Částka</strong></div>
         </div>
 
         <div class="card">
@@ -247,12 +247,10 @@
           <div class="form-group" style="position:relative;">
             <label>Hráč</label>
             <input id="f-player-text" type="text" placeholder="Začni psát jméno…" autocomplete="off"
-              oninput="playerAutocomplete(this.value)" onkeydown="playerAutocompleteKey(event)" />
+              onfocus="playerAutocomplete(this.value)" onblur="setTimeout(hidePlayerAutocomplete,120)" oninput="playerAutocomplete(this.value)" onkeydown="playerAutocompleteKey(event)" />
             <input type="hidden" id="f-player" />
             <div id="player-ac-list" class="ac-list" style="display:none;"></div>
           </div>
-          <!-- Recent players tiles -->
-          <div id="recent-players-row" class="tile-row" style="margin-bottom:12px;"></div>
 
           <!-- Reason autocomplete mirrors the player picker for touch and keyboard use. -->
           <div class="form-group" style="position:relative;">
@@ -266,7 +264,7 @@
 
           <div class="form-group">
             <label>Částka (CZK)</label>
-            <input id="f-amount" type="number" min="1" placeholder="Částka pro Unknown reason" style="max-width:160px;" />
+            <input id="f-amount" type="number" min="1" placeholder="Zapiš částku" style="max-width:160px;" />
           </div>
           <div class="form-actions"><button class="btn btn-primary" onclick="submitManual()"><i class="ti ti-plus"></i> Přidat pokutu</button></div>
         </div>

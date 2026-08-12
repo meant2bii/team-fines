@@ -1126,16 +1126,20 @@ window.submitQuick=function(){
   const resolved=resolvePlayerName(parsed.rawName)||parsed.rawName;
   ensurePlayer(resolved); addFine(resolved,parsed.reason||UNKNOWN_REASON,amount);
   document.getElementById('quick-input').value='';
-  document.getElementById('parse-preview').innerHTML=`Příklady: <strong>Erik 50</strong> &nbsp;·&nbsp; <strong>Michal Bago 30</strong>`;
+  document.getElementById('parse-preview').innerHTML=`Příklady: <strong>Erik 50</strong> · <strong>Michal Bago 30</strong> · <strong>Jirka – Červená karta – 500</strong>`;
 };
 
 // ─── PLAYER AUTOCOMPLETE (FIX #3) ─────────────────────────────────
 let acIndex=-1,acFiltered=[];
+window.hidePlayerAutocomplete=function(){
+  const list=document.getElementById('player-ac-list');
+  if(list) list.style.display='none';
+};
 window.playerAutocomplete=function(val){
   const hidden=document.getElementById('f-player');
   hidden.value=''; // reset until confirmed
   const list=document.getElementById('player-ac-list');
-  if(!val.trim()){list.style.display='none';acFiltered=[];return;}
+  if(!list) return;
   const norm=val.toLowerCase();
   acFiltered=(state.players||[]).filter(p=>
     p.name.toLowerCase().includes(norm)||
@@ -1163,7 +1167,6 @@ window.selectPlayer=function(name){
   document.getElementById('f-player-text').value=name;
   document.getElementById('f-player').value=name;
   document.getElementById('player-ac-list').style.display='none';
-  renderRecentPlayers();
 };
 
 // Recent players tiles
@@ -1479,7 +1482,7 @@ window.submitManual=function(){
   document.getElementById('f-player').value='';
   document.getElementById('f-reason').value='';
   document.getElementById('f-amount').value='';
-  renderReasonOptions(); renderRecentPlayers();
+  renderReasonOptions();
 };
 window.submitSelfFine=function(){
   if(!phoneUser) return;
@@ -1923,16 +1926,15 @@ window.saveEdit=async function(){
 
 // ─── DASHBOARD ───────────────────────────────────────────────────
 const SEASON_BUDGET = 10000; // CZK target per half-season
+function shortDashboardName(name){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  return parts.length>1?`${parts[0]} ${parts[parts.length-1][0]}.`:parts[0]||'—';
+}
 
 function renderDashboard(){
   const el=document.getElementById('main-dashboard'); if(!el) return;
   const fines=seasonFines();
   const sl=activeSeason?seasonLabel(activeSeason):'sezóna';
-
-  if(!fines.length){
-    el.innerHTML=`<div class="dash-empty"><i class="ti ti-chart-bar"></i> Zatím žádné pokuty – ${sl}</div>`;
-    return;
-  }
 
   const total=fines.reduce((a,f)=>a+f.amount,0);
   const count=fines.length;
@@ -1977,17 +1979,17 @@ function renderDashboard(){
 
   // ── Last 7 weeks ─────────────────────────────────────────────
   const WEEK=DAY*7;
-  const weeks7=Array.from({length:7},(_,i)=>{
-    const from=now-(6-i)*WEEK, to=from+WEEK;
+  const weeks7=Array.from({length:5},(_,i)=>{
+    const from=now-(4-i)*WEEK, to=from+WEEK;
     const wFines=fines.filter(f=>f.ts>=from&&f.ts<to);
     return{sum:wFines.reduce((a,f)=>a+f.amount,0),count:wFines.length};
   });
   const maxWeek=Math.max(...weeks7.map(d=>d.sum),1);
-  // Week label: "W23" style
-  function weekNum(offsetWeeks){
-    const d=new Date(now-(6-offsetWeeks)*WEEK);
-    const jan1=new Date(d.getFullYear(),0,1);
-    return `T${Math.ceil(((d-jan1)/DAY+jan1.getDay()+1)/7)}`;
+  function weekRange(offsetWeeks){
+    const from=new Date(now-(4-offsetWeeks)*WEEK);
+    const to=new Date(from.getTime()+6*DAY);
+    const compact=date=>`${date.getDate()}.${date.getMonth()+1}.`;
+    return `${compact(from)}–${compact(to)}`;
   }
   const spark7w=weeks7.map((d,i)=>{
     const h=Math.max(4,Math.round((d.sum/maxWeek)*44));
@@ -1995,7 +1997,7 @@ function renderDashboard(){
     return`<div class="spark-col">
       <div class="spark-val">${d.sum>0?d.sum:''}</div>
       <div class="spark-bar${isNow?' spark-bar-today':''}" style="height:${h}px" title="${d.sum} CZK, ${d.count} pokut"></div>
-      <div class="spark-lbl${isNow?' spark-lbl-today':''}">${weekNum(i)}</div>
+      <div class="spark-lbl${isNow?' spark-lbl-today':''}">${weekRange(i)}</div>
     </div>`;
   }).join('');
 
@@ -2031,7 +2033,7 @@ function renderDashboard(){
       <div class="dash-label">Největší dlužníci</div>
       ${topPlayers.map(([name,amt])=>`
         <div class="dash-bar-row">
-          <span class="dash-bar-name">${esc(name.split(' ')[0])}</span>
+          <span class="dash-bar-name">${esc(shortDashboardName(name))}</span>
           <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${Math.round(amt/maxP*100)}%"></div></div>
           <span class="dash-bar-amt">${amt}</span>
         </div>`).join('')}
@@ -2042,21 +2044,15 @@ function renderDashboard(){
       <div class="dash-label">Nejčastější přestupky</div>
       ${topReasons.map(([r,c])=>`
         <div class="dash-bar-row">
-          <span class="dash-bar-name" title="${esc(r)}">${esc(r.slice(0,15))}</span>
+          <span class="dash-bar-name" title="${esc(r)}">${esc(r===UNKNOWN_REASON?'Neuvedeno':r.slice(0,15))}</span>
           <div class="dash-bar-track"><div class="dash-bar-fill dash-bar-red" style="width:${Math.round(c/maxR*100)}%"></div></div>
           <span class="dash-bar-amt">${c}×</span>
         </div>`).join('')}
     </div>
 
-    <!-- Posledních 7 dní -->
+    <!-- Posledních 5 týdnů -->
     <div class="dash-card">
-      <div class="dash-label">Posledních 7 dní</div>
-      <div class="spark-wrap">${spark7}</div>
-    </div>
-
-    <!-- Posledních 7 týdnů -->
-    <div class="dash-card">
-      <div class="dash-label">Posledních 7 týdnů</div>
+      <div class="dash-label">Posledních 5 týdnů</div>
       <div class="spark-wrap">${spark7w}</div>
     </div>
 
