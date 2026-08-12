@@ -125,6 +125,15 @@ function takeMultiplier(text) {
   return {multiplier:Math.max(1,Math.min(99,multiplier)),text:value.slice(0,match.index).trim()};
 }
 
+function takeMultiplierAnywhere(text) {
+  const value=String(text).replace(/[.!?,;:]+\s*$/g,'').trim();
+  const match=value.match(/(?:^|\s)(\d{1,2})\s*(?:x|kr\u00e1t)|(?:^|\s)(dvakr\u00e1t|t\u0159ikr\u00e1t|trikrat|\u010dty\u0159ikr\u00e1t|ctyrikrat|p\u011bkr\u00e1t|petkrat|\u0161estkr\u00e1t|sestkrat|sedmkr\u00e1t|sedmkrat|osmkr\u00e1t|osmkrat|dev\u011btkr\u00e1t|devetkrat|desetkr\u00e1t|desetkrat)/iu);
+  if(!match) return {multiplier:1,text:value};
+  const multiplier=match[1]?Number(match[1]):MULTIPLIERS.get(normalise(match[2]))||1;
+  const cleaned=(value.slice(0,match.index)+' '+value.slice(match.index+match[0].length)).replace(/[.!?,;:]+/g,' ').replace(/\s+/g,' ').trim();
+  return {multiplier:Math.max(1,Math.min(99,multiplier)),text:cleaned};
+}
+
 function findPlayerPrefix(text, players) {
   const normalised = normalise(text);
   let exact = null;
@@ -196,20 +205,20 @@ function splitVoiceTranscriptLegacy(transcript, players = []) {
   // A recognizer may insert a comma/period between the spoken name and
   // amount ("Michal., 30 korun"). Do not split before a numeric token; a
   // comma followed by a name still separates two fines.
-  return text.split(/(?:(?<=\s),(?=\s*\d+\s)|,(?!\s*\d)|;|\n)+/).map(part => part.trim()).filter(Boolean);
+  return text.split(/(?:(?<=\s),(?=\s*\d+\s)|,(?!\s*(?:\d|dvakr\u00e1t|t\u0159ikr\u00e1t|trikrat|\u010dty\u0159ikr\u00e1t|ctyrikrat|p\u011bkr\u00e1t|petkrat|\u0161estkr\u00e1t|sestkrat|sedmkr\u00e1t|sedmkrat|osmkr\u00e1t|osmkrat|dev\u011btkr\u00e1t|devetkrat|desetkr\u00e1t|desetkrat))|;|\n)+/iu).map(part => part.trim()).filter(Boolean);
 }
 
 export function splitVoiceTranscript(transcript, players = []) {
   const text = String(transcript || '')
     .split(/\b(?:konec|stop)\b/iu)[0]
     .replace(/\s+(?:st\u0159edn\u00edk|dal\u0161\u00ed|dalsi|d\u00e1le|dale|a\s+dal\u0161\u00ed|je\u0161t\u011b|jeste|plus|nav\u00edc|a\s+tak\u00e9|a\s+taky|taky|potom|n\u00e1sleduje|nasleduje)(?=\s|[,;:.]|$)\s*[,;:.]?\s*/giu, '; ');
-  return text.split(/(?:(?<=\s),(?=\s*\d+\s)|,(?!\s*\d)|;|\n)+/).map(part => part.trim()).filter(Boolean);
+  return text.split(/(?:(?<=\s),(?=\s*\d+\s)|,(?!\s*(?:\d|dvakr\u00e1t|t\u0159ikr\u00e1t|trikrat|\u010dty\u0159ikr\u00e1t|ctyrikrat|p\u011bkr\u00e1t|petkrat|\u0161estkr\u00e1t|sestkrat|sedmkr\u00e1t|sedmkrat|osmkr\u00e1t|osmkrat|dev\u011btkr\u00e1t|devetkrat|desetkr\u00e1t|desetkrat))|;|\n)+/iu).map(part => part.trim()).filter(Boolean);
 }
 
 export function parseVoiceChunk(chunk, players = [], reasons = []) {
   const original = String(chunk || '').trim();
   if (!original) return null;
-  const {multiplier,text:withoutMultiplier}=takeMultiplier(original);
+  const {multiplier,text:withoutMultiplier}=takeMultiplierAnywhere(original);
   const leadingAmount=takeLeadingNumericAmount(withoutMultiplier);
   const { amount: trailingAmount, text: withoutAmount } = takeAmount(leadingAmount?.text||withoutMultiplier);
   const spokenAmount=leadingAmount?.amount??trailingAmount;

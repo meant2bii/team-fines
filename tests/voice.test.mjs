@@ -76,6 +76,16 @@ test('parses a spoken multiplier and returns total plus base rate', () => {
   assert.equal(fine.multiplier, 2);
 });
 
+test('attaches multipliers before or after the reason and across punctuation', () => {
+  const fines = parseVoiceTranscript('Michal Bago dvakrát, Erik Bago 4 krát.', players, [{ label: 'Bago', price: 30 }]);
+  assert.deepEqual(fines.map(f => [f.resolution.player, f.rate, f.multiplier, f.amount]), [
+    ['Michal Novák', 30, 2, 60], ['Erik Klemš', 30, 4, 120]
+  ]);
+  const reversed = parseVoiceTranscript('Michal dvakrát Bago', players, [{ label: 'Bago', price: 30 }]);
+  assert.equal(reversed[0].multiplier, 2);
+  assert.equal(reversed[0].amount, 60);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);
