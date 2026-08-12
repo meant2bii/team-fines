@@ -498,6 +498,15 @@ async function notifyAdminOfRegistration(user,profile){
   // token server-side before sending mail; its URL is never treated as a secret.
   await fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify({idToken,email:user.email,firstName:profile.firstName,lastName:profile.lastName,phone:profile.phone})});
 }
+async function requestAuthenticationAccountDeletion(targetUid){
+  const url=CONFIG.APPS_SCRIPT_NOTIFICATION_URL;
+  if(!url) throw new Error('Není nastavený administrační endpoint pro smazání účtu.');
+  const idToken=await currentUser.getIdToken(true);
+  // Apps Script cannot provide a CORS-readable response to a static GitHub Page.
+  // `no-cors` still delivers the authenticated request; the script validates the
+  // ID token again and deletes the Auth account with its own Google authority.
+  await fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify({action:'deleteRegistration',idToken,targetUid})});
+}
 function splitProfileName(name){
   const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
   return {firstName:parts.shift()||'',lastName:parts.join(' ')};
@@ -621,15 +630,16 @@ window.deleteAccessUser=async function(uid){
   if(!user){showToast('⚠ Tento uživatel už v seznamu není. Obnov stránku.');return;}
   if(normalizedEmail(user.email)===CONFIG.PRIMARY_ADMIN_EMAIL){showToast('⚠ Hlavní administrátorský účet nelze odstranit z aplikace.');return;}
   if(uid===currentUser.uid){showToast('⚠ Nemůžeš odstranit právě přihlášený účet.');return;}
-  if(!confirm(`Opravdu chceš odstranit registraci uživatele ${user.email}?\n\nZáznam zmizí ze sekce Uživatelé i z Firestore.`)) return;
-  if(!confirm(`Poslední potvrzení: trvale smazat registrační údaje ${user.email} z Firestore?`)) return;
+  if(!confirm(`Opravdu chceš trvale odstranit účet uživatele ${user.email}?\n\nZáznam zmizí z Uživatelů, Firestore i Firebase Authentication.`)) return;
+  if(!confirm(`Poslední potvrzení: smazat ${user.email} včetně možnosti přihlásit se?`)) return;
   try{
+    await requestAuthenticationAccountDeletion(uid);
     await deleteDoc(doc(db,'accessRequests',uid));
     // The listener usually refreshes this immediately; remove it locally as well
     // so the card never remains visible while the next snapshot is arriving.
     accessUsers=accessUsers.filter(item=>item.uid!==uid);
     renderUsers();
-    showToast('Registrace byla odstraněna z Firestore.');
+    showToast('Účet byl odstraněn z Firestore; smazání přihlášení se dokončuje.');
   }catch(error){
     console.error(error);
     const detail=error?.code==='permission-denied'
