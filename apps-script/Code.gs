@@ -96,6 +96,43 @@ function verifyFirebaseAuthDeletion() {
   return result;
 }
 
+// Install this once manually from the Apps Script editor. The time trigger
+// runs as the script owner, so it has the same Firebase Auth permission that
+// the verified integration test uses; it is independent of the public /exec
+// deployment and browser CORS.
+function installDeletionWorker() {
+  ScriptApp.getProjectTriggers()
+    .filter(function(trigger) { return trigger.getHandlerFunction() === 'processDeletionRequests'; })
+    .forEach(function(trigger) { ScriptApp.deleteTrigger(trigger); });
+  ScriptApp.newTrigger('processDeletionRequests').timeBased().everyMinutes(1).create();
+  console.log('Deletion worker installed: runs once per minute.');
+}
+
+function processDeletionRequests() {
+  const response = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL, {
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}, muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) {
+    throw new Error('Nelze načíst frontu mazání: HTTP ' + response.getResponseCode() + ' — ' + response.getContentText());
+  }
+  const documents = JSON.parse(response.getContentText()).documents || [];
+  documents.forEach(function(document) {
+    const fields = firestoreFields_(document.fields || {});
+    // A recorded error stays visible in the app until an administrator presses
+    // Delete again, which clears deleteError and explicitly retries it.
+    if (!fields.deleteRequestedAt || fields.deleteError) return;
+    const uid = String(document.name || '').split('/').pop();
+    try {
+      deleteRegistrationByUid_(uid, fields);
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error);
+      console.error('Deletion worker (' + uid + '): ' + message);
+      markDeletionError_(uid, message);
+      try { MailApp.sendEmail({to: ADMIN_EMAIL, subject: 'Pokuty: smazání účtu selhalo', body: 'UID: ' + uid + '\n\n' + message}); } catch (mailError) { console.error(mailError); }
+    }
+  });
+}
+
 function verifyDeletionCapability_(data) {
   const caller = verifyFirebaseToken_(data.idToken);
   if (!caller || !isApprovedAdmin_(caller)) throw new Error('Only an approved administrator can test deletion.');
@@ -135,6 +172,11 @@ function deleteRegistration_(data) {
   if (!isApprovedAdmin_(caller)) throw new Error('Only an approved administrator can delete registrations.');
   const target = getFirestoreDocument_(targetUid);
   const targetFields = firestoreFields_(target.fields || {});
+  deleteRegistrationByUid_(targetUid, targetFields);
+  return response_('deleted');
+}
+
+function deleteRegistrationByUid_(targetUid, targetFields) {
   if (String(targetFields.email || '').toLowerCase() === ADMIN_EMAIL) {
     throw new Error('The principal administrator account cannot be deleted by this endpoint.');
   }
@@ -157,7 +199,17 @@ function deleteRegistration_(data) {
     // irreversible operation into a reported failure.
     console.error(mailError && mailError.stack ? mailError.stack : mailError);
   }
-  return response_('deleted');
+}
+
+function markDeletionError_(targetUid, message) {
+  const result = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL + '/' + encodeURIComponent(targetUid)
+    + '?updateMask.fieldPaths=deleteError', {
+    method: 'patch', contentType: 'application/json',
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+    payload: JSON.stringify({fields: {deleteError: {stringValue: clean_(message, 900)}}}),
+    muteHttpExceptions: true
+  });
+  if (result.getResponseCode() !== 200) console.error('Nelze uložit stav chyby mazání: ' + result.getResponseCode() + ' ' + result.getContentText());
 }
 
 function deleteFirebaseAuthUser_(targetUid) {
