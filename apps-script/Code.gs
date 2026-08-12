@@ -16,6 +16,12 @@
 const ADMIN_EMAIL = 'lyrixzz@gmail.com';
 const FIREBASE_LOOKUP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=';
 
+// Opening the web-app URL in a browser sends GET. Keep this endpoint deliberately
+// informational: notifications are accepted only through doPost with a Firebase ID token.
+function doGet() {
+  return response_('Team Fines registration notifier is running.');
+}
+
 function doPost(event) {
   try {
     const data = JSON.parse(event && event.postData ? event.postData.contents : '{}');
