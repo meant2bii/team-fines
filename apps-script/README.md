@@ -25,3 +25,7 @@ Notifikaci dostanou vždy všichni schválení uživatelé s rolí **Administrá
 Před dalším nasazením v Apps Scriptu otevři **Project Settings** a zapni zobrazení souboru `appsscript.json` v editoru. Jeho obsah nahraď souborem `apps-script/appsscript.json` z tohoto repozitáře. Při nové autorizaci pak potvrď i oprávnění k Cloud Firestore. Účet `lyrixzz@gmail.com` musí mít v projektu `team-fines` oprávnění alespoň **Cloud Datastore User**; jako vlastník Firebase projektu ho obvykle již má.
 
 Pokud se přístup k Firestore nepodaří nastavit, e-mail nadále vždy přijde hlavnímu administrátorovi `lyrixzz@gmail.com`; pouze další Pokladníci a Administrátoři se v takovém případě vynechají. Konkrétní důvod je v Apps Script → **Spuštění** u funkce `doPost`.
+
+## Úplné smazání registrace
+
+Tlačítko koše v aplikaci odstraní cílový účet z Firebase Authentication **i** jeho dokument z `accessRequests` ve Firestore. Před nasazením této verze vlož novou verzi `Code.gs` a `appsscript.json` do Apps Scriptu a znovu proveď autorizaci. Účet, pod kterým Apps Script běží, musí mít IAM oprávnění `firebaseauth.users.delete` (role **Firebase Authentication Admin** nebo **Owner**) a přístup k Firestore. Hlavní administrátor ani právě přihlášený účet nelze tímto tlačítkem odstranit.

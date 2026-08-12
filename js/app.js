@@ -558,6 +558,20 @@ window.updateAccessUser=async function(uid){
   try{await setDoc(doc(db,'accessRequests',uid),{status,role,linkedPlayerName,updatedAt:new Date().toISOString(),approvedAt:status==='approved'?new Date().toISOString():null},{merge:true});showToast(status==='approved'?'Přístup schválen':'Práva uživatele uložena');}
   catch(error){console.error(error);showToast('⚠ Nepodařilo se uložit práva.');}
 };
+window.deleteAccessUser=async function(uid){
+  if(!isAdmin||!currentUser) return;
+  const user=accessUsers.find(item=>item.uid===uid);
+  if(!user) return;
+  if(normalizedEmail(user.email)===CONFIG.PRIMARY_ADMIN_EMAIL){showToast('⚠ Hlavní administrátorský účet nelze odstranit z aplikace.');return;}
+  if(uid===currentUser.uid){showToast('⚠ Nemůžeš odstranit právě přihlášený účet.');return;}
+  if(!confirm(`Opravdu chceš odstranit registraci uživatele ${user.email}?\n\nÚčet, e-mail i žádost budou trvale odstraněny.`)) return;
+  if(!confirm(`Poslední potvrzení: smazat účet ${user.email} z Firebase Authentication i Firestore?`)) return;
+  try{
+    const idToken=await currentUser.getIdToken();
+    await fetch(CONFIG.APPS_SCRIPT_NOTIFICATION_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({action:'deleteRegistration',idToken,targetUid:uid})});
+    showToast('Požadavek na smazání byl odeslán. Seznam se za okamžik obnoví.');
+  }catch(error){console.error(error);showToast('⚠ Požadavek na smazání se nepodařilo odeslat.');}
+};
 function renderUsers(){
   const list=document.getElementById('user-list'),empty=document.getElementById('user-list-empty'); if(!list) return;
   const users=accessUsers.slice().sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
@@ -567,9 +581,9 @@ function renderUsers(){
     const suggestion=!user.linkedPlayerName?suggestedRosterPlayer(user):null;
     const linkedPlayerName=user.linkedPlayerName||suggestion?.player.name||'';
     const playerOptions=(state.players||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'cs')).map(player=>`<option value="${esc(player.name)}" ${player.name===linkedPlayerName?'selected':''}>${esc(player.name)}</option>`).join('');
-    const phoneLine=user.phone?`<small>Telefon: ${esc(user.phone)}</small>`:'';
     const suggestionHint=suggestion?`<small class="user-match-hint"><i class="ti ti-sparkles"></i> Doporučeno podle ${suggestion.kind==='phone'?'telefonu':'jména'} — potvrď uložením.</small>`:'';
-    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span>${phoneLine}${suggestionHint}<small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
+    const created=user.createdAt?new Date(user.createdAt).toLocaleDateString('cs-CZ'):'—';
+    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div class="user-registration"><strong>${esc(user.name||'Bez jména')}</strong><div class="user-registration-details"><small><b>Jméno:</b> ${esc(user.firstName||splitProfileName(user.name).firstName||'—')}</small><small><b>Příjmení:</b> ${esc(user.lastName||splitProfileName(user.name).lastName||'—')}</small><small><b>E-mail:</b> ${esc(user.email||'—')}</small><small><b>Telefon:</b> ${esc(user.phone||'—')}</small><small><b>Žádost:</b> ${esc(created)}</small></div>${suggestionHint}</div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Hráč v soupisce<select id="user-player-${uid}" class="${suggestion?'suggested-player':''}"><option value="">— nepřiřazeno —</option>${playerOptions}</select></label><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button><button class="btn-icon danger user-delete" type="button" onclick="deleteAccessUser('${uid}')" title="Trvale odstranit uživatele" aria-label="Trvale odstranit uživatele"><i class="ti ti-trash"></i></button></div></article>`;
   }).join('');
 }
 

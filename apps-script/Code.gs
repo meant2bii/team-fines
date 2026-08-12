@@ -17,6 +17,7 @@ const ADMIN_EMAIL = 'lyrixzz@gmail.com';
 const FIREBASE_PROJECT_ID = 'team-fines';
 const FIREBASE_LOOKUP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=';
 const FIRESTORE_ACCESS_URL = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/databases/(default)/documents/accessRequests';
+const FIREBASE_DELETE_ACCOUNT_URL = 'https://identitytoolkit.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/accounts:delete';
 
 // Opening the web-app URL in a browser sends GET. Keep this endpoint deliberately
 // informational: notifications are accepted only through doPost with a Firebase ID token.
@@ -27,6 +28,7 @@ function doGet() {
 function doPost(event) {
   try {
     const data = JSON.parse(event && event.postData ? event.postData.contents : '{}');
+    if (data.action === 'deleteRegistration') return deleteRegistration_(data);
     const user = verifyFirebaseToken_(data.idToken);
     if (!user || !user.localId || !user.email) throw new Error('Neplatné ověření Firebase uživatele.');
 
@@ -57,6 +59,54 @@ function doPost(event) {
     console.error(error);
     return response_('error');
   }
+}
+
+// Deletes the Auth account and its matching Firestore access document together.
+// The request is accepted only from an approved administrator and is never
+// available to a browser without a valid Firebase ID token.
+function deleteRegistration_(data) {
+  const caller = verifyFirebaseToken_(data.idToken);
+  const targetUid = clean_(data.targetUid, 128);
+  if (!caller || !targetUid) throw new Error('Invalid delete request.');
+  if (String(caller.email || '').toLowerCase() === ADMIN_EMAIL && caller.localId === targetUid) {
+    throw new Error('The signed-in administrator cannot delete their own account.');
+  }
+  if (!isApprovedAdmin_(caller)) throw new Error('Only an approved administrator can delete registrations.');
+  const target = getFirestoreDocument_(targetUid);
+  const targetFields = firestoreFields_(target.fields || {});
+  if (String(targetFields.email || '').toLowerCase() === ADMIN_EMAIL) {
+    throw new Error('The principal administrator account cannot be deleted by this endpoint.');
+  }
+  const deleted = UrlFetchApp.fetch(FIREBASE_DELETE_ACCOUNT_URL, {
+    method: 'post', contentType: 'application/json',
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+    payload: JSON.stringify({localId: targetUid}), muteHttpExceptions: true
+  });
+  if (deleted.getResponseCode() !== 200) {
+    throw new Error('Firebase Authentication delete failed: HTTP ' + deleted.getResponseCode());
+  }
+  const removed = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL + '/' + encodeURIComponent(targetUid), {
+    method: 'delete', headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}, muteHttpExceptions: true
+  });
+  if (removed.getResponseCode() !== 200) {
+    throw new Error('Authentication account was deleted, but Firestore delete failed: HTTP ' + removed.getResponseCode());
+  }
+  return response_('deleted');
+}
+
+function isApprovedAdmin_(user) {
+  if (String(user.email || '').toLowerCase() === ADMIN_EMAIL) return true;
+  const document = getFirestoreDocument_(user.localId);
+  const fields = firestoreFields_(document.fields || {});
+  return fields.status === 'approved' && fields.role === 'admin';
+}
+
+function getFirestoreDocument_(uid) {
+  const result = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL + '/' + encodeURIComponent(uid), {
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}, muteHttpExceptions: true
+  });
+  if (result.getResponseCode() !== 200) throw new Error('Firestore access request could not be read: HTTP ' + result.getResponseCode());
+  return JSON.parse(result.getContentText());
 }
 
 // This uses the administrator's Google OAuth token, never a browser user's
