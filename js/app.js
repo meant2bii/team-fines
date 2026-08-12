@@ -19,7 +19,12 @@ import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
 import { seasonForDate, seasonKey as calendarSeasonKey } from './season.js';
 
 // ─── CONFIG ───────────────────────────────────────────────────────
-const CONFIG = { CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main', PRIMARY_ADMIN_EMAIL:'lyrixzz@gmail.com' };
+const CONFIG = {
+  CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main', PRIMARY_ADMIN_EMAIL:'lyrixzz@gmail.com',
+  // Set after deploying apps-script/Code.gs as a Google Apps Script web app.
+  // Empty means registration remains fully functional, without e-mail notification.
+  APPS_SCRIPT_NOTIFICATION_URL:''
+};
 const UNKNOWN_REASON='Unknown reason';
 // Each new season is imported as a dated catalogue.  Keep previous catalogues
 // in this format: changing a price appends a new period; an omitted item is
@@ -303,6 +308,7 @@ window.doRegister=async function(){
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
     await createPendingAccessRequest(cred.user,{firstName,lastName,phone});
+    notifyAdminOfRegistration(cred.user,{firstName,lastName,phone}).catch(error=>console.warn('Registration notification:',error));
   }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 
@@ -421,6 +427,14 @@ function registrationPhone(){
   const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
   const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
   return /^\d{9}$/.test(national)?`${prefix}${national}`:'';
+}
+async function notifyAdminOfRegistration(user,profile){
+  const url=CONFIG.APPS_SCRIPT_NOTIFICATION_URL;
+  if(!url) return;
+  const idToken=await user.getIdToken();
+  // A simple request avoids CORS preflight. The Apps Script validates the Firebase
+  // token server-side before sending mail; its URL is never treated as a secret.
+  await fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify({idToken,email:user.email,firstName:profile.firstName,lastName:profile.lastName,phone:profile.phone})});
 }
 function splitProfileName(name){
   const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
