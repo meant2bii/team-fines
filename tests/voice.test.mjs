@@ -77,7 +77,8 @@ test('parses a spoken multiplier and returns total plus base rate', () => {
 });
 
 test('attaches multipliers before or after the reason and across punctuation', () => {
-  const fines = parseVoiceTranscript('Michal Bago dvakrát, Erik Bago 4 krát.', players, [{ label: 'Bago', price: 30 }]);
+  const multiplierPlayers = [...players, { name: 'Erik Klemš', nicknames: [] }];
+  const fines = parseVoiceTranscript('Michal Bago dvakrát, Erik Bago 4 krát.', multiplierPlayers, [{ label: 'Bago', price: 30 }]);
   assert.deepEqual(fines.map(f => [f.resolution.player, f.rate, f.multiplier, f.amount]), [
     ['Michal Novák', 30, 2, 60], ['Erik Klemš', 30, 4, 120]
   ]);
