@@ -120,7 +120,7 @@ const WA_MEMBERS = [
 // ─── STATE ────────────────────────────────────────────────────────
 let isManager=false, isAdmin=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
 let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, activeSeason=null;
-let accessRequest=null, accessUsers=[], appSessionActive=false;
+let accessRequest=null, accessUsers=[], appSessionActive=false, verificationCooldownTimer=null;
 let registrationIntent=null;
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
@@ -315,7 +315,13 @@ window.doRegister=async function(){
     await sendVerificationLink(cred.user);
     showVerification(cred.user);
     registrationIntent=null;
-  }catch(e){registrationIntent=null;showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
+  }catch(e){
+    registrationIntent=null;resetAuthButtons();
+    // Auth state can already have switched to the verification screen. Surface
+    // delivery errors there instead of hiding them in the register form.
+    if(currentUser&&!currentUser.emailVerified){showVerification(currentUser);showErr(document.getElementById('verify-msg'),friendlyAuthError(e.code));}
+    else showErr(err,friendlyAuthError(e.code));
+  }
 };
 
 window.doLogin=async function(){
@@ -421,6 +427,8 @@ window.checkVerification=async function(){
 };
 window.resendVerification=async function(){
   if(!currentUser) return;
+  const remaining=verificationRemainingSeconds(currentUser.uid);
+  if(remaining){showErr(document.getElementById('verify-msg'),`Další e-mail lze odeslat za ${remaining} sekund.`);return;}
   try{await sendVerificationLink(currentUser);showToast('Ověřovací e-mail odeslán ✓');}
   catch(e){showErr(document.getElementById('verify-msg'),friendlyAuthError(e.code));}
 };
@@ -479,16 +487,31 @@ function stagedRegistrationProfile(user){
 function clearStagedRegistrationProfile(uid){
   try{localStorage.removeItem(stagedRegistrationProfileKey(uid));}catch(error){console.warn('Registration profile cleanup:',error);}
 }
-function emailVerificationSettings(){
-  return {url:`${window.location.origin}${window.location.pathname}`,handleCodeInApp:false};
+function verificationCooldownKey(uid){return `team-fines:verification-sent:${uid}`;}
+function verificationRemainingSeconds(uid){
+  try{return Math.max(0,Math.ceil((90000-(Date.now()-Number(localStorage.getItem(verificationCooldownKey(uid))||0)))/1000));}
+  catch(error){return 0;}
+}
+function renderVerificationCooldown(user=currentUser){
+  const button=document.getElementById('verify-resend-btn'); if(!button||!user) return;
+  clearTimeout(verificationCooldownTimer);
+  const seconds=verificationRemainingSeconds(user.uid);
+  button.disabled=seconds>0;
+  button.innerHTML=seconds>0?`<i class="ti ti-clock"></i> Znovu odeslat za ${seconds} s`:'<i class="ti ti-mail"></i> Znovu odeslat e-mail';
+  if(seconds>0) verificationCooldownTimer=setTimeout(()=>renderVerificationCooldown(user),1000);
 }
 async function sendVerificationLink(user){
-  await sendEmailVerification(user,emailVerificationSettings());
+  // Use Firebase's built-in authorised action domain. The user returns to the
+  // app manually, so delivery does not depend on a GitHub Pages redirect.
+  await sendEmailVerification(user);
+  try{localStorage.setItem(verificationCooldownKey(user.uid),String(Date.now()));}catch(error){console.warn('Verification cooldown storage:',error);}
+  renderVerificationCooldown(user);
 }
 function showVerification(user){
   isManager=false;isAdmin=false;appSessionActive=false;showScreen('verify');
   const s=document.getElementById('verify-sub');
   if(s) s.textContent=`Na ${user.email} jsme odeslali ověřovací odkaz. Klikni na něj a potom se vrať sem.`;
+  renderVerificationCooldown(user);
 }
 async function notifyAdminOfRegistration(user,profile){
   const url=CONFIG.APPS_SCRIPT_NOTIFICATION_URL;
@@ -2225,7 +2248,7 @@ let toastTimer=null;
 function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2800);}
 function showErr(el,msg){el.textContent=msg;el.style.display='block';}
 function friendlyAuthError(code){
-  const map={'auth/email-already-in-use':'Tento e-mail je již zaregistrován.','auth/invalid-email':'Neplatný e-mail.','auth/weak-password':'Heslo je příliš slabé (min. 6 znaků).','auth/user-not-found':'Účet s tímto e-mailem neexistuje.','auth/wrong-password':'Nesprávné heslo.','auth/invalid-credential':'Nesprávný e-mail nebo heslo.','auth/too-many-requests':'Příliš mnoho pokusů. Zkus to za chvíli.','auth/network-request-failed':'Chyba sítě. Zkontroluj připojení.','auth/unauthorized-continue-uri':'Ověřovací odkaz zatím není povolen pro adresu aplikace. Kontaktuj správce.'};
+  const map={'auth/email-already-in-use':'Tento e-mail je již zaregistrován.','auth/invalid-email':'Neplatný e-mail.','auth/weak-password':'Heslo je příliš slabé (min. 6 znaků).','auth/user-not-found':'Účet s tímto e-mailem neexistuje.','auth/wrong-password':'Nesprávné heslo.','auth/invalid-credential':'Nesprávný e-mail nebo heslo.','auth/too-many-requests':'Firebase dočasně zablokoval další odesílání. Vyčkej alespoň hodinu a pak zkus jeden e-mail.','auth/network-request-failed':'Chyba sítě. Zkontroluj připojení.','auth/unauthorized-continue-uri':'Ověřovací odkaz zatím není povolen pro adresu aplikace. Kontaktuj správce.'};
   return map[code]||`Chyba: ${code}`;
 }
 
