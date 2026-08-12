@@ -23,7 +23,7 @@ const CONFIG = {
   CURRENCY:'CZK', FIRESTORE_DOC:'teamdata/main', PRIMARY_ADMIN_EMAIL:'lyrixzz@gmail.com',
   // Set after deploying apps-script/Code.gs as a Google Apps Script web app.
   // Empty means registration remains fully functional, without e-mail notification.
-  APPS_SCRIPT_NOTIFICATION_URL:''
+  APPS_SCRIPT_NOTIFICATION_URL:'https://script.google.com/macros/s/AKfycbwxHIR8tCvHo8k-_UpQEzaR-DmPX53g7pZs_imAE0vd7Nbs36Hmmwke2HEPAXvIAqJIaA/exec'
 };
 const UNKNOWN_REASON='Unknown reason';
 // Each new season is imported as a dated catalogue.  Keep previous catalogues
