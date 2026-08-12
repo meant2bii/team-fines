@@ -49,7 +49,8 @@ function doPost(event) {
       '',
       'Otevři aplikaci → Uživatelé, ručně přiřaď hráče ze soupisky a nastav práva.'
     ].join('\n');
-    MailApp.sendEmail({to: notificationRecipients_().join(','), subject: subject, body: plain, htmlBody: plain.replace(/\n/g, '<br>')});
+    const recipients = notificationRecipients_();
+    MailApp.sendEmail({to: recipients.join(','), subject: subject, body: plain, htmlBody: plain.replace(/\n/g, '<br>')});
     cache.put(cacheKey, '1', 21600);
     return response_('sent');
   } catch (error) {
@@ -62,21 +63,28 @@ function doPost(event) {
 // token. Notification recipients therefore always follow the current roles in
 // the Users screen without exposing e-mail addresses to a new registrant.
 function notificationRecipients_() {
-  const result = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL, {
-    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
-    muteHttpExceptions: true
-  });
-  if (result.getResponseCode() !== 200) {
-    throw new Error('Firestore accessRequests could not be read: HTTP ' + result.getResponseCode());
+  try {
+    const result = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL, {
+      headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+      muteHttpExceptions: true
+    });
+    if (result.getResponseCode() !== 200) {
+      throw new Error('Firestore accessRequests could not be read: HTTP ' + result.getResponseCode());
+    }
+    const documents = (JSON.parse(result.getContentText()).documents || []);
+    const recipients = documents
+      .map(document => firestoreFields_(document.fields || {}))
+      .filter(user => user.status === 'approved' && (user.role === 'admin' || user.role === 'cashier'))
+      .map(user => String(user.email || '').trim().toLowerCase())
+      .filter(email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+    const unique = [...new Set(recipients)];
+    return unique.includes(ADMIN_EMAIL) ? unique : [ADMIN_EMAIL].concat(unique);
+  } catch (error) {
+    // Delivery to the principal administrator must never depend on the optional
+    // recipient lookup. The Apps Script execution log retains the exact reason.
+    console.error('Additional recipient lookup failed:', error);
+    return [ADMIN_EMAIL];
   }
-  const documents = (JSON.parse(result.getContentText()).documents || []);
-  const recipients = documents
-    .map(document => firestoreFields_(document.fields || {}))
-    .filter(user => user.status === 'approved' && (user.role === 'admin' || user.role === 'cashier'))
-    .map(user => String(user.email || '').trim().toLowerCase())
-    .filter(email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
-  const unique = [...new Set(recipients)];
-  return unique.includes(ADMIN_EMAIL) ? unique : [ADMIN_EMAIL].concat(unique);
 }
 
 function firestoreFields_(fields) {

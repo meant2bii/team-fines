@@ -23,3 +23,5 @@ Skript ověřuje Firebase ID token na straně Googlu, takže e-mail neposílá a
 Notifikaci dostanou vždy všichni schválení uživatelé s rolí **Administrátor** nebo **Pokladník**. Seznam se čte přímo z kolekce `accessRequests` ve Firestore, takže ho není nutné spravovat dvakrát.
 
 Před dalším nasazením v Apps Scriptu otevři **Project Settings** a zapni zobrazení souboru `appsscript.json` v editoru. Jeho obsah nahraď souborem `apps-script/appsscript.json` z tohoto repozitáře. Při nové autorizaci pak potvrď i oprávnění k Cloud Firestore. Účet `lyrixzz@gmail.com` musí mít v projektu `team-fines` oprávnění alespoň **Cloud Datastore User**; jako vlastník Firebase projektu ho obvykle již má.
+
+Pokud se přístup k Firestore nepodaří nastavit, e-mail nadále vždy přijde hlavnímu administrátorovi `lyrixzz@gmail.com`; pouze další Pokladníci a Administrátoři se v takovém případě vynechají. Konkrétní důvod je v Apps Script → **Spuštění** u funkce `doPost`.
