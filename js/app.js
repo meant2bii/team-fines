@@ -582,17 +582,29 @@ window.updateAccessUser=async function(uid){
   catch(error){console.error(error);showToast('⚠ Nepodařilo se uložit práva.');}
 };
 window.deleteAccessUser=async function(uid){
-  if(!isAdmin||!currentUser) return;
+  if(!isAdmin||!currentUser){showToast('⚠ Smazání může provést pouze administrátor.');return;}
   const user=accessUsers.find(item=>item.uid===uid);
-  if(!user) return;
+  if(!user){showToast('⚠ Tento uživatel už v seznamu není. Obnov stránku.');return;}
   if(normalizedEmail(user.email)===CONFIG.PRIMARY_ADMIN_EMAIL){showToast('⚠ Hlavní administrátorský účet nelze odstranit z aplikace.');return;}
   if(uid===currentUser.uid){showToast('⚠ Nemůžeš odstranit právě přihlášený účet.');return;}
   if(!confirm(`Opravdu chceš odstranit registraci uživatele ${user.email}?\n\nZáznam zmizí ze sekce Uživatelé i z Firestore.`)) return;
   if(!confirm(`Poslední potvrzení: trvale smazat registrační údaje ${user.email} z Firestore?`)) return;
   try{
     await deleteDoc(doc(db,'accessRequests',uid));
+    // The listener usually refreshes this immediately; remove it locally as well
+    // so the card never remains visible while the next snapshot is arriving.
+    accessUsers=accessUsers.filter(item=>item.uid!==uid);
+    renderUsers();
     showToast('Registrace byla odstraněna z Firestore.');
-  }catch(error){console.error(error);showToast('⚠ Požadavek na smazání se nepodařilo odeslat.');}
+  }catch(error){
+    console.error(error);
+    const detail=error?.code==='permission-denied'
+      ?'Firestore smazání nepovolil. Přihlas se znovu jako administrátor.'
+      :error?.code==='unavailable'
+        ?'Firestore je momentálně nedostupný. Zkontroluj připojení a zkus to znovu.'
+        :'Smazání se nepodařilo: '+(error?.message||'neznámá chyba');
+    showToast('⚠ '+detail);
+  }
 };
 function renderUsers(){
   const list=document.getElementById('user-list'),empty=document.getElementById('user-list-empty'); if(!list) return;
