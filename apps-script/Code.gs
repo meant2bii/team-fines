@@ -16,6 +16,7 @@
 const ADMIN_EMAIL = 'lyrixzz@gmail.com';
 const FIREBASE_PROJECT_ID = 'team-fines';
 const FIREBASE_LOOKUP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=';
+const FIREBASE_SIGN_UP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=';
 const FIRESTORE_ACCESS_URL = 'https://firestore.googleapis.com/v1/projects/' + FIREBASE_PROJECT_ID + '/databases/(default)/documents/accessRequests';
 // Administrative deletion is the v1 accounts:delete endpoint. With the Apps
 // Script OAuth token it accepts localId + targetProjectId; the project-scoped
@@ -32,6 +33,7 @@ function doPost(event) {
   try {
     const data = JSON.parse(event && event.postData ? event.postData.contents : '{}');
     if (data.action === 'deleteRegistration') return deleteRegistration_(data);
+    if (data.action === 'verifyDeletionCapability') return verifyDeletionCapability_(data);
     const user = verifyFirebaseToken_(data.idToken);
     if (!user || !user.localId || !user.email) throw new Error('Neplatné ověření Firebase uživatele.');
 
@@ -77,6 +79,49 @@ function doPost(event) {
   }
 }
 
+// Run this manually from the Apps Script editor, or invoke it from the
+// authenticated admin UI. It creates a disposable account and removes it
+// through the exact same privileged REST call used for a real registration.
+// No roster, fine or real user account is touched.
+function verifyFirebaseAuthDeletion() {
+  let result;
+  try { result = verifyFirebaseAuthDeletion_(); }
+  catch (error) { result = {ok: false, message: String(error && error.message ? error.message : error)}; }
+  console.log(JSON.stringify(result));
+  MailApp.sendEmail({
+    to: ADMIN_EMAIL,
+    subject: result.ok ? 'Pokuty: test mazání Firebase prošel' : 'Pokuty: test mazání Firebase selhal',
+    body: result.message
+  });
+  return result;
+}
+
+function verifyDeletionCapability_(data) {
+  const caller = verifyFirebaseToken_(data.idToken);
+  if (!caller || !isApprovedAdmin_(caller)) throw new Error('Only an approved administrator can test deletion.');
+  return response_(JSON.stringify(verifyFirebaseAuthDeletion()));
+}
+
+function verifyFirebaseAuthDeletion_() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty('FIREBASE_WEB_API_KEY');
+  if (!apiKey) throw new Error('Chybí Script Property FIREBASE_WEB_API_KEY.');
+  const email = 'team-fines-delete-check-' + Date.now() + '@example.invalid';
+  const password = 'Tf!' + Utilities.getUuid() + 'x9';
+  const created = UrlFetchApp.fetch(FIREBASE_SIGN_UP_URL + encodeURIComponent(apiKey), {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({email: email, password: password, returnSecureToken: true}), muteHttpExceptions: true
+  });
+  if (created.getResponseCode() !== 200) {
+    throw new Error('Nelze vytvořit testovací účet: HTTP ' + created.getResponseCode() + ' — ' + created.getContentText());
+  }
+  const uid = JSON.parse(created.getContentText()).localId;
+  const deleted = deleteFirebaseAuthUser_(uid);
+  if (!deleted.ok) {
+    throw new Error('Testovací účet ' + email + ' byl vytvořen, ale jeho smazání selhalo. ' + deleted.message);
+  }
+  return {ok: true, message: 'Test prošel: vytvořený a následně odstraněný účet ' + email + ' (UID ' + uid + ').'};
+}
+
 // Deletes the Auth account and its matching Firestore access document together.
 // The request is accepted only from an approved administrator and is never
 // available to a browser without a valid Firebase ID token.
@@ -93,14 +138,8 @@ function deleteRegistration_(data) {
   if (String(targetFields.email || '').toLowerCase() === ADMIN_EMAIL) {
     throw new Error('The principal administrator account cannot be deleted by this endpoint.');
   }
-  const deleted = UrlFetchApp.fetch(FIREBASE_DELETE_ACCOUNT_URL, {
-    method: 'post', contentType: 'application/json',
-    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
-    payload: JSON.stringify({localId: targetUid, targetProjectId: FIREBASE_PROJECT_ID}), muteHttpExceptions: true
-  });
-  if (deleted.getResponseCode() !== 200) {
-    throw new Error('Firebase Authentication delete failed: HTTP ' + deleted.getResponseCode() + ' — ' + deleted.getContentText());
-  }
+  const deleted = deleteFirebaseAuthUser_(targetUid);
+  if (!deleted.ok) throw new Error(deleted.message);
   const removed = UrlFetchApp.fetch(FIRESTORE_ACCESS_URL + '/' + encodeURIComponent(targetUid), {
     method: 'delete', headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()}, muteHttpExceptions: true
   });
@@ -119,6 +158,18 @@ function deleteRegistration_(data) {
     console.error(mailError && mailError.stack ? mailError.stack : mailError);
   }
   return response_('deleted');
+}
+
+function deleteFirebaseAuthUser_(targetUid) {
+  const deleted = UrlFetchApp.fetch(FIREBASE_DELETE_ACCOUNT_URL, {
+    method: 'post', contentType: 'application/json',
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+    payload: JSON.stringify({localId: targetUid, targetProjectId: FIREBASE_PROJECT_ID}), muteHttpExceptions: true
+  });
+  if (deleted.getResponseCode() !== 200) {
+    return {ok: false, message: 'Firebase Authentication delete failed: HTTP ' + deleted.getResponseCode() + ' — ' + deleted.getContentText()};
+  }
+  return {ok: true};
 }
 
 function isApprovedAdmin_(user) {

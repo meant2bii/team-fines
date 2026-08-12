@@ -33,3 +33,7 @@ Tlačítko koše posílá požadavek Apps Scriptu. **Apps Script pak jako jedin�
 Po každé změně `Code.gs` je nutné v Apps Scriptu použít **Deploy → Manage deployments → Edit → New version → Deploy**. Webová aplikace musí běžet jako **Me** a účet, pod kterým je nasazena, musí mít v projektu Firebase oprávnění k mazání uživatelů (u vlastníka projektu to bývá automatické). Pokud mazání selže, e-mail obsahuje přesný HTTP důvod z Firebase.
 
 Vyžadované oprávnění Google Cloud je `firebaseauth.users.delete`; pro účet nasazující skript ho poskytuje role **Firebase Authentication Admin** nebo **Owner** v projektu `team-fines`.
+
+### Ověření bez mazání skutečného účtu
+
+Po nasazení otevři v Apps Scriptu funkci `verifyFirebaseAuthDeletion` a klikni **Spustit**. Funkce vytvoří jednorázový testovací Firebase účet a ihned jej odstraní stejným endpointem jako aplikace. Výsledek je v **Spuštěních** a zároveň přijde na `lyrixzz@gmail.com`. Pokud test selže, obsahuje přesnou odpověď Google API a nic skutečného nemaže.
