@@ -649,6 +649,9 @@ select { cursor:pointer; }
 .profile-details dd { margin-top:2px; color:var(--tx); font-size:14px; font-weight:600; overflow-wrap:anywhere; }
 .modal .form-group { margin-top:10px; }
 .edit-reason-group { position:relative; }
+.edit-date-group { padding:10px 11px; border:1px solid #dbeafe; border-radius:12px; background:#f8fbff; }
+.edit-date-group input { background:#fff; }
+.edit-date-group .label-hint { margin:1px 0 0; font-size:11px; line-height:1.35; }
 .edit-catalog-choice { margin-top:10px; padding:10px; border:1px solid rgba(217,119,6,.35); border-radius:var(--r-md); background:#fff7e5; color:#92400e; font-size:12px; line-height:1.35; }
 .edit-catalog-choice strong,.edit-catalog-choice span { display:block; }
 .edit-catalog-choice span { margin-top:2px; }

@@ -432,6 +432,7 @@
     <div class="form-group edit-reason-group"><label>Prohřešek ze sazebníku</label><input id="edit-reason" type="text" placeholder="Začni psát prohřešek…" autocomplete="off" onfocus="editReasonAutocomplete(this.value)" onblur="setTimeout(hideEditReasonAutocomplete,120)" oninput="editReasonAutocomplete(this.value)" onkeydown="editReasonAutocompleteKey(event)" /><div id="edit-reason-ac-list" class="ac-list" style="display:none;"></div></div>
     <div id="edit-catalog-choice" class="edit-catalog-choice" style="display:none;"></div>
     <div class="form-group"><label>Částka (CZK)</label><input id="edit-amount" type="number" inputmode="decimal" step="1" style="min-width:140px;" /></div>
+    <div class="form-group edit-date-group"><label>Datum udělení</label><input id="edit-date" type="date" /><p class="label-hint">Pokuta se zařadí do historie a sazebníku platného v tento den.</p></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeEditModal()">Zrušit</button>
       <button class="btn btn-primary"   onclick="saveEdit()">Uložit</button>

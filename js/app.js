@@ -1864,6 +1864,10 @@ window.openEdit=function(idx){
   document.getElementById('edit-player').value=f.player;
   document.getElementById('edit-reason').value=f.reason;
   document.getElementById('edit-amount').value=f.amount;
+  const date=new Date(f.ts||Date.now());
+  // Use the local calendar date so a user never sees the previous day due to UTC.
+  const localDate=new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  document.getElementById('edit-date').value=localDate;
   document.getElementById('edit-reason-ac-list').style.display='none';
   document.getElementById('edit-catalog-choice').style.display='none';
   document.getElementById('edit-modal').classList.add('open');
@@ -1918,8 +1922,12 @@ window.saveEdit=async function(){
   f.player=document.getElementById('edit-player').value;
   f.reason=document.getElementById('edit-reason').value.trim();
   const amount=Number(document.getElementById('edit-amount').value);
-  if(!f.player||!f.reason||!Number.isFinite(amount)||amount===0){alert('Vyber hráče, zadej důvod a platnou nenulovou částku.');return;}
+  const dateValue=document.getElementById('edit-date').value;
+  if(!f.player||!f.reason||!Number.isFinite(amount)||amount===0||!dateValue){alert('Vyber hráče, zadej důvod, platnou nenulovou částku a datum.');return;}
   f.amount=amount;
+  // Preserve the intended visible time convention (midday) while changing only
+  // the date, so calendar grouping remains stable across time zones.
+  f.ts=new Date(`${dateValue}T12:00:00`).getTime();
   const saved=await saveState();
   if(saved){window.closeEditModal();renderLog();showToast('Pokuta upravena ✓');}
 };
@@ -1955,7 +1963,10 @@ function renderDashboard(){
   const maxR=topReasons[0]?topReasons[0][1]:1;
 
   // ── Last 7 days ──────────────────────────────────────────────
-  const now=Date.now(),DAY=86400000;
+  // Calendar-day boundaries prevent a fine entered at 12:00 from being missed
+  // when the dashboard is opened earlier in the day.
+  const today=new Date(); today.setHours(0,0,0,0);
+  const now=today.getTime(),DAY=86400000;
   const days7=Array.from({length:7},(_,i)=>{
     const from=now-(6-i)*DAY, to=from+DAY;
     return{
