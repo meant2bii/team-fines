@@ -33,6 +33,18 @@ function similarity(a, b) {
   return 1 - editDistance(left, right) / Math.max(left.length, right.length);
 }
 
+// Lightweight Czech ASR lexicon: these are common phonetic spellings emitted
+// by browser speech recognition for short nicknames and catalogue words.
+const PHONETIC_ALIASES = new Map([
+  ['taichy','teichi'], ['teichy','teichi'], ['teichi','teichi'],
+  ['vago','bago'], ['vagó','bago'], ['blogo','bago'], ['bago','bago'],
+  ['pichovina','picovina'], ['pitchovina','picovina'], ['píčovina','picovina']
+]);
+function phoneticAlias(value){
+  const key=normalise(value).replace(/\s+/g,'');
+  return PHONETIC_ALIASES.get(key)||key;
+}
+
 function playerTerms(player) {
   return [player.name, ...(player.nicknames || [])].map(normalise).filter(Boolean);
 }
@@ -52,7 +64,7 @@ export function resolveVoicePlayer(rawName, players = []) {
       // A spoken first name is useful only when it identifies one player.
       // If several roster names share it, the ambiguity margin below rejects it.
       if (term.startsWith(query) || query.startsWith(term)) return .9;
-      return similarity(term, query);
+      return Math.max(similarity(term, query), similarity(phoneticAlias(term), phoneticAlias(query)));
     }), 0);
     return { player: player.name, score };
   }).sort((a, b) => b.score - a.score);
@@ -74,6 +86,7 @@ function parseSpokenAmount(tokens) {
   let total = 0, current = 0, used = false;
   for (const original of tokens) {
     const word = normalise(original);
+    if (word === 'stokorun' || word === 'stokoruna' || word === 'stovku' || word === 'stovka') { current += 100; used = true; continue; }
     if (word === 'sto' || word === 'sta' || word === 'ste' || word === 'set') { current = Math.max(1, current) * 100; used = true; continue; }
     if (word === 'tisic' || word === 'tisice' || word === 'tisicu') { total += Math.max(1, current) * 1000; current = 0; used = true; continue; }
     const value = WORD_NUMBERS.get(word);
@@ -157,7 +170,7 @@ function findPlayerPrefix(text, players) {
 function matchReason(text, reasons) {
   const cleaned = normalise(text).replace(/^-+|-+$/g, '').trim();
   if (!cleaned) return { reason: '', price: null };
-  const matches = reasons.flatMap(reason => [reason.label,...(reason.tags||[])].map(variant=>({reason,variant,score:similarity(cleaned,variant)}))).sort((a, b) => b.score - a.score);
+  const matches = reasons.flatMap(reason => [reason.label,...(reason.tags||[])].map(variant=>({reason,variant,score:Math.max(similarity(cleaned,variant),similarity(phoneticAlias(cleaned),phoneticAlias(variant)))}))).sort((a, b) => b.score - a.score);
   const best = matches[0];
   const nextDifferent=matches.find(item=>item.reason.label!==best?.reason.label);
   if (best && best.score >= .88 && (!nextDifferent || best.score - nextDifferent.score >= .08)) return { reason: best.reason.label, price: best.reason.price };

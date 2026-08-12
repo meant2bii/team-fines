@@ -95,6 +95,15 @@ test('treats a spoken correction as a correction, not as a new fine', () => {
   ]);
 });
 
+test('resolves common phonetic nickname variants and concatenated Czech hundreds', () => {
+  const roster=[{name:'Michal Novák',nicknames:['Teichi']},{name:'Erik Klemš',nicknames:['Bago']}];
+  const fines=parseVoiceTranscript('Taichy Bago stokorun',roster,[{label:'Bago',price:30}]);
+  assert.equal(fines[0].resolution.player,'Michal Novák');
+  assert.equal(fines[0].amount,100);
+  const bago=parseVoiceTranscript('Erik vago',roster,[{label:'Bago',price:30}]);
+  assert.equal(bago[0].reason,'Bago');
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);
