@@ -286,6 +286,7 @@ window.doRegister=async function(){
   const lastName=document.getElementById('reg-last-name').value.trim();
   const name=`${firstName} ${lastName}`.trim();
   const email=document.getElementById('reg-email').value.trim();
+  const phone=registrationPhone();
   const pass=document.getElementById('reg-password').value;
   const pass2=document.getElementById('reg-password2').value;
   const err=document.getElementById('reg-err'),btn=document.getElementById('reg-btn');
@@ -293,6 +294,7 @@ window.doRegister=async function(){
   if(!firstName){showErr(err,'Zadej jméno.');return;}
   if(!lastName){showErr(err,'Zadej příjmení.');return;}
   if(!email){showErr(err,'Zadej e-mail.');return;}
+  if(!phone){showErr(err,'Zadej platné devítimístné telefonní číslo.');return;}
   if(pass.length<6){showErr(err,'Heslo musí mít alespoň 6 znaků.');return;}
   if(pass!==pass2){showErr(err,'Hesla se neshodují.');return;}
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2 spin"></i> Vytváříme…';
@@ -300,7 +302,7 @@ window.doRegister=async function(){
     const {updateProfile}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
-    await createPendingAccessRequest(cred.user,{firstName,lastName});
+    await createPendingAccessRequest(cred.user,{firstName,lastName,phone});
   }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 
@@ -411,6 +413,11 @@ window.resendVerification=async function(){
 // ─── SEASON PICKER ────────────────────────────────────────────────
 // ACCESS APPROVAL
 function normalizedEmail(value){ return String(value||'').trim().toLowerCase(); }
+function registrationPhone(){
+  const prefix=document.getElementById('reg-phone-prefix')?.value||'+420';
+  const national=String(document.getElementById('reg-phone')?.value||'').replace(/\D/g,'');
+  return /^\d{9}$/.test(national)?`${prefix}${national}`:'';
+}
 function splitProfileName(name){
   const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
   return {firstName:parts.shift()||'',lastName:parts.join(' ')};
@@ -435,6 +442,7 @@ function renderProfile(user=currentUser,request=accessRequest,role){
   set('profile-first-name',parts.firstName);
   set('profile-last-name',parts.lastName);
   set('profile-email',user?.email||request?.email);
+  set('profile-phone',request?.phone);
   set('profile-role',visibleRole);
   set('profile-role-detail',visibleRole);
 }
@@ -454,8 +462,9 @@ async function createPendingAccessRequest(user,profile={}){
   const fallback=splitProfileName(legacyName||user.displayName||'');
   const firstName=String(profile?.firstName||fallback.firstName||'').trim();
   const lastName=String(profile?.lastName||fallback.lastName||'').trim();
+  const phone=String(profile?.phone||'').trim();
   const name=`${firstName} ${lastName}`.trim()||user.displayName||user.email;
-  const request={uid:user.uid,email:normalizedEmail(user.email),name,firstName,lastName,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  const request={uid:user.uid,email:normalizedEmail(user.email),name,firstName,lastName,phone,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   await setDoc(doc(db,'accessRequests',user.uid),request,{merge:false});
 }
 function startAccessListener(user){
@@ -466,7 +475,7 @@ function startAccessListener(user){
       try{
         if(primaryAdmin()){
           const parts=profileParts(user,null);
-          await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,firstName:parts.firstName,lastName:parts.lastName,status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+          await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,firstName:parts.firstName,lastName:parts.lastName,phone:'',status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
         }
         else await createPendingAccessRequest(user,user.displayName||user.email);
       }catch(error){console.error('Access request:',error);showPending(user,null);}

@@ -60,6 +60,17 @@
         <input id="reg-email" type="email" placeholder="vas@email.cz" autocomplete="email" />
       </div>
       <div class="form-group">
+        <label>Telefon <span class="required">*</span></label>
+        <div class="phone-register-row">
+          <select id="reg-phone-prefix" aria-label="Předvolba země">
+            <option value="+420" selected>🇨🇿 +420</option>
+            <option value="+421">🇸🇰 +421</option>
+          </select>
+          <input id="reg-phone" type="tel" inputmode="tel" placeholder="123 456 789" autocomplete="tel-national" />
+        </div>
+        <span class="label-hint">Zadej devítimístné číslo bez předvolby.</span>
+      </div>
+      <div class="form-group">
         <label>Heslo <span class="label-hint">(min. 6 znaků)</span></label>
         <input id="reg-password" type="password" placeholder="••••••••" autocomplete="new-password" />
       </div>
@@ -403,6 +414,7 @@
       <div><dt>Jméno</dt><dd id="profile-first-name">—</dd></div>
       <div><dt>Příjmení</dt><dd id="profile-last-name">—</dd></div>
       <div class="profile-email-row"><dt>E-mail</dt><dd id="profile-email">—</dd></div>
+      <div class="profile-email-row"><dt>Telefon</dt><dd id="profile-phone">—</dd></div>
       <div><dt>Práva</dt><dd id="profile-role-detail">—</dd></div>
     </dl>
   </div>
