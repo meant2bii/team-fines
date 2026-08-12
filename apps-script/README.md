@@ -28,4 +28,6 @@ Pokud se přístup k Firestore nepodaří nastavit, e-mail nadále vždy přijde
 
 ## Mazání registrace
 
-Tlačítko koše v aplikaci odstraní registrační dokument z `accessRequests` ve Firestore, a tedy i celý řádek ze sekce Uživatelé. Oprávnění mají výhradně schválení Administrátoři, což vynucují i pravidla Firestore. Pokud je nutné odstranit také samotný přihlašovací účet Firebase Authentication, udělej to v Firebase Console → Authentication → Users; Firebase pro programové mazání cizích účtů vyžaduje privilegovaný serverový Admin SDK.
+Tlačítko koše posílá požadavek Apps Scriptu. **Apps Script pak jako jediný krok odstraní Firebase Authentication i dokument `accessRequests` ve Firestore.** Aplikace řádek nemaže předem: zmizí až po potvrzené změně z Firestore. Po úspěchu i při chybě přijde potvrzovací e-mail na `lyrixzz@gmail.com`.
+
+Po každé změně `Code.gs` je nutné v Apps Scriptu použít **Deploy → Manage deployments → Edit → New version → Deploy**. Webová aplikace musí běžet jako **Me** a účet, pod kterým je nasazena, musí mít v projektu Firebase oprávnění k mazání uživatelů (u vlastníka projektu to bývá automatické). Pokud mazání selže, e-mail obsahuje přesný HTTP důvod z Firebase.

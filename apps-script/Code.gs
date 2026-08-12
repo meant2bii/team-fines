@@ -56,7 +56,20 @@ function doPost(event) {
     cache.put(cacheKey, '1', 21600);
     return response_('sent');
   } catch (error) {
-    console.error(error);
+    console.error(error && error.stack ? error.stack : error);
+    // A browser calling a public Apps Script endpoint cannot read a CORS
+    // response. Send the principal admin the diagnostic instead, so a failed
+    // deletion can never look like a successful one.
+    try {
+      const data = JSON.parse(event && event.postData ? event.postData.contents : '{}');
+      if (data.action === 'deleteRegistration') {
+        MailApp.sendEmail({
+          to: ADMIN_EMAIL,
+          subject: 'Pokuty: smazání účtu se nepodařilo',
+          body: 'Apps Script neodstranil registraci (UID ' + clean_(data.targetUid, 128) + ').\n\nDůvod: ' + String(error && error.message ? error.message : error)
+        });
+      }
+    } catch (mailError) { console.error(mailError && mailError.stack ? mailError.stack : mailError); }
     return response_('error');
   }
 }
@@ -90,6 +103,17 @@ function deleteRegistration_(data) {
   });
   if (removed.getResponseCode() !== 200) {
     throw new Error('Authentication account was deleted, but Firestore delete failed: HTTP ' + removed.getResponseCode());
+  }
+  try {
+    MailApp.sendEmail({
+      to: ADMIN_EMAIL,
+      subject: 'Pokuty: účet byl odstraněn',
+      body: 'Účet ' + String(targetFields.email || targetUid) + ' byl odstraněn z Firebase Authentication i z accessRequests ve Firestore.'
+    });
+  } catch (mailError) {
+    // Both deletes already succeeded. A notification issue must not turn this
+    // irreversible operation into a reported failure.
+    console.error(mailError && mailError.stack ? mailError.stack : mailError);
   }
   return response_('deleted');
 }

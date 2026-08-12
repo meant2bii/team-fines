@@ -13,7 +13,7 @@ import {
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { doc, setDoc, onSnapshot, collection, deleteDoc }
+import { doc, setDoc, onSnapshot, collection }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
   from './voice.js';
@@ -678,12 +678,11 @@ window.deleteAccessUser=async function(uid){
   if(!confirm(`Poslední potvrzení: smazat ${user.email} včetně možnosti přihlásit se?`)) return;
   try{
     await requestAuthenticationAccountDeletion(uid);
-    await deleteDoc(doc(db,'accessRequests',uid));
-    // The listener usually refreshes this immediately; remove it locally as well
-    // so the card never remains visible while the next snapshot is arriving.
-    accessUsers=accessUsers.filter(item=>item.uid!==uid);
-    renderUsers();
-    showToast('Účet byl odstraněn z Firestore; smazání přihlášení se dokončuje.');
+    // GitHub Pages cannot read an Apps Script response cross-origin. Do not
+    // remove this row optimistically: the script deletes Firebase Auth and
+    // accessRequests as one operation, and the Firestore listener removes the
+    // card only once that operation has really succeeded.
+    showToast('Požadavek na smazání byl odeslán. Řádek zmizí po potvrzeném odstranění účtu.');
   }catch(error){
     console.error(error);
     const detail=error?.code==='permission-denied'
