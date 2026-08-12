@@ -27,7 +27,9 @@ const CONFIG = {
   APPS_SCRIPT_NOTIFICATION_URL:'https://script.google.com/macros/s/AKfycbwxHIR8tCvHo8k-_UpQEzaR-DmPX53g7pZs_imAE0vd7Nbs36Hmmwke2HEPAXvIAqJIaA/exec'
 };
 const PRIMARY_ADMIN_PROFILE={firstName:'Michal',lastName:'Nevřala',phone:'+420605086775',name:'Michal Nevřala'};
-const UNKNOWN_REASON='Unknown reason';
+const UNKNOWN_REASON='Nespecifikovaný důvod';
+const LEGACY_UNKNOWN_REASON='Unknown reason';
+const REASON_DATE_MIGRATION_ID='reason-date-normalization-2026-08-12';
 // Each new season is imported as a dated catalogue.  Keep previous catalogues
 // in this format: changing a price appends a new period; an omitted item is
 // closed on the day before the new catalogue takes effect.
@@ -130,7 +132,7 @@ let reviewQueue=[], reviewTranscript='';
 let selectedFineIndices=new Set(); // FIX #1
 let pendingCSVMembers=[];          // FIX #3
 let state={players:[],fines:[]};
-let catalogMigrationPending=false;
+let catalogMigrationPending=false, reasonDateMigrationPending=false;
 let oneTimeImportShown=false, reviewImportMeta=null;
 
 function dayBefore(date){ return new Date(new Date(`${date}T12:00:00`).getTime()-86400000).toISOString().slice(0,10); }
@@ -774,6 +776,14 @@ function startFirestoreListener(){
         .finally(()=>{catalogMigrationPending=false;});
       return;
     }
+    if(primaryAdmin()&&!state.migrations?.[REASON_DATE_MIGRATION_ID]&&!reasonDateMigrationPending){
+      reasonDateMigrationPending=true;
+      const result=migrateReasonLabelsAndLegacyFineDates();
+      saveState().then(saved=>{
+        if(saved&&result&&(result.renamed||result.moved)) showToast(`Upraveno: ${result.renamed} důvodů a ${result.moved} časů pokut.`);
+      }).finally(()=>{reasonDateMigrationPending=false;});
+      return;
+    }
     if(primaryAdmin()&&state.oneTimeImports?.bozkov2026?.id!==ONE_TIME_FINE_IMPORT_BOZKOV_2026.id&&!oneTimeImportShown){
       oneTimeImportShown=true;
       const prepared=prepareOneTimeFineImport(ONE_TIME_FINE_IMPORT_BOZKOV_2026);
@@ -983,7 +993,7 @@ function rateAtDate(label,date=seasonReferenceDate(activeSeason||seasonForDate()
 function normaliseReasonTag(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
 function tagsForReason(label){return (state.reasonTags?.[label]||[]).filter(Boolean);}
 function getReasonList(season=activeSeason||seasonForDate()){
-  return Object.entries(getRateHistory()).map(([label,items])=>{
+  const reasons=Object.entries(getRateHistory()).map(([label,items])=>{
     const start=seasonStartDate(season),end=seasonEndDate(season);
     const overlapping=items.filter((item,index)=>item.from<=end&&(!calculatedRateEnd(items,index)||calculatedRateEnd(items,index)>=start));
     const rate=rateAtDate(label,seasonReferenceDate(season));
@@ -991,11 +1001,31 @@ function getReasonList(season=activeSeason||seasonForDate()){
     const prices=overlapping.map(item=>item.price);
     return {label,tags:tagsForReason(label),price:rate?.price??overlapping.at(-1).price,minPrice:Math.min(...prices),maxPrice:Math.max(...prices)};
   }).filter(Boolean);
+  // The exceptional catch-all is intentionally present in the catalogue, but
+  // has no rate: the cashier must always state the individual amount.
+  if(!reasons.some(reason=>reason.label===UNKNOWN_REASON)) reasons.push({label:UNKNOWN_REASON,tags:[],price:null,minPrice:null,maxPrice:null,manualAmount:true});
+  return reasons;
 }
 function getReasons(){ return getReasonList().map(r=>r.label); }
 function reasonPrice(label,season=activeSeason||seasonForDate(),atDate=null){
   const date=atDate||seasonReferenceDate(season);
   return rateAtDate(label,date)?.price??null;
+}
+function isLegacyUnknownReason(reason){ return String(reason||'').trim().toLocaleLowerCase('en')===LEGACY_UNKNOWN_REASON.toLocaleLowerCase('en'); }
+function displayReason(reason){ return isLegacyUnknownReason(reason)?UNKNOWN_REASON:(reason||UNKNOWN_REASON); }
+function migrateReasonLabelsAndLegacyFineDates(){
+  if(state.migrations?.[REASON_DATE_MIGRATION_ID]) return null;
+  const oldStart=new Date('2026-07-15T12:00:00').getTime();
+  const newStart=new Date('2026-08-09T17:00:00').getTime();
+  let renamed=0,moved=0;
+  (state.fines||[]).forEach(fine=>{
+    if(isLegacyUnknownReason(fine.reason)){fine.reason=UNKNOWN_REASON;renamed++;}
+    // The original import assigned consecutive milliseconds, while the UI
+    // showed all of these records as 15/07/26 12:00.
+    if(Number(fine.ts)>=oldStart&&Number(fine.ts)<oldStart+60000){fine.ts=newStart+(Number(fine.ts)-oldStart);moved++;}
+  });
+  state.migrations={...(state.migrations||{}),[REASON_DATE_MIGRATION_ID]:{completedAt:new Date().toISOString(),renamed,moved}};
+  return {renamed,moved};
 }
 async function saveRatePeriod(label,price,from,to=''){
   if(!isManager){showToast('Nemáš právo upravovat sazebník.');return false;}
@@ -1254,7 +1284,7 @@ window.deleteReason=async function(i){
 function renderReasonOptions(){
   const options=document.getElementById('reason-options'); if(!options) return;
   options.innerHTML=getReasonList().sort((a,b)=>a.label.localeCompare(b.label,'cs'))
-    .map(r=>`<option value="${esc(r.label)}">${r.price} ${CONFIG.CURRENCY}</option>`).join('');
+    .map(r=>`<option value="${esc(r.label)}">${r.manualAmount?'částku zadej ručně':`${r.price} ${CONFIG.CURRENCY}`}</option>`).join('');
 }
 
 // ── RATE CARD ───────────────────────────────────────────────────────────────
@@ -1271,7 +1301,10 @@ function renderRates(){
   const list=getReasonList();
   const search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
   const sort=document.getElementById('rate-sort')?.value||'price';
-  const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs'));
+  const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>{
+    if(a.manualAmount!==b.manualAmount) return a.manualAmount?1:-1;
+    return sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs');
+  });
   const el=document.getElementById('rate-list'),empty=document.getElementById('rate-empty'); if(!el||!empty)return;
   empty.style.display=rows.length?'none':'block';
   el.innerHTML=rows.map(r=>{
@@ -1308,11 +1341,15 @@ function renderRates(){
   const rateAdd=document.querySelector('.rate-add-row'); if(rateAdd) rateAdd.style.display=isManager?'grid':'none';
   const list=getReasonList(),search=(document.getElementById('rate-search')?.value||'').trim().toLowerCase();
   const sort=document.getElementById('rate-sort')?.value||'price';
-  const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs'));
+  const rows=list.filter(r=>r.label.toLowerCase().includes(search)).slice().sort((a,b)=>{
+    if(a.manualAmount!==b.manualAmount) return a.manualAmount?1:-1;
+    return sort==='name'?a.label.localeCompare(b.label,'cs'):Number(a.price)-Number(b.price)||a.label.localeCompare(b.label,'cs');
+  });
   const el=document.getElementById('rate-list'),empty=document.getElementById('rate-empty'); if(!el||!empty)return;
   empty.style.display=rows.length?'none':'block';
   el.innerHTML=rows.map(r=>{
-    const color=rateColor(r.price,list);
+    if(r.manualAmount) return `<div class="rate-row rate-row-manual" aria-label="${esc(r.label)}, částka se zadává ručně"><span class="rate-dot rate-dot-manual"></span><span class="rate-name">${esc(r.label)}<small>Výjimka — částku vždy zapiš ručně</small></span><strong class="rate-price">—</strong></div>`;
+    const color=rateColor(r.price,list.filter(item=>!item.manualAmount));
     const display=r.minPrice!==r.maxPrice?`${Number(r.minPrice).toLocaleString('cs-CZ')}–${Number(r.maxPrice).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`:`${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`;
     return `<button type="button" class="rate-row rate-row-open" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${display}</strong><i class="ti ti-chevron-right"></i></button>`;
   }).join('');
@@ -1445,9 +1482,9 @@ window.reasonAutocomplete=function(val){
   if(list){
     const catColor={yellow:'#b45309',orange:'#c2410c',red:'#b91c1c'};
     list.innerHTML=acReasonFiltered.map((r,i)=>`
-      <div class="ac-item" onclick="selectReasonAC('${esc(r.label)}',${r.price})" data-i="${i}">
+      <div class="ac-item" onclick="selectReasonAC('${esc(r.label)}',${r.manualAmount?'null':r.price})" data-i="${i}">
         ${esc(r.label)}
-        <span class="ac-sub" style="color:${catColor[r.cat]||'var(--tx-m)'};">${r.price} CZK</span>
+        <span class="ac-sub" style="color:${catColor[r.cat]||'var(--tx-m)'};">${r.manualAmount?'částku zadej ručně':`${r.price} CZK`}</span>
       </div>`).join('');
     list.style.display='block';
   }
@@ -1459,7 +1496,7 @@ window.reasonAutocompleteKey=function(e){
   else if(e.key==='ArrowUp'){acReasonIndex=Math.max(acReasonIndex-1,0);items.forEach((el,i)=>el.classList.toggle('active',i===acReasonIndex));e.preventDefault();}
   else if(e.key==='Enter'&&acReasonIndex>=0&&acReasonFiltered[acReasonIndex]){
     const r=acReasonFiltered[acReasonIndex];
-    selectReasonAC(r.label,r.price);e.preventDefault();
+    selectReasonAC(r.label,r.manualAmount?null:r.price);e.preventDefault();
   }else if(e.key==='Escape'){list.style.display='none';}
 };
 window.selectReasonAC=function(label,price){
@@ -1476,7 +1513,7 @@ window.submitManual=function(){
   const reason=document.getElementById('f-reason').value.trim()||UNKNOWN_REASON;
   const amt=reasonPrice(reason)??Number(document.getElementById('f-amount').value);
   if(!player){alert('Vyber hráče.');return;}
-  if(!reason||amt==null){alert('Vyber prohřešek z platného sazebníku.');return;}
+  if(!reason||!Number.isFinite(amt)||amt<=0){alert('Vyber prohřešek a zadej platnou částku.');return;}
   addFine(player,reason||UNKNOWN_REASON,amt);
   document.getElementById('f-player-text').value='';
   document.getElementById('f-player').value='';
@@ -1805,7 +1842,7 @@ function renderLog(){
       ${isManager?`<input type="checkbox" class="fine-check" ${checked} onchange="toggleFineSelect(${idx},this.checked)" onclick="event.stopPropagation()" />`:''}
       <span class="fine-time">${ds}<br><span class="fine-time-clock">${ts}</span></span>
       <span class="fine-player">${esc(f.player)}</span>
-      <span class="fine-reason">${esc(f.reason)}</span>
+      <span class="fine-reason">${esc(displayReason(f.reason))}</span>
       <span class="fine-amt">${f.amount} ${CONFIG.CURRENCY}</span>
       ${isManager?`<div class="fine-actions">
         <button type="button" class="btn-icon" aria-label="Upravit pokutu" onclick="event.stopPropagation();openEdit(${idx})"><i class="ti ti-edit"></i></button>
@@ -1888,7 +1925,7 @@ window.editReasonAutocomplete=function(value){
   editReasonAcIndex=-1;
   list.innerHTML=editReasonAcFiltered.map((reason,index)=>{
     const price=reasonPrice(reason.label,fineSeason(f),new Date(f.ts))??reason.price;
-    return `<div class="ac-item" onclick="selectEditReason(${JSON.stringify(reason.label).replace(/"/g,'&quot;')},${price})" data-i="${index}">${esc(reason.label)}<span class="ac-sub">${price} ${CONFIG.CURRENCY}</span></div>`;
+    return `<div class="ac-item" onclick="selectEditReason(${JSON.stringify(reason.label).replace(/"/g,'&quot;')},${reason.manualAmount?'null':price})" data-i="${index}">${esc(reason.label)}<span class="ac-sub">${reason.manualAmount?'částku zadej ručně':`${price} ${CONFIG.CURRENCY}`}</span></div>`;
   }).join('');
   list.style.display='block';
 };
@@ -1896,13 +1933,14 @@ window.editReasonAutocompleteKey=function(event){
   const list=document.getElementById('edit-reason-ac-list'),items=list?.querySelectorAll('.ac-item')||[];
   if(event.key==='ArrowDown'){editReasonAcIndex=Math.min(editReasonAcIndex+1,items.length-1);items.forEach((item,index)=>item.classList.toggle('active',index===editReasonAcIndex));event.preventDefault();}
   else if(event.key==='ArrowUp'){editReasonAcIndex=Math.max(editReasonAcIndex-1,0);items.forEach((item,index)=>item.classList.toggle('active',index===editReasonAcIndex));event.preventDefault();}
-  else if(event.key==='Enter'&&editReasonAcFiltered[editReasonAcIndex]){const reason=editReasonAcFiltered[editReasonAcIndex],f=state.fines[editIndex];window.selectEditReason(reason.label,reasonPrice(reason.label,fineSeason(f),new Date(f.ts))??reason.price);event.preventDefault();}
+  else if(event.key==='Enter'&&editReasonAcFiltered[editReasonAcIndex]){const reason=editReasonAcFiltered[editReasonAcIndex],f=state.fines[editIndex];window.selectEditReason(reason.label,reason.manualAmount?null:(reasonPrice(reason.label,fineSeason(f),new Date(f.ts))??reason.price));event.preventDefault();}
   else if(event.key==='Escape') window.hideEditReasonAutocomplete();
 };
 window.selectEditReason=function(label,price){
   document.getElementById('edit-reason').value=label;
   window.hideEditReasonAutocomplete();
   const choice=document.getElementById('edit-catalog-choice'),current=Number(document.getElementById('edit-amount').value);
+  if(price==null){choice.style.display='block';choice.textContent='Tento důvod nemá pevnou sazbu. Částku zadej nebo ponech ručně.';return;}
   if(Number(current)===Number(price)){
     choice.style.display='block';choice.textContent=`Cena ${price} ${CONFIG.CURRENCY} odpovídá sazebníku.`;return;
   }
@@ -2055,7 +2093,7 @@ function renderDashboard(){
       <div class="dash-label">Nejčastější přestupky</div>
       ${topReasons.map(([r,c])=>`
         <div class="dash-bar-row">
-          <span class="dash-bar-name" title="${esc(r)}">${esc(r===UNKNOWN_REASON?'Neuvedeno':r.slice(0,15))}</span>
+          <span class="dash-bar-name" title="${esc(displayReason(r))}">${esc(displayReason(r))}</span>
           <div class="dash-bar-track"><div class="dash-bar-fill dash-bar-red" style="width:${Math.round(c/maxR*100)}%"></div></div>
           <span class="dash-bar-amt">${c}×</span>
         </div>`).join('')}

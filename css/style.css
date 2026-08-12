@@ -417,6 +417,10 @@ select { cursor:pointer; }
 .rate-name { flex:1; font-weight:700; font-size:14px; }
 .rate-price { color:var(--navy); font-family:var(--mono); font-size:13px; white-space:nowrap; }
 .rate-row .btn-icon { width:32px; height:32px; }
+.rate-row-manual { cursor:default; background:var(--bg-s); border-radius:var(--r-sm); margin-top:6px; }
+.rate-row-manual .rate-name { display:grid; gap:2px; }
+.rate-row-manual .rate-name small { color:var(--tx-m); font-size:11px; font-weight:500; }
+.rate-dot-manual { background:#94a3b8; box-shadow:0 0 0 3px color-mix(in srgb,#94a3b8 18%,transparent); }
 .rate-history-chart { min-height:160px; display:flex; align-items:end; gap:14px; padding:18px 8px 4px; margin:8px 0 18px; border-bottom:2px solid var(--bdr); overflow-x:auto; }
 .rate-chart-point { height:138px; min-width:72px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:end; gap:5px; }
 .rate-chart-value { font:700 12px var(--mono); color:var(--navy); }
