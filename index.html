@@ -45,9 +45,15 @@
 
     <!-- REGISTER -->
     <div id="auth-register" class="auth-panel">
-      <div class="form-group">
-        <label>Jméno</label>
-        <input id="reg-name" type="text" placeholder="Tvoje jméno" autocomplete="name" />
+      <div class="register-name-grid">
+        <div class="form-group">
+          <label>Jméno <span class="required">*</span></label>
+          <input id="reg-first-name" type="text" placeholder="Jan" autocomplete="given-name" />
+        </div>
+        <div class="form-group">
+          <label>Příjmení <span class="required">*</span></label>
+          <input id="reg-last-name" type="text" placeholder="Novák" autocomplete="family-name" />
+        </div>
       </div>
       <div class="form-group">
         <label>E-mail</label>
@@ -135,14 +141,16 @@
         </div>
       </div>
 
-      <!-- RIGHT: season picker, email, logout -->
+      <!-- RIGHT: season picker, profile, logout -->
       <div class="header-right">
         <div id="season-controls" style="display:none;" class="season-controls">
           <span class="season-caption"><i class="ti ti-calendar-event"></i> Sezóna</span>
           <select id="season-year" aria-label="Ročník" onchange="changeSeason()"></select>
           <button class="season-today" type="button" onclick="resetSeasonToToday()" title="Přejít na aktuální sezónu"><i class="ti ti-calendar-check"></i><span>Dnes</span></button>
         </div>
-        <span id="header-user" class="header-user"></span>
+        <button class="header-profile" type="button" onclick="openProfile()" title="Můj profil" aria-label="Otevřít můj profil">
+          <i class="ti ti-user-circle"></i><span id="header-user" class="header-user"></span>
+        </button>
         <button class="btn-icon header-logout" onclick="doLogout()" title="Odhlásit se">
           <i class="ti ti-logout"></i>
         </button>
@@ -375,7 +383,7 @@
     <section id="panel-users" class="panel">
       <div class="card">
         <div class="card-label"><i class="ti ti-shield-lock"></i> &nbsp;Přístupy uživatelů</div>
-        <p class="helper-text">Nové účty se zobrazí jako čekající. Nastav jim práva: Náhled, Pokladník nebo Administrátor.</p>
+        <p class="helper-text">Nové účty se zobrazí jako čekající. Nastav jim práva: Hráč, Pokladník nebo Administrátor.</p>
         <div id="user-list"></div>
         <div id="user-list-empty" class="empty-state" style="display:none;"><i class="ti ti-users"></i><p>Zatím tu nejsou žádné žádosti o přístup.</p></div>
       </div>
@@ -387,6 +395,19 @@
 <!-- ══ MODALS ══════════════════════════════════════════════════════ -->
 
 <!-- EDIT FINE -->
+<div class="modal-backdrop" id="profile-modal" onclick="if(event.target===this)closeProfile()">
+  <div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+    <div class="modal-header"><h3 id="profile-title">Můj profil</h3><button class="btn-icon" onclick="closeProfile()" aria-label="Zavřít profil"><i class="ti ti-x"></i></button></div>
+    <div class="profile-identity"><div class="profile-avatar"><i class="ti ti-user"></i></div><div><strong id="profile-full-name">—</strong><span id="profile-role">—</span></div></div>
+    <dl class="profile-details">
+      <div><dt>Jméno</dt><dd id="profile-first-name">—</dd></div>
+      <div><dt>Příjmení</dt><dd id="profile-last-name">—</dd></div>
+      <div class="profile-email-row"><dt>E-mail</dt><dd id="profile-email">—</dd></div>
+      <div><dt>Práva</dt><dd id="profile-role-detail">—</dd></div>
+    </dl>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="edit-modal">
   <div class="modal">
     <div class="modal-header"><h3>Upravit pokutu</h3><button class="btn-icon" onclick="closeEditModal()"><i class="ti ti-x"></i></button></div>

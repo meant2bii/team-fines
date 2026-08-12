@@ -282,13 +282,16 @@ window.showAuthTab=function(t){
 };
 
 window.doRegister=async function(){
-  const name=document.getElementById('reg-name').value.trim();
+  const firstName=document.getElementById('reg-first-name').value.trim();
+  const lastName=document.getElementById('reg-last-name').value.trim();
+  const name=`${firstName} ${lastName}`.trim();
   const email=document.getElementById('reg-email').value.trim();
   const pass=document.getElementById('reg-password').value;
   const pass2=document.getElementById('reg-password2').value;
   const err=document.getElementById('reg-err'),btn=document.getElementById('reg-btn');
   err.style.display='none';
-  if(!name){showErr(err,'Zadej jméno.');return;}
+  if(!firstName){showErr(err,'Zadej jméno.');return;}
+  if(!lastName){showErr(err,'Zadej příjmení.');return;}
   if(!email){showErr(err,'Zadej e-mail.');return;}
   if(pass.length<6){showErr(err,'Heslo musí mít alespoň 6 znaků.');return;}
   if(pass!==pass2){showErr(err,'Hesla se neshodují.');return;}
@@ -297,7 +300,7 @@ window.doRegister=async function(){
     const {updateProfile}=await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const cred=await createUserWithEmailAndPassword(auth,email,pass);
     await updateProfile(cred.user,{displayName:name});
-    await createPendingAccessRequest(cred.user,name);
+    await createPendingAccessRequest(cred.user,{firstName,lastName});
   }catch(e){showErr(err,friendlyAuthError(e.code));resetAuthButtons();}
 };
 
@@ -408,13 +411,51 @@ window.resendVerification=async function(){
 // ─── SEASON PICKER ────────────────────────────────────────────────
 // ACCESS APPROVAL
 function normalizedEmail(value){ return String(value||'').trim().toLowerCase(); }
+function splitProfileName(name){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  return {firstName:parts.shift()||'',lastName:parts.join(' ')};
+}
+function profileParts(user,request){
+  const fallback=splitProfileName(request?.name||user?.displayName||'');
+  return {
+    firstName:String(request?.firstName||fallback.firstName||'').trim(),
+    lastName:String(request?.lastName||fallback.lastName||'').trim(),
+  };
+}
+function accessRoleLabel(role){
+  return role==='admin'?'Administrátor':role==='cashier'?'Pokladník':'Hráč';
+}
+function renderProfile(user=currentUser,request=accessRequest,role){
+  const parts=profileParts(user,request);
+  const fullName=`${parts.firstName} ${parts.lastName}`.trim()||user?.displayName||request?.name||user?.email||'Profil';
+  const visibleRole=accessRoleLabel(role||((primaryAdmin()?'admin':request?.role)||'viewer'));
+  const set=(id,value)=>{const el=document.getElementById(id);if(el) el.textContent=value||'—';};
+  set('header-user',fullName);
+  set('profile-full-name',fullName);
+  set('profile-first-name',parts.firstName);
+  set('profile-last-name',parts.lastName);
+  set('profile-email',user?.email||request?.email);
+  set('profile-role',visibleRole);
+  set('profile-role-detail',visibleRole);
+}
+window.openProfile=function(){
+  if(!currentUser) return;
+  renderProfile();
+  document.getElementById('profile-modal')?.classList.add('open');
+};
+window.closeProfile=function(){document.getElementById('profile-modal')?.classList.remove('open');};
 function primaryAdmin(){ return normalizedEmail(currentUser?.email)===CONFIG.PRIMARY_ADMIN_EMAIL; }
 function stopAccessListeners(){
   if(unsubAccess){unsubAccess();unsubAccess=null;}
   if(unsubUserList){unsubUserList();unsubUserList=null;}
 }
-async function createPendingAccessRequest(user,name){
-  const request={uid:user.uid,email:normalizedEmail(user.email),name:name||user.displayName||user.email,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+async function createPendingAccessRequest(user,profile={}){
+  const legacyName=typeof profile==='string'?profile:'';
+  const fallback=splitProfileName(legacyName||user.displayName||'');
+  const firstName=String(profile?.firstName||fallback.firstName||'').trim();
+  const lastName=String(profile?.lastName||fallback.lastName||'').trim();
+  const name=`${firstName} ${lastName}`.trim()||user.displayName||user.email;
+  const request={uid:user.uid,email:normalizedEmail(user.email),name,firstName,lastName,status:'pending',role:'viewer',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   await setDoc(doc(db,'accessRequests',user.uid),request,{merge:false});
 }
 function startAccessListener(user){
@@ -423,7 +464,10 @@ function startAccessListener(user){
   unsubAccess=onSnapshot(ref,async snap=>{
     if(!snap.exists()){
       try{
-        if(primaryAdmin()) await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+        if(primaryAdmin()){
+          const parts=profileParts(user,null);
+          await setDoc(ref,{uid:user.uid,email:normalizedEmail(user.email),name:user.displayName||user.email,firstName:parts.firstName,lastName:parts.lastName,status:'approved',role:'admin',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+        }
         else await createPendingAccessRequest(user,user.displayName||user.email);
       }catch(error){console.error('Access request:',error);showPending(user,null);}
       return;
@@ -436,6 +480,7 @@ function applyAccessState(user,request){
   const role=primaryAdmin()?'admin':(request.role||'viewer');
   isAdmin=role==='admin'; isManager=isAdmin||role==='cashier';
   enterApp(user.displayName||request.name||user.email,{listen:true});
+  renderProfile(user,request,role);
   if(isAdmin) startUserListListener();
 }
 function showPending(user,request){
@@ -464,7 +509,7 @@ function renderUsers(){
   if(empty) empty.style.display=users.length?'none':'block';
   list.innerHTML=users.map(user=>{
     const status=user.status||'pending',role=user.role||'viewer',uid=esc(user.uid),label=status==='approved'?'Schválen':status==='pending'?'Čeká na schválení':'Zamítnut';
-    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span><small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Náhled</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
+    return `<article class="user-row"><div class="user-row-main"><div class="user-avatar"><i class="ti ti-user"></i></div><div><strong>${esc(user.name||'Bez jména')}</strong><span>${esc(user.email||'')}</span><small>${user.createdAt?`Žádost: ${new Date(user.createdAt).toLocaleDateString('cs-CZ')}`:''}</small></div><b class="user-status ${status}">${label}</b></div><div class="user-controls"><label>Stav<select id="user-status-${uid}"><option value="pending" ${status==='pending'?'selected':''}>Čeká</option><option value="approved" ${status==='approved'?'selected':''}>Schválen</option><option value="rejected" ${status==='rejected'?'selected':''}>Zamítnut</option></select></label><label>Práva<select id="user-role-${uid}"><option value="viewer" ${role==='viewer'?'selected':''}>Hráč</option><option value="cashier" ${role==='cashier'?'selected':''}>Pokladník</option><option value="admin" ${role==='admin'?'selected':''}>Administrátor</option></select></label><button class="btn btn-primary" type="button" onclick="updateAccessUser('${uid}')"><i class="ti ti-device-floppy"></i> Uložit</button></div></article>`;
   }).join('');
 }
 

@@ -150,6 +150,7 @@ select { cursor:pointer; }
 .auth-tab.active { background:var(--navy); color:#fff; }
 
 .auth-panel { display:none; } .auth-panel.active { display:block; }
+.register-name-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .pending-card { padding-top:2.4rem; }
 .pending-icon { width:76px; height:76px; margin:0 auto 16px; display:grid; place-items:center; border-radius:24px; background:#dbeafe; color:#1455bd; font-size:38px; }
 .pending-state { margin:0 0 1.2rem; padding:12px; border-radius:12px; background:#f1f5f9; color:#475569; font-size:13px; line-height:1.45; }
@@ -250,6 +251,13 @@ select { cursor:pointer; }
   border-radius: var(--r-md);
   flex-shrink: 0;
 }
+.header-profile {
+  display:inline-flex; align-items:center; gap:6px; min-width:0; padding:5px 7px;
+  color:#fff; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.20);
+  border-radius:var(--r-md); cursor:pointer; font:inherit;
+}
+.header-profile:hover { background:rgba(255,255,255,.17); }
+.header-profile .ti { font-size:20px; flex:0 0 auto; }
 .season-caption {
   display: inline-flex;
   align-items: center;
@@ -595,6 +603,16 @@ select { cursor:pointer; }
 .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
 .modal-hint { margin-top:10px; font-size:11px; color:var(--tx-m); text-align:center; }
 .modal-hint code { font-family:var(--mono); background:var(--bg-s); padding:1px 5px; border-radius:4px; font-size:11px; }
+.profile-identity { display:flex; align-items:center; gap:12px; padding:12px; margin:10px 0 14px; border-radius:var(--r-md); background:#eff6ff; }
+.profile-avatar { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; color:#fff; background:var(--navy); font-size:23px; }
+.profile-identity > div:last-child { display:grid; gap:1px; min-width:0; }
+.profile-identity strong { color:var(--tx); font-size:16px; }
+.profile-identity span { color:var(--navy); font-size:13px; font-weight:700; }
+.profile-details { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.profile-details > div { padding:10px 11px; border:1px solid var(--bdr); border-radius:var(--r-sm); background:var(--bg-s); min-width:0; }
+.profile-details .profile-email-row { grid-column:1 / -1; }
+.profile-details dt { color:var(--tx-m); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+.profile-details dd { margin-top:2px; color:var(--tx); font-size:14px; font-weight:600; overflow-wrap:anywhere; }
 .modal .form-group { margin-top:10px; }
 .edit-reason-group { position:relative; }
 .edit-catalog-choice { margin-top:10px; padding:10px; border:1px solid rgba(217,119,6,.35); border-radius:var(--r-md); background:#fff7e5; color:#92400e; font-size:12px; line-height:1.35; }
@@ -785,6 +803,7 @@ select { cursor:pointer; }
   .brand-title { font-size:16px; }
   .brand-season { display:none; }
   .header-user { display:none; }
+  .header-profile { width:40px; height:40px; justify-content:center; padding:0; }
   .header-right { gap:5px; margin-left:auto; }
   .season-controls { position:absolute; left:0; right:0; bottom:8px; justify-content:center; gap:5px; padding:3px 5px; }
   .season-caption { font-size:10px; }
