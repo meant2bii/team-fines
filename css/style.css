@@ -205,7 +205,7 @@ select { cursor:pointer; }
 .player-approved-heading strong { font-size:20px; }
 .player-approved-heading span { color:var(--tx-m); font-size:12px; }
 .player-season-meta { display:grid; gap:5px; margin-bottom:12px; padding:11px 12px; border-radius:10px; background:#eef5ff; color:var(--tx-s); font-size:13px; }
-.player-season-meta b { color:var(--navy); font-size:16px; }
+.player-season-meta b { color:#dc2626; font-size:25px; line-height:1.1; }
 .player-season-meta strong { color:var(--navy); }
 .player-season-heading strong { font-size:18px; }
 .player-season-heading span { color:var(--tx-m); font-size:12px; }
