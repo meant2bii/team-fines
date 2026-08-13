@@ -46,7 +46,7 @@ service cloud.firestore {
         && myAccess().data.role == 'viewer'
         && request.resource.data.player == myAccess().data.linkedPlayerName
         && request.resource.data.status == 'pending';
-      allow read: if manager();
+      allow read: if manager() || (approved() && request.auth.uid == resource.data.uid);
       allow update, delete: if manager();
     }
 

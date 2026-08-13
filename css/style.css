@@ -212,6 +212,24 @@ select { cursor:pointer; }
 .player-cumulative-chart { display:flex; align-items:flex-end; gap:5px; height:76px; padding:4px 2px 0; border-bottom:1px solid #cbd5e1; }
 .player-chart-point { flex:1; min-width:5px; max-width:20px; border-radius:4px 4px 0 0; background:#2563eb; }
 .player-chart-empty { padding:12px 0 4px; color:var(--tx-m); font-size:12px; }
+.player-proposals { margin-top:14px; padding:10px 12px; border:1px solid var(--bdr); border-radius:10px; background:#f8fbff; }
+.player-proposals-empty { color:var(--tx-m); font-size:12px; }
+.player-proposal-status { display:grid; grid-template-columns:1fr auto; gap:3px 8px; padding:8px 0; border-top:1px solid var(--bdr); color:var(--tx-s); font-size:12px; }
+.player-proposal-status:first-of-type { border-top:0; }
+.player-proposal-status b { color:#b45309; }
+.player-proposal-status.status-approved b { color:#15803d; }
+.player-proposal-status.status-rejected b { color:#b91c1c; }
+.player-proposal-status small { grid-column:1/-1; color:#b91c1c; }
+.player-public-stats { display:grid; grid-template-columns:1fr 1.3fr; gap:10px; margin-top:14px; }
+.player-public-stats > div { padding:11px 12px; border:1px solid var(--bdr); border-radius:10px; background:#fff; }
+.player-public-stats > div > strong { display:block; color:var(--navy); font-size:21px; }
+.player-public-stats small { display:block; margin-top:3px; color:var(--tx-m); font-size:11px; }
+.player-public-row { display:grid; grid-template-columns:86px 1fr 42px; align-items:center; gap:7px; margin-top:6px; color:var(--tx-s); font-size:11px; }
+.player-public-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.player-public-row i { height:7px; overflow:hidden; border-radius:99px; background:#e2e8f0; }
+.player-public-row i b { display:block; height:100%; border-radius:inherit; background:#2563eb; }
+.player-public-row strong { color:var(--navy); text-align:right; }
+@media(max-width:560px){ .player-public-stats { grid-template-columns:1fr; } .player-public-row { grid-template-columns:100px 1fr 44px; } }
 .player-fine-breakdown { display:grid; gap:6px; margin-top:12px; }
 .player-fine-breakdown span { display:flex; justify-content:space-between; gap:8px; padding:7px 9px; border-radius:8px; background:var(--bg-s); color:var(--tx-s); font-size:12px; }
 .player-fine-breakdown b { color:var(--navy); }

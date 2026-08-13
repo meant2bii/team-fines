@@ -13,7 +13,7 @@ import {
   onAuthStateChanged, signOut,
   RecaptchaVerifier, signInWithPhoneNumber,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { doc, setDoc, getDoc, deleteDoc, onSnapshot, collection }
+import { doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, query, where }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { parseVoiceTranscript, resolveVoicePlayer, scoreVoiceAlternative }
   from './voice.js';
@@ -675,7 +675,7 @@ function applyAccessState(user,request){
   enterApp(user.displayName||request.name||user.email,{listen:true});
   renderProfile(user,request,role);
   if(isAdmin) startUserListListener();
-  if(isManager) startProposalListener();
+  if(isManager||!phoneUser) startProposalListener();
   if(!isManager) renderPlayerDashboard(request);
 }
 function showPending(user,request){
@@ -697,16 +697,19 @@ function startUserListListener(){
 }
 function startProposalListener(){
   if(unsubProposals) return;
-  unsubProposals=onSnapshot(collection(db,'fineProposals'),snap=>{
-    fineProposals=snap.docs.map(d=>({id:d.id,...d.data()})).filter(item=>item.status==='pending');
-    renderFineProposals();
+  const ref=isManager?collection(db,'fineProposals'):query(collection(db,'fineProposals'),where('uid','==',currentUser.uid));
+  unsubProposals=onSnapshot(ref,snap=>{
+    fineProposals=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderFineProposals(); if(!isManager)renderPlayerDashboard(accessRequest);
   },error=>console.warn('Fine proposals:',error));
 }
 function renderFineProposals(){
   const el=document.getElementById('fine-proposals'); if(!el)return;
   if(!isManager||!fineProposals.length){el.style.display='none';el.innerHTML='';return;}
   el.style.display='block';
-  el.innerHTML=`<div class="proposal-card"><div class="card-label">⚑ Návrhy pokut ke schválení <span class="proposal-count">${fineProposals.length}</span></div>${fineProposals.map(p=>`<div class="proposal-row"><div><strong>${esc(p.player)}</strong><span>${esc(p.reason||UNKNOWN_REASON)} · ${p.amount} ${CONFIG.CURRENCY}</span><small>${p.createdAt?new Date(p.createdAt).toLocaleString('cs-CZ'):''}</small></div><div><button class="btn btn-primary" type="button" onclick="approveFineProposal('${esc(p.id)}')">Schválit</button><button class="btn btn-secondary" type="button" onclick="rejectFineProposal('${esc(p.id)}')">Zamítnout</button></div></div>`).join('')}</div>`;
+  const pending=fineProposals.filter(item=>item.status==='pending');
+  if(!pending.length){el.style.display='none';el.innerHTML='';return;}
+  el.innerHTML=`<div class="proposal-card"><div class="card-label">⚑ Návrhy pokut ke schválení <span class="proposal-count">${pending.length}</span></div>${pending.map(p=>`<div class="proposal-row"><div><strong>${esc(p.player)}</strong><span>${esc(p.reason||UNKNOWN_REASON)} · ${p.amount} ${CONFIG.CURRENCY}</span><small>${p.createdAt?new Date(p.createdAt).toLocaleString('cs-CZ'):''}</small></div><div><button class="btn btn-primary" type="button" onclick="approveFineProposal('${esc(p.id)}')">Schválit</button><button class="btn btn-secondary" type="button" onclick="rejectFineProposal('${esc(p.id)}')">Zamítnout</button></div></div>`).join('')}</div>`;
 }
 function renderPlayerDashboard(request=accessRequest){
   const panel=document.getElementById('player-dashboard'); if(!panel||isManager)return;
@@ -720,7 +723,7 @@ function renderPlayerDashboard(request=accessRequest){
   const selectedSeason=seasonKey(activeSeason||seasonForDate());
   const currentSeason=seasonKey(seasonForDate());
   const historical=selectedSeason!==currentSeason;
-  const timelineStart=new Date(`${(activeSeason||seasonForDate()).year}-09-01T00:00:00`);
+  const timelineStart=new Date(`${(activeSeason||seasonForDate()).year}-07-15T00:00:00`);
   const timelineEnd=new Date(`${(activeSeason||seasonForDate()).year+1}-06-15T23:59:59`);
   const now=new Date();
   const marker=Math.max(0,Math.min(100,((now-timelineStart)/(timelineEnd-timelineStart))*100));
@@ -728,8 +731,14 @@ function renderPlayerDashboard(request=accessRequest){
   const maxAbs=Math.max(1,...points.map(point=>Math.abs(point.value)));
   const chart=points.length?`<div class="player-cumulative-chart" aria-label="Kumulace pokut v čase">${points.map(point=>`<div class="player-chart-point" style="height:${Math.max(8,Math.round(Math.abs(point.value)/maxAbs*100))}%;${point.value<0?'background:#16a34a;':''}" title="${point.date.toLocaleDateString('cs-CZ')}: ${point.value} ${CONFIG.CURRENCY}"></div>`).join('')}</div>`:'<div class="player-chart-empty">V této sezóně zatím nemáš žádný záznam.</div>';
   const content=document.getElementById('player-dashboard-content');
-  if(content) content.innerHTML=`<div class="player-season-heading"><strong>${esc(selectedSeason)}</strong><span>${historical?'Historická sezóna · pouze pro čtení':'Aktuální sezóna'}</span></div><div class="player-score"><strong>${total} ${CONFIG.CURRENCY}</strong><span><b>${rank>0?`${rank}. místo z ${rankData.length}`:'Bez pořadí'}</b> · ${current.length} ${current.length===1?'záznam':'záznamů'}</span></div><div class="player-season-timeline"><div class="player-season-track"><i style="left:${marker}%"></i></div><div><span>1. 9.</span><span>${now>=timelineStart&&now<=timelineEnd?'dnes · ':''}15. 6.</span></div></div><div class="player-cumulative"><div class="player-cumulative-title">Vývoj pokut v sezóně</div>${chart}</div><div class="player-fine-breakdown">${current.length?current.map(f=>`<span>${esc(displayReason(f.reason))} <b>${f.amount} ${CONFIG.CURRENCY}</b></span>`).join(''):'<span>V této sezóně zatím nemáš žádné pokuty.</span>'}</div>`;
-  const name=document.getElementById('player-proposal-name'); if(name) name.textContent=`Přihlášen jako ${player}. Návrh odešleš pouze za sebe a před uložením ho zkontroluje pokladník nebo administrátor.`;
+  const teamSeasonFines=(state.fines||[]).filter(f=>seasonKey(fineSeason(f))===selectedSeason);
+  const allTotal=teamSeasonFines.reduce((sum,f)=>sum+Number(f.amount||0),0);
+  const publicDebtors=Object.entries(teamSeasonFines.reduce((map,f)=>{map[f.player]=(map[f.player]||0)+Number(f.amount||0);return map;},{})).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const publicMax=Math.max(1,...publicDebtors.map(item=>item[1]));
+  const proposals=fineProposals.filter(item=>item.uid===currentUser?.uid).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  const proposalHtml=proposals.length?`<div class="player-proposals"><div class="player-cumulative-title">Moje návrhy ke kontrole</div>${proposals.map(p=>{const status=p.status==='approved'?'Schváleno':p.status==='rejected'?'Zamítnuto':'Čeká na kontrolu';return `<div class="player-proposal-status status-${p.status}"><span>${esc(p.reason||UNKNOWN_REASON)} · ${p.amount} ${CONFIG.CURRENCY}</span><b>${status}</b>${p.rejectionReason?`<small>${esc(p.rejectionReason)}</small>`:''}</div>`;}).join('')}</div>`:'<div class="player-proposals player-proposals-empty">Zatím jsi neposlal žádný návrh.</div>';
+  if(content) content.innerHTML=`<div class="player-season-heading"><strong>${esc(selectedSeason)}</strong><span>${historical?'Historická sezóna · pouze pro čtení':'Aktuální sezóna'}</span></div><div class="player-score"><strong>${total} ${CONFIG.CURRENCY}</strong><span><b>${rank>0?`${rank}. místo z ${rankData.length}`:'Bez pořadí'}</b> · ${current.length} ${current.length===1?'záznam':'záznamů'}</span></div><div class="player-season-timeline"><div class="player-season-track"><i style="left:${marker}%"></i></div><div><span>15. 7. ${String((activeSeason||seasonForDate()).year).slice(-2)}</span><span>${now>=timelineStart&&now<=timelineEnd?'dnes · ':''}15. 6. ${String((activeSeason||seasonForDate()).year+1).slice(-2)}</span></div></div><div class="player-cumulative"><div class="player-cumulative-title">Vývoj pokut v sezóně</div>${chart}</div><div class="player-fine-breakdown">${current.length?current.map(f=>`<span>${esc(displayReason(f.reason))} <b>${f.amount} ${CONFIG.CURRENCY}</b></span>`).join(''):'<span>V této sezóně zatím nemáš žádné pokuty.</span>'}</div>${proposalHtml}<div class="player-public-stats"><div><div class="player-cumulative-title">Fond sezóny · ${esc(selectedSeason)}</div><strong>${allTotal} ${CONFIG.CURRENCY}</strong><small>${teamSeasonFines.length} záznamů v týmu</small></div><div><div class="player-cumulative-title">Největší dlužníci</div>${publicDebtors.map(([name,amount])=>`<div class="player-public-row"><span>${esc(shortDashboardName(name))}</span><i><b style="width:${Math.max(4,Math.round(amount/publicMax*100))}%"></b></i><strong>${amount}</strong></div>`).join('')||'<small>Zatím bez záznamů.</small>'}</div></div>`;
+  const name=document.getElementById('player-proposal-name'); if(name) name.textContent='Zde nahlásíš svůj prohřešek. Návrh projde kontrolou pokladníka nebo administrátora a uvidíš, zda byl schválen, čeká na kontrolu, nebo byl zamítnut s odůvodněním.';
   const proposal=document.querySelector('.player-proposal-card'); if(proposal) proposal.style.display=historical?'none':'block';
   const select=document.getElementById('player-proposal-reason'); if(select){const reasons=getReasonList();select.innerHTML=reasons.map(r=>`<option value="${esc(r.label)}">${esc(r.label)}${r.price!=null?` · ${r.price} ${CONFIG.CURRENCY}`:''}</option>`).join('');select.onchange=()=>{const r=getReasonList().find(x=>x.label===select.value);const amount=document.getElementById('player-proposal-amount');if(r?.price!=null&&amount)amount.value=r.price;};const first=reasons[0];const amount=document.getElementById('player-proposal-amount');if(first?.price!=null&&amount&&!amount.value)amount.value=first.price;}
 }
@@ -748,7 +757,7 @@ window.approveFineProposal=async function(id){
   state.fines.unshift({player:p.player,reason:p.reason,amount:Number(p.amount),ts:Date.now(),season:p.season||seasonKey(activeSeason)});
   await saveState(); await setDoc(doc(db,'fineProposals',id),{status:'approved',approvedBy:currentUser.uid,approvedAt:new Date().toISOString()},{merge:true}); renderLog();showToast('Návrh pokuty schválen.');
 };
-window.rejectFineProposal=async function(id){if(!isManager)return;await setDoc(doc(db,'fineProposals',id),{status:'rejected',rejectedBy:currentUser.uid,rejectedAt:new Date().toISOString()},{merge:true});showToast('Návrh zamítnut.');};
+window.rejectFineProposal=async function(id){if(!isManager)return;const reason=prompt('Proč návrh zamítáš? (volitelné)')||'';await setDoc(doc(db,'fineProposals',id),{status:'rejected',rejectionReason:reason,rejectedBy:currentUser.uid,rejectedAt:new Date().toISOString()},{merge:true});showToast('Návrh zamítnut.');};
 function finishDeletionProgress(uid,completed=false){
   const pending=deletionPending.get(uid); if(!pending) return;
   clearTimeout(pending.timeout);
