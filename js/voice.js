@@ -256,7 +256,13 @@ export function parseVoiceChunk(chunk, players = [], reasons = []) {
   // used only to identify a player and catalogue entry.
   const originalWords = cleanText.split(/\s+/);
   const consumedWords = playerPart.rawName ? playerPart.rawName.split(/\s+/).length : 0;
-  const reasonMatch = matchReason(originalWords.slice(consumedWords).join(' '), reasons);
+  let reasonMatch = matchReason(originalWords.slice(consumedWords).join(' '), reasons);
+  // A fragment after punctuation can be a complete catalogue phrase without
+  // a player prefix; use it as merge context for the preceding player.
+  if(!playerPart.resolution.player){
+    const standalone=matchReason(cleanText,reasons);
+    if(standalone.price!==null) reasonMatch=standalone;
+  }
   const reasonCandidates=reasonMatch.price===null&&reasonMatch.reason
     ?suggestVoiceReasons(reasonMatch.reason,reasons)
     :[];
@@ -295,7 +301,24 @@ function applySpokenCorrections(transcript) {
 
 export function parseVoiceTranscript(transcript, players = [], reasons = []) {
   const corrected=applySpokenCorrections(transcript);
-  return splitVoiceTranscript(corrected, players).map(chunk => parseVoiceChunk(chunk, players, reasons)).filter(Boolean);
+  const chunks=splitVoiceTranscript(corrected, players);
+  const output=[];
+  for(let i=0;i<chunks.length;i++){
+    const current=parseVoiceChunk(chunks[i],players,reasons);
+    const next=chunks[i+1]?parseVoiceChunk(chunks[i+1],players,reasons):null;
+    // Speech recognition often inserts a comma after the player's name:
+    // "Testovací Hráč., Giga píčovina". If the first part is a clear player
+    // with no reason/amount and the next part is a catalogue phrase, merge it
+    // before exposing the review rows. A real second fine is preserved because
+    // it either has its own player or an amount in the first fragment.
+    const nextIsReason=next&&!next.resolution.player&&next.reason&&next.rate>0;
+    const currentIsNameOnly=current&&current.resolution.player&&!current.reason&&!current.amount;
+    if(currentIsNameOnly&&nextIsReason){
+      output.push(parseVoiceChunk(`${chunks[i]} ${chunks[i+1]}`,players,reasons)); i++; continue;
+    }
+    if(current) output.push(current);
+  }
+  return output.filter(Boolean);
 }
 
 export function scoreVoiceAlternative(text, players = [], reasons = []) {

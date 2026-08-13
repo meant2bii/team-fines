@@ -122,6 +122,16 @@ test('keeps a catalogue phrase after a multi-word player name', () => {
   assert.equal(fines[0].amount,500);
 });
 
+test('merges punctuation fragments for every current player and catalogue item', () => {
+  const roster=[{name:'Testovací Hráč',nicknames:[]},{name:'Erik Klemš',nicknames:[]}];
+  const catalog=[{label:'Giga píčovina',price:500},{label:'Červená karta',price:500}];
+  const fines=parseVoiceTranscript('Testovací Hráč., Giga píčovina., Erik Klemš – Červená karta.',roster,catalog);
+  assert.equal(fines.length,2);
+  assert.deepEqual(fines.map(f=>[f.resolution.player,f.reason,f.amount]),[
+    ['Testovací Hráč','Giga píčovina',500],['Erik Klemš','Červená karta',500]
+  ]);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);
