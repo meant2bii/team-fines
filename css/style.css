@@ -195,6 +195,8 @@ select { cursor:pointer; }
 .user-controls select.suggested-player { color:#92400e; background:#fff7e5; border-color:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,.14); font-weight:700; }
 .user-match-hint { display:flex; align-items:center; gap:4px; color:#b45309 !important; font-weight:700; }
 .user-match-hint .ti { font-size:12px; }
+.user-match-required { display:flex; align-items:center; gap:4px; color:#b45309 !important; font-weight:700; }
+.user-match-required .ti { font-size:12px; }
 .user-controls .btn { min-height:40px; white-space:nowrap; }
 .user-delete { width:40px; min-height:40px; color:var(--red); border-color:#fecaca; }
 .user-delete:hover { background:var(--red-light); color:var(--red-dark); }
@@ -425,6 +427,7 @@ select { cursor:pointer; }
 .rate-dot { width:14px; height:14px; border-radius:50%; background:var(--rate-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--rate-color) 18%,transparent); flex-shrink:0; }
 .rate-name { flex:1; font-weight:700; font-size:14px; }
 .rate-price { color:var(--navy); font-family:var(--mono); font-size:13px; white-space:nowrap; }
+.rate-row-credit .rate-name,.rate-row-credit .rate-price { color:#15803d; }
 .rate-row .btn-icon { width:32px; height:32px; }
 .rate-row-manual { cursor:default; background:var(--bg-s); border-radius:var(--r-sm); margin-top:6px; }
 .rate-row-manual .rate-name { display:grid; gap:2px; }

@@ -1410,7 +1410,7 @@ function renderRates(){
     if(r.manualAmount) return `<div class="rate-row rate-row-manual" aria-label="${esc(r.label)}, částka se zadává ručně"><span class="rate-dot rate-dot-manual"></span><span class="rate-name">${esc(r.label)}<small>Výjimka — částku vždy zapiš ručně</small></span><strong class="rate-price">—</strong></div>`;
     const color=rateColor(r.price,list.filter(item=>!item.manualAmount),r.credit);
     const display=r.minPrice!==r.maxPrice?`${Number(r.minPrice).toLocaleString('cs-CZ')}–${Number(r.maxPrice).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`:`${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`;
-    return `<button type="button" class="rate-row rate-row-open" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${display}</strong><i class="ti ti-chevron-right"></i></button>`;
+    return `<button type="button" class="rate-row rate-row-open${r.credit?' rate-row-credit':''}" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${display}</strong><i class="ti ti-chevron-right"></i></button>`;
   }).join('');
   renderReasonOptions();
 }
