@@ -173,7 +173,7 @@
   <nav class="tab-nav">
     <button class="tab active" data-tab="add"     onclick="switchTab('add')"><i class="ti ti-home"></i><span> Main</span></button>
     <button class="tab"        data-tab="log"     onclick="switchTab('log')"><i class="ti ti-list"></i><span> Log</span></button>
-    <button class="tab"        data-tab="summary" onclick="switchTab('summary')"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
+    <button class="tab"        data-tab="summary" onclick="switchTab('summary')" style="display:none;"><i class="ti ti-chart-bar"></i><span> Přehled</span></button>
     <button class="tab"        data-tab="rates"   onclick="switchTab('rates')"><i class="ti ti-receipt-2"></i><span> Sazebník</span></button>
     <button class="tab"        data-tab="players" onclick="switchTab('players')"><i class="ti ti-users"></i><span> Hráči</span></button>
     <button class="tab" data-tab="users" onclick="switchTab('users')" style="display:none;"><i class="ti ti-shield-lock"></i><span> Uživatelé</span></button>
@@ -196,7 +196,7 @@
 
       <div id="player-dashboard" style="display:none;">
         <div class="card player-proposal-card"><div class="card-label"><i class="ti ti-flag"></i> Nahlásit pokutu sám sobě</div><p class="helper-text" id="player-proposal-name"></p><div class="form-group"><label>Prohřešek</label><select id="player-proposal-reason"></select></div><div class="form-group"><label>Částka (CZK)</label><input id="player-proposal-amount" type="number" min="1" placeholder="Částka ze sazebníku" /></div><button type="button" class="btn btn-primary btn-full" onclick="submitPlayerProposal()"><i class="ti ti-send"></i> Odeslat ke schválení</button></div>
-        <div class="card player-welcome-card"><div class="card-label"><i class="ti ti-trophy"></i> Moje pokuty</div><div id="player-dashboard-content"></div></div>
+        <div class="card player-welcome-card"><div class="card-label"><i class="ti ti-trophy"></i> Moje schválené pokuty</div><div id="player-dashboard-content"></div></div>
       </div>
 
       <div id="add-form" style="display:none;">
