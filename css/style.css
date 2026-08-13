@@ -197,6 +197,18 @@ select { cursor:pointer; }
 .user-match-hint .ti { font-size:12px; }
 .user-match-required { display:flex; align-items:center; gap:4px; color:#b45309 !important; font-weight:700; }
 .user-match-required .ti { font-size:12px; }
+.player-score { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px; border-radius:12px; background:linear-gradient(135deg,#eaf3ff,#fff); border:1px solid #c7daf8; }
+.player-score strong { color:var(--navy); font-size:28px; }
+.player-score span { color:var(--tx-s); font-size:12px; text-align:right; }
+.player-fine-breakdown { display:grid; gap:6px; margin-top:12px; }
+.player-fine-breakdown span { display:flex; justify-content:space-between; gap:8px; padding:7px 9px; border-radius:8px; background:var(--bg-s); color:var(--tx-s); font-size:12px; }
+.player-fine-breakdown b { color:var(--navy); }
+.proposal-card { margin-bottom:14px; padding:12px; border:1px solid #f59e0b; border-left:4px solid #f97316; border-radius:12px; background:#fff7e5; }
+.proposal-count { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; margin-left:5px; border-radius:99px; background:#f97316; color:#fff; }
+.proposal-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px solid #fed7aa; }
+.proposal-row div:first-child { display:grid; gap:2px; min-width:0; }
+.proposal-row span,.proposal-row small { color:#92400e; font-size:12px; }
+.proposal-row .btn { min-height:34px; padding:6px 10px; }
 .user-controls .btn { min-height:40px; white-space:nowrap; }
 .user-delete { width:40px; min-height:40px; color:var(--red); border-color:#fecaca; }
 .user-delete:hover { background:var(--red-light); color:var(--red-dark); }

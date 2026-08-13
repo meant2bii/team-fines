@@ -121,7 +121,8 @@ const WA_MEMBERS = [
 
 // ─── STATE ────────────────────────────────────────────────────────
 let isManager=false, isAdmin=false, editIndex=-1, nickPlayerIdx=-1, editPlayerIdx=-1;
-let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, activeSeason=null;
+let currentUser=null, phoneUser=null, unsubFirestore=null, unsubAccess=null, unsubUserList=null, unsubProposals=null, activeSeason=null;
+let fineProposals=[];
 let accessRequest=null, accessUsers=[], appSessionActive=false, verificationCooldownTimer=null;
 let deletionPending=new Map();
 let registrationIntent=null;
@@ -231,7 +232,7 @@ function fineSeason(f){ return f?.season ? parseSeasonKey(f.season) : seasonForD
 function seasonFines(){
   if(!activeSeason) return state.fines||[];
   const key=seasonKey(activeSeason);
-  return (state.fines||[]).filter(f=>seasonKey(fineSeason(f))===key);
+  return (state.fines||[]).filter(f=>seasonKey(fineSeason(f))===key&&((isManager||phoneUser)?true:(!isManager&&accessRequest?.linkedPlayerName===f.player)));
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────
@@ -617,6 +618,7 @@ function primaryAdmin(){ return normalizedEmail(currentUser?.email)===CONFIG.PRI
 function stopAccessListeners(){
   if(unsubAccess){unsubAccess();unsubAccess=null;}
   if(unsubUserList){unsubUserList();unsubUserList=null;}
+  if(unsubProposals){unsubProposals();unsubProposals=null;}
 }
 async function createPendingAccessRequest(user,profile={}){
   const legacyName=typeof profile==='string'?profile:'';
@@ -673,6 +675,8 @@ function applyAccessState(user,request){
   enterApp(user.displayName||request.name||user.email,{listen:true});
   renderProfile(user,request,role);
   if(isAdmin) startUserListListener();
+  if(isManager) startProposalListener();
+  if(!isManager) renderPlayerDashboard(request);
 }
 function showPending(user,request){
   isManager=false;isAdmin=false;appSessionActive=false;stopFirestoreListener();showScreen('pending');
@@ -691,6 +695,49 @@ function startUserListListener(){
     if(document.querySelector('.tab.active')?.dataset.tab==='users') renderUsers();
   },error=>console.error('User list:',error));
 }
+function startProposalListener(){
+  if(unsubProposals) return;
+  unsubProposals=onSnapshot(collection(db,'fineProposals'),snap=>{
+    fineProposals=snap.docs.map(d=>({id:d.id,...d.data()})).filter(item=>item.status==='pending');
+    renderFineProposals();
+  },error=>console.warn('Fine proposals:',error));
+}
+function renderFineProposals(){
+  const el=document.getElementById('fine-proposals'); if(!el)return;
+  if(!isManager||!fineProposals.length){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='block';
+  el.innerHTML=`<div class="proposal-card"><div class="card-label">⚑ Návrhy pokut ke schválení <span class="proposal-count">${fineProposals.length}</span></div>${fineProposals.map(p=>`<div class="proposal-row"><div><strong>${esc(p.player)}</strong><span>${esc(p.reason||UNKNOWN_REASON)} · ${p.amount} ${CONFIG.CURRENCY}</span><small>${p.createdAt?new Date(p.createdAt).toLocaleString('cs-CZ'):''}</small></div><div><button class="btn btn-primary" type="button" onclick="approveFineProposal('${esc(p.id)}')">Schválit</button><button class="btn btn-secondary" type="button" onclick="rejectFineProposal('${esc(p.id)}')">Zamítnout</button></div></div>`).join('')}</div>`;
+}
+function renderPlayerDashboard(request=accessRequest){
+  const panel=document.getElementById('player-dashboard'); if(!panel||isManager)return;
+  const player=request?.linkedPlayerName||'';
+  panel.style.display='block';
+  const fines=(state.fines||[]).filter(f=>f.player===player);
+  const current=fines.filter(f=>seasonKey(fineSeason(f))===seasonKey(activeSeason||seasonForDate()));
+  const total=current.reduce((sum,f)=>sum+Number(f.amount||0),0);
+  const rankData=(state.players||[]).map(p=>({name:p.name,total:(state.fines||[]).filter(f=>f.player===p.name&&seasonKey(fineSeason(f))===seasonKey(activeSeason||seasonForDate())).reduce((s,f)=>s+Number(f.amount||0),0)})).sort((a,b)=>b.total-a.total);
+  const rank=rankData.findIndex(x=>x.name===player)+1;
+  const content=document.getElementById('player-dashboard-content');
+  if(content) content.innerHTML=`<div class="player-score"><strong>${total} ${CONFIG.CURRENCY}</strong><span>aktuální bilance · ${current.length} záznamů · ${rank>0}. místo z ${rankData.length}</span></div><div class="player-fine-breakdown">${current.length?current.map(f=>`<span>${esc(displayReason(f.reason))} <b>${f.amount} ${CONFIG.CURRENCY}</b></span>`).join(''):'<span>Zatím nemáš žádné pokuty v této sezóně.</span>'}</div>`;
+  const name=document.getElementById('player-proposal-name'); if(name) name.textContent=`Přihlášen jako ${player}. Návrh odešleš pouze za sebe a před uložením ho zkontroluje pokladník nebo administrátor.`;
+  const select=document.getElementById('player-proposal-reason'); if(select){const reasons=getReasonList();select.innerHTML=reasons.map(r=>`<option value="${esc(r.label)}">${esc(r.label)}${r.price!=null?` · ${r.price} ${CONFIG.CURRENCY}`:''}</option>`).join('');select.onchange=()=>{const r=getReasonList().find(x=>x.label===select.value);const amount=document.getElementById('player-proposal-amount');if(r?.price!=null&&amount)amount.value=r.price;};const first=reasons[0];const amount=document.getElementById('player-proposal-amount');if(first?.price!=null&&amount&&!amount.value)amount.value=first.price;}
+}
+window.submitPlayerProposal=async function(){
+  if(isManager||!currentUser||!accessRequest?.linkedPlayerName)return;
+  const reason=document.getElementById('player-proposal-reason')?.value||UNKNOWN_REASON;
+  const amount=Number(document.getElementById('player-proposal-amount')?.value);
+  if(!Number.isFinite(amount)||amount<=0){showToast('Zadej platnou částku.');return;}
+  const id=`${currentUser.uid}_${Date.now()}`;
+  const signedAmount=isCreditReason(reason)?-Math.abs(amount):Math.abs(amount);
+  await setDoc(doc(db,'fineProposals',id),{uid:currentUser.uid,player:accessRequest.linkedPlayerName,reason,amount:signedAmount,season:seasonKey(activeSeason||seasonForDate()),status:'pending',createdAt:new Date().toISOString()});
+  document.getElementById('player-proposal-amount').value='';showToast('Návrh pokuty byl odeslán ke schválení.');
+};
+window.approveFineProposal=async function(id){
+  if(!isManager)return; const p=fineProposals.find(x=>x.id===id); if(!p)return;
+  state.fines.unshift({player:p.player,reason:p.reason,amount:Number(p.amount),ts:Date.now(),season:p.season||seasonKey(activeSeason)});
+  await saveState(); await setDoc(doc(db,'fineProposals',id),{status:'approved',approvedBy:currentUser.uid,approvedAt:new Date().toISOString()},{merge:true}); renderLog();showToast('Návrh pokuty schválen.');
+};
+window.rejectFineProposal=async function(id){if(!isManager)return;await setDoc(doc(db,'fineProposals',id),{status:'rejected',rejectedBy:currentUser.uid,rejectedAt:new Date().toISOString()},{merge:true});showToast('Návrh zamítnut.');};
 function finishDeletionProgress(uid,completed=false){
   const pending=deletionPending.get(uid); if(!pending) return;
   clearTimeout(pending.timeout);
@@ -854,6 +901,7 @@ function startFirestoreListener(){
     if(t==='summary') renderSummary();
     if(t==='rates') renderRates();
     if(t==='players') renderPlayers();
+    if(!isManager&&accessRequest) renderPlayerDashboard(accessRequest);
     populatePlayerSelects();
     if(firstLoad){ firstLoad=false; checkEmailPlayerMatch(); }
   });
@@ -934,26 +982,33 @@ function updateLockUI(){
   const sc=document.getElementById('season-controls');
   const mw=document.getElementById('manager-wall'),mw2=document.getElementById('manager-wall2');
   const af=document.getElementById('add-form'),pf=document.getElementById('players-form');
+  const pd=document.getElementById('player-dashboard');
   const usersTab=document.querySelector('.tab[data-tab="users"]');
+  const playersTab=document.querySelector('.tab[data-tab="players"]');
   const rateAdd=document.querySelector('.rate-add-row');
   if(usersTab) usersTab.style.display=isAdmin?'':'none';
+  if(playersTab) playersTab.style.display=isManager?'':'none';
   if(rateAdd) rateAdd.style.display=isManager?'grid':'none';
   if(isManager){
+    if(pd) pd.style.display='none';
     if(sc) sc.style.display='flex';
     if(mw) mw.style.display='none'; if(mw2) mw2.style.display='none';
     if(af) af.style.display='block'; if(pf) pf.style.display='block';
     populatePlayerSelects(); renderPlayers(); renderReasonOptions();
   }else{
+    if(pd) pd.style.display='block';
     if(sc) sc.style.display='none';
     if(mw) mw.style.display='block'; if(mw2) mw2.style.display='block';
     if(af) af.style.display='none'; if(pf) pf.style.display='none';
   }
   if(phoneUser){if(mw)mw.style.display='none'; updatePhoneUserUI();}
+  if(!isManager&&!phoneUser) renderPlayerDashboard(accessRequest);
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────
 window.switchTab=function(t){
   if(t==='users'&&!isAdmin){showToast('Tato sekce je jen pro administrátory.');return;}
+  if(t==='players'&&!isManager){showToast('Soupiska je dostupná pouze pokladníkům a administrátorům.');return;}
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+t).classList.add('active');

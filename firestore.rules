@@ -41,6 +41,15 @@ service cloud.firestore {
       allow read, delete: if signedIn() && request.auth.uid == uid;
     }
 
+    match /fineProposals/{proposalId} {
+      allow create: if approved() && request.auth.uid == request.resource.data.uid
+        && myAccess().data.role == 'viewer'
+        && request.resource.data.player == myAccess().data.linkedPlayerName
+        && request.resource.data.status == 'pending';
+      allow read: if manager();
+      allow update, delete: if manager();
+    }
+
     // Existing shared application data can be read only after approval.
     match /teamdata/{document=**} {
       allow read: if approved();

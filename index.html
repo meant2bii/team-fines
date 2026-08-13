@@ -194,6 +194,11 @@
         </div>
       </div>
 
+      <div id="player-dashboard" style="display:none;">
+        <div class="card player-welcome-card"><div class="card-label"><i class="ti ti-trophy"></i> Moje pokuty</div><div id="player-dashboard-content"></div></div>
+        <div class="card player-proposal-card"><div class="card-label"><i class="ti ti-flag"></i> Nahlásit pokutu sám sobě</div><p class="helper-text" id="player-proposal-name"></p><div class="form-group"><label>Prohřešek</label><select id="player-proposal-reason"></select></div><div class="form-group"><label>Částka (CZK)</label><input id="player-proposal-amount" type="number" min="1" placeholder="Částka ze sazebníku" /></div><button type="button" class="btn btn-primary btn-full" onclick="submitPlayerProposal()"><i class="ti ti-send"></i> Odeslat ke schválení</button></div>
+      </div>
+
       <div id="add-form" style="display:none;">
         <div class="card voice-card">
           <div class="voice-hero-title">Zapsat pokuty hlasem</div>
@@ -275,6 +280,7 @@
     <!-- FIX #1: multi-select delete via checkboxes -->
     <section id="panel-log" class="panel">
       <div class="card">
+        <div id="fine-proposals" style="display:none;"></div>
         <div class="log-filters">
           <input id="log-search" type="text" placeholder="Hledat hráče nebo důvod…" oninput="renderLog()" />
           <select id="log-player-filter" onchange="renderLog()"><option value="">Všichni hráči</option></select>
