@@ -167,6 +167,21 @@ function findPlayerPrefix(text, players) {
   return { rawName: words.slice(0, Math.min(2, words.length)).join(' '), resolution: resolveVoicePlayer(words.slice(0, Math.min(2, words.length)).join(' '), players), remainder: words.slice(Math.min(2, words.length)).join(' ') };
 }
 
+function findPlayerWithReason(text, players, reasons) {
+  const normalised=normalise(text);
+  const candidates=[];
+  players.forEach(player=>playerTerms(player).forEach(term=>{
+    if(normalised===term||normalised.startsWith(`${term} `)){
+      const remainder=normalised.slice(term.length).trim();
+      const reason=matchReason(remainder,reasons);
+      candidates.push({rawName:term,player:player.name,remainder,reasonScore:reason.price!==null?1:0});
+    }
+  }));
+  candidates.sort((a,b)=>b.reasonScore-a.reasonScore||b.rawName.length-a.rawName.length);
+  if(candidates.length){const best=candidates[0];return {rawName:best.rawName,resolution:{status:'exact',player:best.player},remainder:best.remainder};}
+  return findPlayerPrefix(text,players);
+}
+
 function matchReason(text, reasons) {
   const cleaned = normalise(text).replace(/^-+|-+$/g, '').trim();
   if (!cleaned) return { reason: '', price: null };
@@ -236,7 +251,7 @@ export function parseVoiceChunk(chunk, players = [], reasons = []) {
   const { amount: trailingAmount, text: withoutAmount } = takeAmount(leadingAmount?.text||withoutMultiplier);
   const spokenAmount=leadingAmount?.amount??trailingAmount;
   const cleanText = withoutAmount.replace(/[–—]/g, '-').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
-  const playerPart = findPlayerPrefix(cleanText, players);
+  const playerPart = findPlayerWithReason(cleanText, players, reasons);
   // Keep the original spelling for a custom reason. The normalised variant is
   // used only to identify a player and catalogue entry.
   const originalWords = cleanText.split(/\s+/);

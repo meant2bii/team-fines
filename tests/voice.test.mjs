@@ -113,6 +113,15 @@ test('marks borcovina as a credit while keeping its catalogue rate positive', ()
   assert.equal(fines[0].credit,true);
 });
 
+test('keeps a catalogue phrase after a multi-word player name', () => {
+  const roster=[{name:'Testovací Hráč',nicknames:[]}];
+  const fines=parseVoiceTranscript('Testovací Hráč Červená karta',roster,[{label:'Červená karta',price:500}]);
+  assert.equal(fines.length,1);
+  assert.equal(fines[0].resolution.player,'Testovací Hráč');
+  assert.equal(fines[0].reason,'Červená karta');
+  assert.equal(fines[0].amount,500);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);

@@ -1894,7 +1894,7 @@ function renderReviewQueue(){
       <div class="review-fields"${r.skip?' style="opacity:.4;pointer-events:none;"':''}>
         <div class="review-field"><label>Hráč</label><select onchange="updateReview(${i},'resolvedPlayer',this.value)"><option value=""${r.resolvedPlayer?'':' selected'}>— vyber hráče —</option>${opts}</select>${candidateHint}</div>
         ${unknownPlayer}
-        <div class="review-field review-field-reason"><label>Důvod</label><input type="text" value="${esc(r.reason)}" oninput="updateReview(${i},'reason',this.value)"/>${reasonHint}${priceHint}</div>
+        <div class="review-field review-field-reason"><label>Důvod</label><select class="review-reason-select" onchange="updateReview(${i},'reason',this.value)"><option value=""${!r.reason?' selected':''}>— vyber prohřešek —</option>${getReasonList(reviewSeason).map(reason=>`<option value="${esc(reason.label)}"${reason.label===r.reason?' selected':''}>${esc(reason.label)}${reason.price!=null?` · ${reason.price} ${CONFIG.CURRENCY}`:''}</option>`).join('')}</select>${reasonHint}${priceHint}</div>
         <div class="review-field review-field-rate"><label>Sazba za 1×</label><input type="number" value="${r.rate||r.amount}" oninput="updateReview(${i},'rate',parseFloat(this.value))"/></div>
         <div class="review-field review-field-count"><label>Počet</label><input type="number" min="1" max="99" step="1" value="${r.multiplier||1}" oninput="updateReview(${i},'multiplier',parseInt(this.value,10))"/></div>
         <div class="review-field review-field-amt"><label>Částka celkem</label><input type="number" value="${r.amount}" readonly/></div>
