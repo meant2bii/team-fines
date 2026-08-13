@@ -1258,6 +1258,31 @@ function autoFillPrice(reason){
 }
 
 // ─── QUICK TEXT ───────────────────────────────────────────────────
+let quickReasonFiltered=[];
+const quickFold=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+function quickReasonScore(input,reason){
+  const hay=quickFold(input), terms=[reason.label,...(reason.tags||[])].map(quickFold).filter(Boolean);
+  let best=0;
+  terms.forEach(term=>{ if(hay.includes(term)) best=Math.max(best,100+term.length); const hit=term.split(' ').filter(token=>token.length>2&&hay.includes(token)).length; best=Math.max(best,hit*10); });
+  return best;
+}
+window.hideQuickReasonAutocomplete=function(){const list=document.getElementById('quick-reason-ac-list');if(list)list.style.display='none';};
+window.quickReasonAutocomplete=function(value){
+  const list=document.getElementById('quick-reason-ac-list'),text=String(value||'').trim();
+  if(!list||!text){window.hideQuickReasonAutocomplete();return;}
+  quickReasonFiltered=getReasonList().map(reason=>({reason,score:quickReasonScore(text,reason)})).filter(item=>item.score>0&&item.reason.price!=null).sort((a,b)=>b.score-a.score||a.reason.label.localeCompare(b.reason.label,'cs')).slice(0,6).map(item=>item.reason);
+  if(!quickReasonFiltered.length){window.hideQuickReasonAutocomplete();return;}
+  list.innerHTML=quickReasonFiltered.map((reason,index)=>`<div class="ac-item" data-i="${index}" onclick="selectQuickReason(${JSON.stringify(reason.label).replace(/"/g,'&quot;')})"><span>${esc(reason.label)}</span><span class="ac-sub">${reason.price} ${CONFIG.CURRENCY}</span></div>`).join('');
+  list.style.display='block';
+};
+window.selectQuickReason=function(label){
+  const input=document.getElementById('quick-input'); if(!input)return;
+  const value=input.value.trim(),folded=quickFold(value); let prefix=value,suffix='';
+  const players=(state.players||[]).flatMap(player=>[player.name,...(player.nicknames||[])].filter(Boolean));
+  const match=players.filter(name=>folded===quickFold(name)||folded.startsWith(`${quickFold(name)} `)).sort((a,b)=>quickFold(b).length-quickFold(a).length)[0];
+  if(match){prefix=match;const rest=value.slice(value.toLowerCase().indexOf(match.toLowerCase())+match.length).trim();const amount=rest.match(/(?:^|[\s–-])(\d+(?:[.,]\d+)?)\s*(?:kč|kc|czk|korun(?:y|a)?)?\s*$/iu);if(amount)suffix=` – ${amount[1].replace(',','.')}`;}
+  input.value=`${prefix} – ${label}${suffix}`; window.hideQuickReasonAutocomplete(); parseQuick(input.value); input.focus();
+};
 window.parseQuick=function(val){
   const p=document.getElementById('parse-preview'),parsed=parseChunk(val);
   if(parsed){

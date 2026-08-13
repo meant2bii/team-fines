@@ -421,6 +421,9 @@ select { cursor:pointer; }
 /* ── QUICK ROW ── */
 .quick-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
 .quick-row input { flex:1; }
+.quick-input-wrap { position:relative; }
+.quick-reason-ac-list { top:calc(100% - 4px); right:86px; }
+.quick-reason-ac-list .ac-item { justify-content:space-between; }
 .parse-preview { font-size:12px; color:var(--tx-s); background:var(--bg-s); border-radius:var(--r-sm); padding:8px 12px; min-height:36px; line-height:1.4; }
 
 /* ── RATE CARD ── */

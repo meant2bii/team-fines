@@ -237,10 +237,11 @@
 
         <div class="card">
           <div class="card-label">Rychlý textový vstup</div>
-          <div class="quick-row">
+          <div class="quick-row quick-input-wrap">
             <input id="quick-input" type="text" placeholder="Erik 50 · Michal – Bago · 30" autocomplete="off"
-              oninput="parseQuick(this.value)" onkeydown="if(event.key==='Enter')submitQuick()" />
+              oninput="parseQuick(this.value);quickReasonAutocomplete(this.value)" onfocus="quickReasonAutocomplete(this.value)" onblur="setTimeout(hideQuickReasonAutocomplete,150)" onkeydown="if(event.key==='Enter')submitQuick()" />
             <button class="btn btn-primary" onclick="submitQuick()">Přidat</button>
+            <div id="quick-reason-ac-list" class="ac-list quick-reason-ac-list" style="display:none;"></div>
           </div>
           <div class="parse-preview" id="parse-preview"><strong>Hráč – Částka</strong> · <strong>Hráč – Prohřešek</strong> (cena ze sazebníku) · <strong>Hráč – Prohřešek – Částka</strong></div>
         </div>
