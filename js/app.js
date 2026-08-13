@@ -252,6 +252,9 @@ onAuthStateChanged(auth,async user=>{
   // The primary administrator must never be locked out by a historic account
   // that was created before e-mail verification was introduced.
   if(!primaryAdmin()&&!user.emailVerified){showVerification(user);stopFirestoreListener();stopAccessListeners();appSessionActive=false;return;}
+  if(user.emailVerified&&!primaryAdmin()){
+    try{await user.getIdToken(true);}catch(error){console.warn('Token refresh before access request:',error);}
+  }
   startAccessListener(user);
 });
 
@@ -438,7 +441,17 @@ window.checkVerification=async function(){
   try{
     await currentUser.reload();
     currentUser=auth.currentUser;
-    if(currentUser?.emailVerified){startAccessListener(currentUser);showToast('E-mail ověřen ✓ Žádost byla předána správci.');}
+    if(currentUser?.emailVerified){
+      await currentUser.getIdToken(true);
+      if(!primaryAdmin()){
+        const intended=registrationIntent&&normalizedEmail(currentUser.email)===registrationIntent.email
+          ?registrationIntent:await stagedRegistrationProfile(currentUser);
+        await createPendingAccessRequest(currentUser,intended);
+        await clearStagedRegistrationProfile(currentUser.uid);
+        notifyAdminOfRegistration(currentUser,intended).catch(error=>console.warn('Registration notification:',error));
+      }
+      startAccessListener(currentUser);showToast('E-mail ověřen ✓ Žádost byla předána správci.');
+    }
     else showErr(msg,'E-mail ještě není ověřen. Otevři odkaz z doručené pošty (zkontroluj i spam).');
   }catch(error){console.error('Verification check:',error);showErr(msg,'⚠ Ověření se nepodařilo načíst. Zkus to znovu.');}
 };
