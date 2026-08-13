@@ -717,13 +717,24 @@ function renderPlayerDashboard(request=accessRequest){
   const total=current.reduce((sum,f)=>sum+Number(f.amount||0),0);
   const rankData=(state.players||[]).map(p=>({name:p.name,total:(state.fines||[]).filter(f=>f.player===p.name&&seasonKey(fineSeason(f))===seasonKey(activeSeason||seasonForDate())).reduce((s,f)=>s+Number(f.amount||0),0)})).sort((a,b)=>b.total-a.total);
   const rank=rankData.findIndex(x=>x.name===player)+1;
+  const selectedSeason=seasonKey(activeSeason||seasonForDate());
+  const currentSeason=seasonKey(seasonForDate());
+  const historical=selectedSeason!==currentSeason;
+  const timelineStart=new Date(`${(activeSeason||seasonForDate()).year}-09-01T00:00:00`);
+  const timelineEnd=new Date(`${(activeSeason||seasonForDate()).year+1}-06-15T23:59:59`);
+  const now=new Date();
+  const marker=Math.max(0,Math.min(100,((now-timelineStart)/(timelineEnd-timelineStart))*100));
+  let running=0; const points=current.slice().sort((a,b)=>Number(a.ts)-Number(b.ts)).map(f=>{running+=Number(f.amount||0);return {value:running,date:new Date(f.ts)};});
+  const maxAbs=Math.max(1,...points.map(point=>Math.abs(point.value)));
+  const chart=points.length?`<div class="player-cumulative-chart" aria-label="Kumulace pokut v čase">${points.map(point=>`<div class="player-chart-point" style="height:${Math.max(8,Math.round(Math.abs(point.value)/maxAbs*100))}%;${point.value<0?'background:#16a34a;':''}" title="${point.date.toLocaleDateString('cs-CZ')}: ${point.value} ${CONFIG.CURRENCY}"></div>`).join('')}</div>`:'<div class="player-chart-empty">V této sezóně zatím nemáš žádný záznam.</div>';
   const content=document.getElementById('player-dashboard-content');
-  if(content) content.innerHTML=`<div class="player-score"><strong>${total} ${CONFIG.CURRENCY}</strong><span>aktuální bilance · ${current.length} záznamů · ${rank>0}. místo z ${rankData.length}</span></div><div class="player-fine-breakdown">${current.length?current.map(f=>`<span>${esc(displayReason(f.reason))} <b>${f.amount} ${CONFIG.CURRENCY}</b></span>`).join(''):'<span>Zatím nemáš žádné pokuty v této sezóně.</span>'}</div>`;
+  if(content) content.innerHTML=`<div class="player-season-heading"><strong>${esc(selectedSeason)}</strong><span>${historical?'Historická sezóna · pouze pro čtení':'Aktuální sezóna'}</span></div><div class="player-score"><strong>${total} ${CONFIG.CURRENCY}</strong><span><b>${rank>0?`${rank}. místo z ${rankData.length}`:'Bez pořadí'}</b> · ${current.length} ${current.length===1?'záznam':'záznamů'}</span></div><div class="player-season-timeline"><div class="player-season-track"><i style="left:${marker}%"></i></div><div><span>1. 9.</span><span>${now>=timelineStart&&now<=timelineEnd?'dnes · ':''}15. 6.</span></div></div><div class="player-cumulative"><div class="player-cumulative-title">Vývoj pokut v sezóně</div>${chart}</div><div class="player-fine-breakdown">${current.length?current.map(f=>`<span>${esc(displayReason(f.reason))} <b>${f.amount} ${CONFIG.CURRENCY}</b></span>`).join(''):'<span>V této sezóně zatím nemáš žádné pokuty.</span>'}</div>`;
   const name=document.getElementById('player-proposal-name'); if(name) name.textContent=`Přihlášen jako ${player}. Návrh odešleš pouze za sebe a před uložením ho zkontroluje pokladník nebo administrátor.`;
+  const proposal=document.querySelector('.player-proposal-card'); if(proposal) proposal.style.display=historical?'none':'block';
   const select=document.getElementById('player-proposal-reason'); if(select){const reasons=getReasonList();select.innerHTML=reasons.map(r=>`<option value="${esc(r.label)}">${esc(r.label)}${r.price!=null?` · ${r.price} ${CONFIG.CURRENCY}`:''}</option>`).join('');select.onchange=()=>{const r=getReasonList().find(x=>x.label===select.value);const amount=document.getElementById('player-proposal-amount');if(r?.price!=null&&amount)amount.value=r.price;};const first=reasons[0];const amount=document.getElementById('player-proposal-amount');if(first?.price!=null&&amount&&!amount.value)amount.value=first.price;}
 }
 window.submitPlayerProposal=async function(){
-  if(isManager||!currentUser||!accessRequest?.linkedPlayerName)return;
+  if(isManager||!currentUser||!accessRequest?.linkedPlayerName||seasonKey(activeSeason)!==seasonKey(seasonForDate())){showToast('Návrhy lze posílat pouze v aktuální sezóně.');return;}
   const reason=document.getElementById('player-proposal-reason')?.value||UNKNOWN_REASON;
   const amount=Number(document.getElementById('player-proposal-amount')?.value);
   if(!Number.isFinite(amount)||amount<=0){showToast('Zadej platnou částku.');return;}
@@ -852,16 +863,19 @@ function updateSeasonLabel(){
   const el=document.getElementById('season-label'); if(el&&activeSeason) el.textContent=seasonLabel(activeSeason);
 }
 window.changeSeason=function(){
-  if(!isManager) return;
-  activeSeason={year:parseInt(document.getElementById('season-year').value)};
-  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary(); renderRates();
+  const year=parseInt(document.getElementById('season-year').value);
+  if(!isManager){
+    const allowed=(state.fines||[]).some(f=>f.player===accessRequest?.linkedPlayerName&&fineSeason(f).year===year)||year===seasonForDate().year;
+    if(!allowed){showToast('Tuto sezónu nemáš k dispozici.');return;}
+  }
+  activeSeason={year};
+  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary(); if(isManager)renderRates(); if(!isManager)renderPlayerDashboard(accessRequest);
   showToast('Zobrazuji: '+seasonLabel(activeSeason));
 };
 window.resetSeasonToToday=function(){
-  if(!isManager) return;
   activeSeason=seasonForDate();
   document.getElementById('season-year').value=String(activeSeason.year);
-  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary(); renderRates();
+  updateSeasonLabel(); renderDashboard(); renderLog(); renderSummary(); if(isManager)renderRates(); if(!isManager)renderPlayerDashboard(accessRequest);
   showToast('Nastaveno na aktuální sezónu: '+seasonLabel(activeSeason));
 };
 
@@ -978,6 +992,18 @@ window.confirmCSVImport=async function(){
 };
 
 // ─── ACCESS UI ─────────────────────────────────────────────────────
+function configureSeasonPicker(){
+  const ys=document.getElementById('season-year'); if(!ys)return;
+  const current=seasonForDate();
+  const keys=new Set([current.year]);
+  if(!isManager&&accessRequest?.linkedPlayerName){
+    (state.fines||[]).filter(f=>f.player===accessRequest.linkedPlayerName).forEach(f=>keys.add(fineSeason(f).year));
+  }else if(isManager){ for(let year=current.year;year>=2025;year--)keys.add(year); }
+  const years=[...keys].sort((a,b)=>b-a);
+  ys.innerHTML=years.map(year=>`<option value="${year}">${year}/${String(year+1).slice(-2)}</option>`).join('');
+  ys.value=String(activeSeason?.year||current.year);
+  updateSeasonLabel();
+}
 function updateLockUI(){
   const sc=document.getElementById('season-controls');
   const mw=document.getElementById('manager-wall'),mw2=document.getElementById('manager-wall2');
@@ -989,6 +1015,7 @@ function updateLockUI(){
   if(usersTab) usersTab.style.display=isAdmin?'':'none';
   if(playersTab) playersTab.style.display=isManager?'':'none';
   if(rateAdd) rateAdd.style.display=isManager?'grid':'none';
+  configureSeasonPicker();
   if(isManager){
     if(pd) pd.style.display='none';
     if(sc) sc.style.display='flex';
@@ -997,7 +1024,7 @@ function updateLockUI(){
     populatePlayerSelects(); renderPlayers(); renderReasonOptions();
   }else{
     if(pd) pd.style.display='block';
-    if(sc) sc.style.display='none';
+    if(sc) sc.style.display='flex';
     if(mw) mw.style.display='block'; if(mw2) mw2.style.display='block';
     if(af) af.style.display='none'; if(pf) pf.style.display='none';
   }

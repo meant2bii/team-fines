@@ -200,6 +200,18 @@ select { cursor:pointer; }
 .player-score { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px; border-radius:12px; background:linear-gradient(135deg,#eaf3ff,#fff); border:1px solid #c7daf8; }
 .player-score strong { color:var(--navy); font-size:28px; }
 .player-score span { color:var(--tx-s); font-size:12px; text-align:right; }
+.player-season-heading { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px; color:var(--navy); }
+.player-season-heading strong { font-size:18px; }
+.player-season-heading span { color:var(--tx-m); font-size:12px; }
+.player-season-timeline { margin:14px 3px 16px; color:var(--tx-m); font-size:11px; }
+.player-season-track { position:relative; height:8px; border-radius:99px; background:linear-gradient(90deg,#bfdbfe 0%,#60a5fa 48%,#1d4ed8 100%); }
+.player-season-track i { position:absolute; top:50%; width:14px; height:14px; border:3px solid #fff; border-radius:50%; background:#ef4444; box-shadow:0 1px 5px rgba(15,23,42,.35); transform:translate(-50%,-50%); }
+.player-season-timeline > div:last-child { display:flex; justify-content:space-between; margin-top:5px; }
+.player-cumulative { margin-top:14px; padding:10px 12px; border:1px solid var(--bdr); border-radius:10px; background:#f8fbff; }
+.player-cumulative-title { margin-bottom:8px; color:var(--tx-m); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+.player-cumulative-chart { display:flex; align-items:flex-end; gap:5px; height:76px; padding:4px 2px 0; border-bottom:1px solid #cbd5e1; }
+.player-chart-point { flex:1; min-width:5px; max-width:20px; border-radius:4px 4px 0 0; background:#2563eb; }
+.player-chart-empty { padding:12px 0 4px; color:var(--tx-m); font-size:12px; }
 .player-fine-breakdown { display:grid; gap:6px; margin-top:12px; }
 .player-fine-breakdown span { display:flex; justify-content:space-between; gap:8px; padding:7px 9px; border-radius:8px; background:var(--bg-s); color:var(--tx-s); font-size:12px; }
 .player-fine-breakdown b { color:var(--navy); }
