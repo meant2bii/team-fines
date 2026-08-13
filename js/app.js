@@ -987,6 +987,10 @@ const DEFAULT_REASON_LIST = [
   {label:'Píčovina',          price:200, cat:'orange'},
   {label:'Červená karta',     price:500, cat:'red'},
 ];
+const CREDIT_REASON_RATES = [
+  {label:'Borcovina', price:30, cat:'green', credit:true, tags:['borcovina']},
+  {label:'Giga-borcovina', price:50, cat:'green', credit:true, tags:['giga borcovina','giga-borcovina']},
+];
 // Each offence has a price history.  Legacy season lists are read as history so
 // existing installations keep their prices without a data migration.
 const CATALOG_START='2025-07-01';
@@ -1023,6 +1027,9 @@ function getRateHistory(){
   Object.entries(state.rateHistory||{}).forEach(([label,items])=>{
     (items||[]).forEach(item=>add(label,item.price,item.from||legacyRateStart(item.season),item.to));
   });
+  // Credit items are part of the catalogue, but their positive catalogue
+  // price is stored as a negative fine when recorded against a player.
+  CREDIT_REASON_RATES.forEach(r=>{ if(!history[r.label]) add(r.label,r.price,CATALOG_START); });
   Object.entries(history).forEach(([label,items])=>{
     const removed=new Set(state.deletedRatePeriods?.[label]||[]);
     history[label]=items.filter(item=>!removed.has(item.from)).sort((a,b)=>a.from.localeCompare(b.from));
@@ -1048,7 +1055,8 @@ function getReasonList(season=activeSeason||seasonForDate()){
     const rate=rateAtDate(label,seasonReferenceDate(season));
     if(!rate&&!overlapping.length) return null;
     const prices=overlapping.map(item=>item.price);
-    return {label,tags:tagsForReason(label),price:rate?.price??overlapping.at(-1).price,minPrice:Math.min(...prices),maxPrice:Math.max(...prices)};
+    const credit=CREDIT_REASON_RATES.some(item=>item.label===label);
+    return {label,tags:tagsForReason(label).length?tagsForReason(label):(CREDIT_REASON_RATES.find(item=>item.label===label)?.tags||[]),price:rate?.price??overlapping.at(-1).price,minPrice:Math.min(...prices),maxPrice:Math.max(...prices),credit};
   }).filter(Boolean);
   // The exceptional catch-all is intentionally present in the catalogue, but
   // has no rate: the cashier must always state the individual amount.
@@ -1056,6 +1064,7 @@ function getReasonList(season=activeSeason||seasonForDate()){
   return reasons;
 }
 function getReasons(){ return getReasonList().map(r=>r.label); }
+function isCreditReason(label){ return CREDIT_REASON_RATES.some(item=>item.label.toLocaleLowerCase('cs-CZ')===String(label||'').trim().toLocaleLowerCase('cs-CZ')); }
 function reasonPrice(label,season=activeSeason||seasonForDate(),atDate=null){
   const date=atDate||seasonReferenceDate(season);
   return rateAtDate(label,date)?.price??null;
@@ -1338,7 +1347,8 @@ function renderReasonOptions(){
 
 // ── RATE CARD ───────────────────────────────────────────────────────────────
 /* Previous one-season rate card implementation.
-function rateColor(price,list){
+function rateColor(price,list,credit=false){
+  if(credit) return '#22c55e';
   const values=list.map(r=>Number(r.price)||0);
   const min=Math.min(...values),max=Math.max(...values);
   const ratio=max===min?.5:(Number(price)-min)/(max-min);
@@ -1398,7 +1408,7 @@ function renderRates(){
   empty.style.display=rows.length?'none':'block';
   el.innerHTML=rows.map(r=>{
     if(r.manualAmount) return `<div class="rate-row rate-row-manual" aria-label="${esc(r.label)}, částka se zadává ručně"><span class="rate-dot rate-dot-manual"></span><span class="rate-name">${esc(r.label)}<small>Výjimka — částku vždy zapiš ručně</small></span><strong class="rate-price">—</strong></div>`;
-    const color=rateColor(r.price,list.filter(item=>!item.manualAmount));
+    const color=rateColor(r.price,list.filter(item=>!item.manualAmount),r.credit);
     const display=r.minPrice!==r.maxPrice?`${Number(r.minPrice).toLocaleString('cs-CZ')}–${Number(r.maxPrice).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`:`${Number(r.price).toLocaleString('cs-CZ')} ${CONFIG.CURRENCY}`;
     return `<button type="button" class="rate-row rate-row-open" onclick="openRateHistory(${JSON.stringify(r.label).replace(/\"/g,'&quot;')})" aria-label="Zobrazit historii sazby ${esc(r.label)}"><span class="rate-dot" style="--rate-color:${color}"></span><span class="rate-name">${esc(r.label)}</span><strong class="rate-price">${display}</strong><i class="ti ti-chevron-right"></i></button>`;
   }).join('');
@@ -1560,9 +1570,10 @@ window.selectReasonAC=function(label,price){
 window.submitManual=function(){
   const player=document.getElementById('f-player').value;
   const reason=document.getElementById('f-reason').value.trim()||UNKNOWN_REASON;
-  const amt=reasonPrice(reason)??Number(document.getElementById('f-amount').value);
+  const baseAmt=reasonPrice(reason)??Number(document.getElementById('f-amount').value);
+  const amt=isCreditReason(reason)?-Math.abs(baseAmt):baseAmt;
   if(!player){alert('Vyber hráče.');return;}
-  if(!reason||!Number.isFinite(amt)||amt<=0){alert('Vyber prohřešek a zadej platnou částku.');return;}
+  if(!reason||!Number.isFinite(amt)||amt===0){alert('Vyber prohřešek a zadej platnou částku.');return;}
   addFine(player,reason||UNKNOWN_REASON,amt);
   document.getElementById('f-player-text').value='';
   document.getElementById('f-player').value='';
@@ -1717,7 +1728,7 @@ function buildReviewQueue(transcript){
   parseVoiceTranscript(reviewTranscript,state.players||[],getReasonList()).forEach(parsed=>{
     const resolved=parsed.resolution.player;
     reviewQueue.push({
-      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,rate:parsed.rate||parsed.amount||0,multiplier:parsed.multiplier||1,
+      raw:parsed.raw,rawName:parsed.rawName,resolvedPlayer:resolved||'',reason:parsed.reason||UNKNOWN_REASON,amount:parsed.amount||0,rate:parsed.rate||Math.abs(parsed.amount||0),multiplier:parsed.multiplier||1,credit:!!parsed.credit,
       needsPlayer:!resolved,needsAmount:!parsed.amount,candidates:parsed.resolution.candidates||[],
       reasonCandidates:parsed.reasonCandidates||[],isAlias:parsed.resolution.status==='fuzzy',skip:false
     });
@@ -1735,7 +1746,7 @@ function buildOneTimeFineReview(importData,prepared){
   reviewTranscript='';
   reviewQueue=prepared.fines.map(fine=>({
     raw:`${fine.sourceName} – ${fine.amount} Kč`,rawName:fine.sourceName,resolvedPlayer:fine.player,
-    reason:fine.reason,amount:fine.amount,rate:fine.amount,multiplier:1,needsPlayer:!fine.player,needsAmount:false,candidates:[],
+    reason:fine.reason,amount:fine.amount,rate:Math.abs(fine.amount),multiplier:1,credit:false,needsPlayer:!fine.player,needsAmount:false,candidates:[],
     isAlias:!!fine.player&&normalizedPlayerName(fine.sourceName)!==normalizedPlayerName(fine.player),skip:false,
     source:fine.source,ts:fine.ts,season:fine.season,allowNegative:fine.allowNegative
   }));
@@ -1833,13 +1844,13 @@ window.addReviewPlayer=async function(index){
   review.resolvedPlayer=name;review.needsPlayer=false;review.isAlias=false;
   await saveState();renderReviewQueue();showToast(`Hráč ${name} přidán`);
 };
-function validReviewAmount(review){ return Number.isFinite(Number(review.amount))&&(review.allowNegative?Number(review.amount)!==0:Number(review.amount)>0); }
+function validReviewAmount(review){ return Number.isFinite(Number(review.amount))&&((review.allowNegative||review.credit)?Number(review.amount)!==0:Number(review.amount)>0); }
 window.applyReviewReason=function(index,label){
   const review=reviewQueue[index]; if(!review) return;
   review.reason=label;review.reasonCandidates=[];
   renderReviewQueue();
 };
-window.updateReview=function(i,k,v){const row=reviewQueue[i];row[k]=v;if(k==='rate'||k==='multiplier'){row.rate=Number.isFinite(Number(row.rate))?Number(row.rate):0;row.multiplier=Math.max(1,Number.isFinite(Number(row.multiplier))?Number(row.multiplier):1);row.amount=row.rate*row.multiplier;renderReviewQueue();return;}if(k==='resolvedPlayer'){row.needsPlayer=!v;row.isAlias=false;}if(k==='amount'){row.needsAmount=!validReviewAmount(row);row.rate=Number(row.amount)/(row.multiplier||1);}const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
+window.updateReview=function(i,k,v){const row=reviewQueue[i];row[k]=v;if(k==='rate'||k==='multiplier'){row.rate=Number.isFinite(Number(row.rate))?Math.abs(Number(row.rate)):0;row.multiplier=Math.max(1,Number.isFinite(Number(row.multiplier))?Number(row.multiplier):1);row.amount=(row.credit?-1:1)*row.rate*row.multiplier;renderReviewQueue();return;}if(k==='resolvedPlayer'){row.needsPlayer=!v;row.isAlias=false;}if(k==='amount'){row.needsAmount=!validReviewAmount(row);row.rate=Math.abs(Number(row.amount))/(row.multiplier||1);}const n=reviewQueue.filter(r=>!r.skip).length;document.getElementById('confirm-btn').innerHTML=`<i class="ti ti-device-floppy"></i> Uložit ${n} pokut${n===1?'u':n<5?'y':''}`;};
 window.toggleSkip=function(i){reviewQueue[i].skip=!reviewQueue[i].skip;renderReviewQueue();};
 window.confirmReview=async function(){
   const toSave=reviewQueue.filter(r=>!r.skip);if(!toSave.length){window.discardReview();return;}
@@ -1848,7 +1859,7 @@ window.confirmReview=async function(){
   const previousFines=state.fines,previousImports=state.oneTimeImports;
   state.fines=[...(state.fines||[])];
   toSave.forEach(r=>{
-    const fine={player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),rate:Number(r.rate)||Number(r.amount),multiplier:Number(r.multiplier)||1,ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason)};
+  const fine={player:r.resolvedPlayer,reason:r.reason,amount:Number(r.amount),rate:Number(r.rate)||Math.abs(Number(r.amount)),multiplier:Number(r.multiplier)||1,credit:!!r.credit,ts:r.ts||Date.now(),season:r.season||seasonKey(activeSeason)};
     if(r.source) fine.source=r.source;
     state.fines.unshift(fine);
   });

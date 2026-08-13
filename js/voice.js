@@ -173,7 +173,7 @@ function matchReason(text, reasons) {
   const matches = reasons.flatMap(reason => [reason.label,...(reason.tags||[])].map(variant=>({reason,variant,score:Math.max(similarity(cleaned,variant),similarity(phoneticAlias(cleaned),phoneticAlias(variant)))}))).sort((a, b) => b.score - a.score);
   const best = matches[0];
   const nextDifferent=matches.find(item=>item.reason.label!==best?.reason.label);
-  if (best && best.score >= .88 && (!nextDifferent || best.score - nextDifferent.score >= .08)) return { reason: best.reason.label, price: best.reason.price };
+  if (best && best.score >= .88 && (!nextDifferent || best.score - nextDifferent.score >= .08)) return { reason: best.reason.label, price: best.reason.price, credit:!!best.reason.credit };
   return { reason: text.replace(/^-+|-+$/g, '').trim(), price: null };
 }
 
@@ -246,11 +246,11 @@ export function parseVoiceChunk(chunk, players = [], reasons = []) {
     ?suggestVoiceReasons(reasonMatch.reason,reasons)
     :[];
   const rate = spokenAmount ?? reasonMatch.price;
-  const amount = rate==null?null:rate*multiplier;
+  const amount = rate==null?null:(reasonMatch.credit?-1:1)*rate*multiplier;
   const issues = [];
   if (!playerPart.resolution.player) issues.push('player');
   if (!rate || rate <= 0) issues.push('amount');
-  return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, reasonCandidates, amount: amount || 0, rate: rate || 0, multiplier, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
+  return { raw: original, rawName: playerPart.rawName, resolution: playerPart.resolution, reason: reasonMatch.reason, reasonCandidates, amount: amount || 0, rate: rate || 0, multiplier, credit:!!reasonMatch.credit, usedCatalogPrice: spokenAmount === null && reasonMatch.price !== null, issues };
 }
 
 function applySpokenCorrections(transcript) {

@@ -104,6 +104,15 @@ test('resolves common phonetic nickname variants and concatenated Czech hundreds
   assert.equal(bago[0].reason,'Bago');
 });
 
+test('marks borcovina as a credit while keeping its catalogue rate positive', () => {
+  const roster=[{name:'Michal Novák',nicknames:[]}];
+  const fines=parseVoiceTranscript('Michal borcovina',roster,[{label:'Borcovina',price:30,credit:true}]);
+  assert.equal(fines[0].reason,'Borcovina');
+  assert.equal(fines[0].rate,30);
+  assert.equal(fines[0].amount,-30);
+  assert.equal(fines[0].credit,true);
+});
+
 test('parses Czech Kč amounts as amounts, including on mobile punctuation', () => {
   const fines = parseVoiceTranscript('Míša 30 Kč, Teichi 40 KČ.', players, reasons);
   assert.equal(fines.length, 2);
