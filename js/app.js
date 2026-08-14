@@ -128,6 +128,7 @@ let deletionPending=new Map();
 let registrationIntent=null;
 let emailVerificationRedirect=new URLSearchParams(window.location.search).get('emailVerified')==='1';
 let recognition=null, voiceActive=false, silenceTimer=null, fullTranscript='';
+let batchRecorder=null,batchStream=null,batchChunks=[],batchRecognition=null,batchTranscript='',batchVoiceActive=false,batchAudioUrl='';
 let voiceRestartTimer=null, voiceStopRequested=false, voiceRestartAttempts=0;
 let voiceMeterStream=null, voiceMeterContext=null, voiceMeterAnalyser=null, voiceMeterFrame=null;
 let reviewQueue=[], reviewTranscript='';
@@ -1730,6 +1731,38 @@ function voiceNetworkMessage(){
   return isBraveBrowser()
     ?'Brave neposkytuje spolehlivě službu rozpoznávání řeči, i když je mikrofon povolený. Pro hlasové zadávání na PC otevři aplikaci v aktuálním Chrome nebo Edge.'
     :'Rozpoznávání řeči potřebuje internetové připojení. Zkontroluj síť a zkus to znovu.';
+}
+window.toggleBatchVoiceRecording=function(){batchVoiceActive?stopBatchVoiceRecording():startBatchVoiceRecording();};
+async function startBatchVoiceRecording(){
+  if(voiceActive){stopVoiceSession();return;}
+  if(!window.isSecureContext){showVoiceProblem('Nahrávání vyžaduje zabezpečené HTTPS připojení.');return;}
+  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){showVoiceProblem('Tento prohlížeč neumí nahrávání zvuku. Použij aktuální Chrome nebo Edge.');return;}
+  try{
+    batchStream=await navigator.mediaDevices.getUserMedia({audio:true}); batchChunks=[];batchTranscript='';batchVoiceActive=true;
+    const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(type=>MediaRecorder.isTypeSupported(type));
+    batchRecorder=new MediaRecorder(batchStream,mime?{mimeType:mime}:undefined);
+    batchRecorder.ondataavailable=e=>{if(e.data.size)batchChunks.push(e.data);};
+    batchRecorder.onstop=()=>finishBatchVoiceRecording(); batchRecorder.start(1000);
+    const btn=document.getElementById('voice-batch-btn');btn?.classList.add('recording');
+    const label=document.getElementById('voice-batch-label');if(label)label.textContent='Dokončit blok';
+    document.getElementById('voice-wave')?.classList.add('active');startVoiceMeter();
+    const status=document.getElementById('voice-status');if(status)status.textContent='● Nahrávám celý blok. Po skončení zpracujeme vše najednou.';
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(SR){
+      const r=new SR();r.lang='cs-CZ';r.continuous=true;r.interimResults=false;r.maxAlternatives=3;
+      r.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){const text=Array.from(e.results[i]).sort((a,b)=>scoreVoiceAlternative(b.transcript,state.players||[],getReasonList())-scoreVoiceAlternative(a.transcript,state.players||[],getReasonList()))[0]?.transcript||'';if(text)batchTranscript+=(batchTranscript?' ':'')+text;}}};
+      r.onerror=e=>{if(e.error!=='aborted')console.warn('Batch speech recognition:',e.error);};r.onend=()=>{if(batchVoiceActive){try{r.start();}catch(_){}}};batchRecognition=r;try{r.start();}catch(_){/* recorder remains active */}
+    }
+  }catch(error){batchVoiceActive=false;batchStream?.getTracks().forEach(track=>track.stop());batchStream=null;showVoiceProblem(error.name==='NotAllowedError'?'Mikrofon není povolen. Povol jej v adresním řádku a zkus to znovu.':'Nahrávání se nepodařilo spustit.');}
+}
+function stopBatchVoiceRecording(){if(!batchVoiceActive)return;batchVoiceActive=false;if(batchRecognition){batchRecognition.onend=null;try{batchRecognition.stop();}catch(_){ }batchRecognition=null;}if(batchRecorder&&batchRecorder.state!=='inactive')batchRecorder.stop();else finishBatchVoiceRecording();}
+function finishBatchVoiceRecording(){
+  const blob=batchChunks.length?new Blob(batchChunks,{type:batchChunks[0]?.type||'audio/webm'}):null;
+  batchStream?.getTracks().forEach(track=>track.stop());batchStream=null;batchRecorder=null;stopVoiceMeter();document.getElementById('voice-wave')?.classList.remove('active');
+  const btn=document.getElementById('voice-batch-btn');btn?.classList.remove('recording');const label=document.getElementById('voice-batch-label');if(label)label.textContent='Nahrát celý blok';
+  if(blob){if(batchAudioUrl)URL.revokeObjectURL(batchAudioUrl);batchAudioUrl=URL.createObjectURL(blob);const audio=document.getElementById('voice-batch-audio');if(audio){audio.src=batchAudioUrl;audio.style.display='block';}}
+  const transcript=batchTranscript.trim();const status=document.getElementById('voice-status');if(!transcript){if(status)status.textContent='Nahrávka je hotová, ale prohlížeč neposkytl přepis. Zkus Chrome/Edge a povol rozpoznávání řeči.';showToast('Nahrávka nemá použitelný přepis.');return;}
+  if(status)status.textContent='Nahrávka dokončena. Zpracovávám celý blok…';buildReviewQueue(transcript);
 }
 window.toggleVoiceSession=function(){voiceActive?stopVoiceSession():startVoiceSession();};
 function startVoiceSession(){

@@ -209,11 +209,13 @@
               <i class="ti ti-microphone"></i>
               <span id="voice-record-label">Nahrávat</span>
             </button>
+            <button class="voice-batch-btn" id="voice-batch-btn" onclick="toggleBatchVoiceRecording()"><i class="ti ti-disc"></i><span id="voice-batch-label">Nahrát celý blok</span></button>
             <div class="voice-status" id="voice-status" aria-live="polite"></div>
           </div>
           <div id="voice-wave" class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
           <div class="voice-hero-foot">Oddělit můžeš: další, dále, ještě, plus nebo navíc.</div>
           <div id="voice-live" class="voice-live" style="display:none;"></div>
+          <audio id="voice-batch-audio" class="voice-batch-audio" controls style="display:none;"></audio>
         </div>
 
         <!-- The voice action is primary; season overview deliberately follows it. -->

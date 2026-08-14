@@ -221,6 +221,11 @@ select { cursor:pointer; }
 .player-line-chart { height:88px; padding:4px 0; }
 .player-line-chart svg { width:100%; height:65px; display:block; }
 .player-line-chart small { display:flex; justify-content:space-between; color:var(--tx-m); font-size:10px; }
+.voice-batch-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:9px 15px; border:1px solid #b8cef5; border-radius:12px; background:#eef5ff; color:var(--navy); font-weight:700; cursor:pointer; }
+.voice-batch-btn:hover,.voice-batch-btn.recording { background:#dbeafe; border-color:#2563c7; }
+.voice-batch-btn.recording { color:#dc2626; }
+.voice-batch-audio { width:100%; margin-top:10px; }
+@media(max-width:560px){ .voice-batch-btn { width:100%; } }
 .player-proposals { margin-top:14px; padding:10px 12px; border:1px solid var(--bdr); border-radius:10px; background:#f8fbff; }
 .player-proposals-empty { color:var(--tx-m); font-size:12px; }
 .player-proposal-status { display:grid; grid-template-columns:1fr auto; gap:3px 8px; padding:8px 0; border-top:1px solid var(--bdr); color:var(--tx-s); font-size:12px; }
